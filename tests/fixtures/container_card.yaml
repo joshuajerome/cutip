@@ -1,0 +1,10 @@
+apiVersion: cutip/v1
+kind: ContainerCard
+metadata:
+  name: test-container
+spec:
+  imageRef:
+    ref: images/test-image
+  networkRef:
+    ref: networks/test-network
+  command: "tail -f /dev/null"

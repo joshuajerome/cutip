@@ -1,0 +1,8 @@
+apiVersion: cutip/v1
+kind: NetworkCard
+metadata:
+  name: test-network
+spec:
+  driver: bridge
+  subnet: "10.89.0.0/16"
+  gateway: "10.89.0.1"

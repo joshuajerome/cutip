@@ -1,0 +1,8 @@
+apiVersion: cutip/v1
+kind: ImageCard
+metadata:
+  name: test-image
+spec:
+  source: pull
+  image: ubuntu
+  tag: "22.04"

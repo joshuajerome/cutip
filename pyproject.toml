@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cutip"
+version = "0.1.0"
+description = "Container Unit Templates in Python — a deterministic framework for building container workloads"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "loguru>=0.7",
+    "rich>=13.0",
+]
+
+[project.scripts]
+cutip = "cutip.cli.main:app"
+
+[project.optional-dependencies]
+podman = ["podman>=4.0"]
+docker = ["docker>=7.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

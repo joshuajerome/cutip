@@ -1,0 +1,41 @@
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── UV ────────────────────────────────────────────────────────────────────────
+# uv.lock is intentionally committed for reproducible installs
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── CUTIP Runtime State ───────────────────────────────────────────────────────
+# .cutip/ is runtime-only (logs, cache, run state, locks)
+.cutip/
+
+# ── Environment Files ─────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ── IDE & Editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
