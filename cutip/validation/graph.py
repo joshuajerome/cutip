@@ -56,15 +56,16 @@ class GraphValidator:
                     f"{exc.reason} (imageRef: '{image_ref}')"
                 )
 
-            # Resolve networkRef from ContainerCard
-            network_ref = container_card.spec.networkRef.ref
-            try:
-                self._resolver.resolve_card(network_ref, NetworkCard)
-            except CutipRefError as exc:
-                result.add(
-                    f"[CardResolve] {unit_name} → {container_card.name}: "
-                    f"{exc.reason} (networkRef: '{network_ref}')"
-                )
+            # Resolve networkRef from ContainerCard (skipped when network_mode is used)
+            if container_card.spec.networkRef is not None:
+                network_ref = container_card.spec.networkRef.ref
+                try:
+                    self._resolver.resolve_card(network_ref, NetworkCard)
+                except CutipRefError as exc:
+                    result.add(
+                        f"[CardResolve] {unit_name} → {container_card.name}: "
+                        f"{exc.reason} (networkRef: '{network_ref}')"
+                    )
 
     def _validate_groups(self, result: ValidationResult) -> None:
         for group_name, group in self.registry.groups.items():

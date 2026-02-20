@@ -147,8 +147,12 @@ class PodmanBackend(CutipBackend):
         logger.info(f"Pulling image: {image_ref}")
         self._client.images.pull(card.spec.image, tag=card.spec.tag)
 
-    def build_image(self, card: ImageCard) -> None:
+    def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
+        # Resolve context relative to project_root when it is a relative path
         context = Path(card.spec.context)
+        if not context.is_absolute() and project_root:
+            context = project_root / context
+
         dockerfile = card.spec.dockerfile
         tag = f"{card.metadata.name}:{card.spec.tag}"
 
@@ -189,7 +193,20 @@ class PodmanBackend(CutipBackend):
         self._client.volumes.create(name, driver=card.spec.driver, labels=card.spec.labels)
         logger.info(f"Created volume: {name}")
 
-    def create_container(self, card: ContainerCard) -> str:
+    def create_container(
+        self,
+        card: ContainerCard,
+        image_name: str | None = None,
+    ) -> str:
+        """Create a container from a ContainerCard.
+
+        Args:
+            card:       The ContainerCard definition.
+            image_name: Explicit ``name:tag`` string for the image. When omitted,
+                        the image is derived from ``card.spec.imageRef`` as
+                        ``<ref-name>:<tag>``. Pass this from the workflow when you
+                        have resolved the ImageCard and know its exact tag.
+        """
         name = card.metadata.name
         try:
             self._client.containers.get(name)
@@ -198,10 +215,17 @@ class PodmanBackend(CutipBackend):
         except Exception:
             pass
 
+        # ── Image ────────────────────────────────────────────────────────────
+        if image_name is None:
+            # Best-effort fallback: strip the "images/" prefix and assume :latest
+            image_name = f"{card.spec.imageRef.ref.split('/')[-1]}:latest"
+
+        # ── Network ──────────────────────────────────────────────────────────
+        # network_mode covers special modes (host, none, slirp4netns, …)
+        # networkRef names a specific user-defined bridge network.
         kwargs: dict = {
             "name": name,
-            "image": card.spec.imageRef.ref,
-            "network_mode": card.spec.networkRef.ref,
+            "image": image_name,
             "privileged": card.spec.privileged,
             "ports": card.spec.ports or {},
             "environment": card.spec.environment or {},
@@ -209,14 +233,33 @@ class PodmanBackend(CutipBackend):
             "security_opt": card.spec.security_opts or [],
             "detach": True,
         }
+
+        if card.spec.network_mode:
+            kwargs["network_mode"] = card.spec.network_mode
+        elif card.spec.networkRef:
+            # Extract the bare network name from "networks/jireh" → "jireh"
+            kwargs["network"] = [card.spec.networkRef.ref.split("/")[-1]]
+
+        # ── Optional fields ──────────────────────────────────────────────────
         if card.spec.command:
             kwargs["command"] = card.spec.command.split()
         if card.spec.hostname:
             kwargs["hostname"] = card.spec.hostname
+        if card.spec.workdir:
+            kwargs["working_dir"] = card.spec.workdir
         if card.spec.restart_policy:
             kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
         if card.spec.mounts:
             kwargs["mounts"] = [m.model_dump() for m in card.spec.mounts]
+
+        # ── Named volumes ─────────────────────────────────────────────────────
+        # ContainerCard.spec.volumes: {volume_name: container_path}
+        # Podman SDK expects:          {volume_name: {"bind": container_path, "mode": "rw"}}
+        if card.spec.volumes:
+            kwargs["volumes"] = {
+                vol_name: {"bind": container_path, "mode": "rw"}
+                for vol_name, container_path in card.spec.volumes.items()
+            }
 
         self._client.containers.create(**kwargs)
         logger.info(f"Created container: {name}")

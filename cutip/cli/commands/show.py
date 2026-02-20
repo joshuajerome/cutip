@@ -81,16 +81,21 @@ def show_unit(
             except CutipRefError:
                 c_branch.add(f"[bold]ImageCard:[/bold]   [red]UNRESOLVED ({image_ref})[/red]")
 
-            network_ref = container_card.spec.networkRef.ref
-            try:
-                network_card: NetworkCard = resolver.resolve_card(network_ref, NetworkCard)
+            if container_card.spec.network_mode:
                 c_branch.add(
-                    f"[bold]NetworkCard:[/bold] [green]{network_card.name}[/green]"
+                    f"[bold]Network:[/bold]     [dim]mode={container_card.spec.network_mode}[/dim]"
                 )
-            except CutipRefError:
-                c_branch.add(
-                    f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({network_ref})[/red]"
-                )
+            elif container_card.spec.networkRef is not None:
+                network_ref = container_card.spec.networkRef.ref
+                try:
+                    network_card: NetworkCard = resolver.resolve_card(network_ref, NetworkCard)
+                    c_branch.add(
+                        f"[bold]NetworkCard:[/bold] [green]{network_card.name}[/green]"
+                    )
+                except CutipRefError:
+                    c_branch.add(
+                        f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({network_ref})[/red]"
+                    )
 
         except CutipRefError:
             tree.add(f"[bold]ContainerCard:[/bold] [red]UNRESOLVED ({container_ref})[/red]")
@@ -150,17 +155,22 @@ def show_group(
                             f"[bold]ImageCard:[/bold]   [red]UNRESOLVED ({cc.spec.imageRef.ref})[/red]"
                         )
                     # network
-                    try:
-                        net: NetworkCard = resolver.resolve_card(
-                            cc.spec.networkRef.ref, NetworkCard
-                        )
+                    if cc.spec.network_mode:
                         cc_branch.add(
-                            f"[bold]NetworkCard:[/bold] [green]{net.name}[/green]"
+                            f"[bold]Network:[/bold]     [dim]mode={cc.spec.network_mode}[/dim]"
                         )
-                    except CutipRefError:
-                        cc_branch.add(
-                            f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({cc.spec.networkRef.ref})[/red]"
-                        )
+                    elif cc.spec.networkRef is not None:
+                        try:
+                            net: NetworkCard = resolver.resolve_card(
+                                cc.spec.networkRef.ref, NetworkCard
+                            )
+                            cc_branch.add(
+                                f"[bold]NetworkCard:[/bold] [green]{net.name}[/green]"
+                            )
+                        except CutipRefError:
+                            cc_branch.add(
+                                f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({cc.spec.networkRef.ref})[/red]"
+                            )
                 except CutipRefError:
                     u_branch.add(
                         f"[bold]ContainerCard:[/bold] [red]UNRESOLVED ({container_ref})[/red]"

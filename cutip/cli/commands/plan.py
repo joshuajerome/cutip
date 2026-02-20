@@ -70,13 +70,21 @@ def plan(
                     seen_images.add(img_ref)
 
                 # Network
-                net_ref = cc.spec.networkRef.ref
-                if net_ref not in seen_networks:
-                    net = resolver.resolve(net_ref)
-                    if isinstance(net, NetworkCard):
-                        table.add_row(str(step), "ensure_network", net.name, net.spec.subnet)
+                if cc.spec.network_mode:
+                    # host/none/etc — no managed network card to ensure
+                    net_key = f"__mode__{cc.spec.network_mode}"
+                    if net_key not in seen_networks:
+                        table.add_row(str(step), "network_mode", cc.spec.network_mode, "pre-existing")
                         step += 1
-                    seen_networks.add(net_ref)
+                        seen_networks.add(net_key)
+                elif cc.spec.networkRef is not None:
+                    net_ref = cc.spec.networkRef.ref
+                    if net_ref not in seen_networks:
+                        net = resolver.resolve(net_ref)
+                        if isinstance(net, NetworkCard):
+                            table.add_row(str(step), "ensure_network", net.name, net.spec.subnet)
+                            step += 1
+                        seen_networks.add(net_ref)
 
                 # Container
                 table.add_row(str(step), "create_container", cc.name, unit.name)
