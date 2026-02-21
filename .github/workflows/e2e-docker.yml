@@ -1,0 +1,70 @@
+name: E2E — Docker
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  e2e-docker:
+    name: Docker E2E · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install cutip with Docker extra
+        run: uv pip install -e ".[docker]" --system
+
+      # ── Platform: Ubuntu ─────────────────────────────────────────────────
+      # Docker Engine is pre-installed on GitHub-hosted ubuntu-latest runners.
+      - name: Verify Docker (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          docker version
+          docker info
+          echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
+
+      # ── Platform: macOS ──────────────────────────────────────────────────
+      # Docker Desktop is not available on macOS runners; use Colima instead.
+      - name: Install Docker via Colima (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install colima docker
+
+          # Start Colima with a lightweight VM
+          colima start --cpu 2 --memory 4 --disk 20
+
+          # Verify the daemon is reachable
+          docker version
+          docker info
+
+          echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
+
+      # ── Platform: Windows ────────────────────────────────────────────────
+      # Docker Engine ships with windows-latest GitHub-hosted runners.
+      - name: Verify Docker (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          docker version
+          docker info
+          "CUTIP_BACKEND_NAME=docker" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # ── Validate the CUTIP workspace ─────────────────────────────────────
+      - name: Validate hello-world workspace
+        run: cutip validate --path tests/e2e/hello-world
+
+      # ── Run end-to-end test ──────────────────────────────────────────────
+      - name: Run E2E group (Docker · ${{ matrix.os }})
+        run: cutip run hello --path tests/e2e/hello-world --backend docker

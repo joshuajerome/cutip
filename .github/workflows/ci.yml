@@ -1,0 +1,49 @@
+name: CI — Build & Test
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build wheel · Install · Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      # ── Build distribution wheel ─────────────────────────────────────────
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: List dist/
+        run: ls -lh dist/
+
+      # ── Verify the wheel is importable in a clean environment ────────────
+      - name: Smoke-test wheel install
+        run: |
+          uv venv .wheel-test
+          uv pip install --python .wheel-test/bin/python dist/cutip-*.whl
+          .wheel-test/bin/python -c "import cutip; print('cutip import OK')"
+          .wheel-test/bin/cutip --help
+
+      # ── Unit tests (run against the editable source, not the wheel) ──────
+      - name: Install dev dependencies
+        run: uv sync
+
+      - name: Run unit tests
+        run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
+
+      # ── Upload wheel as a build artifact ─────────────────────────────────
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cutip-wheel
+          path: dist/*.whl
+          retention-days: 7

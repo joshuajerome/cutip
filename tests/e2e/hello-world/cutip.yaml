@@ -1,0 +1,5 @@
+project: hello-world
+description: >
+  CUTIP end-to-end smoke test.
+  Pulls alpine:latest, runs `echo CUTIP_OK`, verifies the log output, then cleans up.
+  Used by .github/workflows/e2e-podman.yml and e2e-docker.yml.

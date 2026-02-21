@@ -1,10 +1,18 @@
-"""Docker execution backend (stub).
+"""Docker execution backend.
 
-Full implementation is future work. Install the optional extra:
-    uv add docker
+Connects to the local Docker daemon via docker-py (reads DOCKER_HOST env var
+automatically, so CI setups that set DOCKER_HOST work without extra flags).
+
+Dependencies (optional extra): uv add docker
 """
 
 from __future__ import annotations
+
+import shlex
+import subprocess
+from pathlib import Path
+
+from loguru import logger
 
 from cutip.backends.base import CutipBackend
 from cutip.models.cards.container import ContainerCard
@@ -15,45 +23,200 @@ from cutip.utils.exceptions import CutipError
 
 
 class DockerBackend(CutipBackend):
-    """Docker backend stub — satisfies the CutipBackend interface."""
+    """Docker backend — connects to the local Docker daemon via docker-py."""
 
-    def __init__(self) -> None:
+    def __init__(self, client) -> None:
+        self._client = client
+
+    @classmethod
+    def connect(cls) -> "DockerBackend":
+        """Connect to the Docker daemon (respects DOCKER_HOST env var)."""
         try:
             import docker
-            self._client = docker.from_env()
         except ImportError as exc:
             raise CutipError(
                 "The 'docker' package is required for the Docker backend. "
                 "Run: uv add docker"
             ) from exc
 
-    @classmethod
-    def connect(cls) -> "DockerBackend":
-        return cls()
+        try:
+            client = docker.from_env()
+            client.ping()
+        except Exception as exc:
+            raise CutipError(
+                f"Docker connection failed: {exc}. "
+                "Is Docker running? Check DOCKER_HOST if using a remote daemon."
+            ) from exc
+
+        logger.info("Docker client connected.")
+        return cls(client=client)
+
+    # ── CutipBackend interface ───────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
-        raise NotImplementedError("DockerBackend.pull_image is not yet implemented")
+        image_ref = f"{card.spec.image}:{card.spec.tag}"
+        try:
+            self._client.images.get(image_ref)
+            logger.info(f"Image already present: {image_ref}")
+            return
+        except Exception:
+            pass
+        logger.info(f"Pulling image: {image_ref}")
+        self._client.images.pull(card.spec.image, tag=card.spec.tag)
 
-    def build_image(self, card: ImageCard) -> None:
-        raise NotImplementedError("DockerBackend.build_image is not yet implemented")
+    def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
+        context = Path(card.spec.context)
+        if not context.is_absolute() and project_root:
+            context = project_root / context
+
+        dockerfile = card.spec.dockerfile
+        tag = f"{card.metadata.name}:{card.spec.tag}"
+
+        cmd = ["docker", "build", "--tag", tag, "--file", dockerfile]
+        for k, v in card.spec.build_args.items():
+            cmd += ["--build-arg", f"{k}={v}"]
+        cmd.append(str(context))
+
+        logger.info(f"Building image {tag} from {context}/{dockerfile}")
+        result = subprocess.run(cmd, cwd=str(context))
+        if result.returncode != 0:
+            raise CutipError(f"Image build failed for '{tag}'")
 
     def ensure_network(self, card: NetworkCard) -> None:
-        raise NotImplementedError("DockerBackend.ensure_network is not yet implemented")
+        import docker as docker_mod
+        name = card.metadata.name
+        try:
+            self._client.networks.get(name)
+            logger.info(f"Network already exists: {name}")
+            return
+        except docker_mod.errors.NotFound:
+            pass
+
+        ipam = docker_mod.types.IPAMConfig(
+            driver="default",
+            pool_configs=[
+                docker_mod.types.IPAMPool(
+                    subnet=card.spec.subnet,
+                    gateway=card.spec.gateway,
+                )
+            ],
+        )
+        self._client.networks.create(name, driver=card.spec.driver, ipam=ipam)
+        logger.info(f"Created network: {name}")
 
     def ensure_volume(self, card: VolumeCard) -> None:
-        raise NotImplementedError("DockerBackend.ensure_volume is not yet implemented")
+        import docker as docker_mod
+        name = card.metadata.name
+        try:
+            self._client.volumes.get(name)
+            logger.info(f"Volume already exists: {name}")
+            return
+        except docker_mod.errors.NotFound:
+            pass
+        self._client.volumes.create(name, driver=card.spec.driver, labels=card.spec.labels)
+        logger.info(f"Created volume: {name}")
 
-    def create_container(self, card: ContainerCard) -> str:
-        raise NotImplementedError("DockerBackend.create_container is not yet implemented")
+    def create_container(
+        self,
+        card: ContainerCard,
+        image_name: str | None = None,
+    ) -> str:
+        """Create (but do not start) a container from a ContainerCard."""
+        import docker as docker_mod
+        name = card.metadata.name
+        try:
+            self._client.containers.get(name)
+            logger.info(f"Container already exists: {name}")
+            return name
+        except docker_mod.errors.NotFound:
+            pass
+
+        if image_name is None:
+            image_name = f"{card.spec.imageRef.ref.split('/')[-1]}:latest"
+
+        kwargs: dict = {
+            "name": name,
+            "image": image_name,
+            "privileged": card.spec.privileged,
+            "environment": card.spec.environment or {},
+            "cap_add": card.spec.cap_add or [],
+            "security_opt": card.spec.security_opts or [],
+            "detach": True,
+        }
+
+        # Ports: docker-py expects {container_port/proto: host_port}
+        if card.spec.ports:
+            kwargs["ports"] = card.spec.ports
+
+        if card.spec.network_mode:
+            kwargs["network_mode"] = card.spec.network_mode
+        elif card.spec.networkRef:
+            kwargs["network"] = card.spec.networkRef.ref.split("/")[-1]
+
+        if card.spec.command:
+            kwargs["command"] = shlex.split(card.spec.command)
+        if card.spec.hostname:
+            kwargs["hostname"] = card.spec.hostname
+        if card.spec.workdir:
+            kwargs["working_dir"] = card.spec.workdir
+        if card.spec.restart_policy:
+            kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
+
+        # Bind mounts
+        if card.spec.mounts:
+            kwargs["mounts"] = [
+                docker_mod.types.Mount(
+                    target=m.target,
+                    source=m.source,
+                    type=m.type,
+                    read_only=(m.mode == "ro"),
+                )
+                for m in card.spec.mounts
+            ]
+
+        # Named volumes: {vol_name: container_path}
+        if card.spec.volumes:
+            kwargs["volumes"] = {
+                vol_name: {"bind": container_path, "mode": "rw"}
+                for vol_name, container_path in card.spec.volumes.items()
+            }
+
+        self._client.containers.create(**kwargs)
+        logger.info(f"Created container: {name}")
+        return name
 
     def start_container(self, name: str) -> None:
-        raise NotImplementedError("DockerBackend.start_container is not yet implemented")
+        container = self._client.containers.get(name)
+        container.start()
+        logger.info(f"Started container: {name}")
 
     def stop_container(self, name: str) -> None:
-        raise NotImplementedError("DockerBackend.stop_container is not yet implemented")
+        try:
+            container = self._client.containers.get(name)
+            container.stop()
+            logger.info(f"Stopped container: {name}")
+        except Exception:
+            logger.debug(f"stop_container: '{name}' not running or not found.")
 
     def remove_container(self, name: str) -> None:
-        raise NotImplementedError("DockerBackend.remove_container is not yet implemented")
+        container = self._client.containers.get(name)
+        container.remove(force=True)
+        logger.info(f"Removed container: {name}")
 
     def container_status(self, name: str) -> str:
-        raise NotImplementedError("DockerBackend.container_status is not yet implemented")
+        import docker as docker_mod
+        try:
+            container = self._client.containers.get(name)
+            return container.status
+        except docker_mod.errors.NotFound:
+            return "not_found"
+        except Exception:
+            return "unknown"
+
+    def container_logs(self, name: str) -> str:
+        """Return stdout + stderr logs for a container as a string."""
+        container = self._client.containers.get(name)
+        raw = container.logs(stdout=True, stderr=True)
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8", errors="replace")
+        return b"".join(raw).decode("utf-8", errors="replace")

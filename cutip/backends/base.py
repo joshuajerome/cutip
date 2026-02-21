@@ -47,6 +47,10 @@ class CutipBackend(ABC):
     def container_status(self, name: str) -> str:
         """Return the container's current status string (e.g. 'running', 'exited')."""
 
+    @abstractmethod
+    def container_logs(self, name: str) -> str:
+        """Return the stdout/stderr logs of a container as a string."""
+
     def prepare_unit(self, container_card: ContainerCard) -> None:
         """Convenience: ensure image + network exist, then create the container."""
         from cutip.resolver.refs import RefResolver  # avoid circular at module level

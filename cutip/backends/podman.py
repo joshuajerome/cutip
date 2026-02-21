@@ -1,14 +1,25 @@
 """Podman execution backend.
 
-Communicates with Podman via TCP-over-SSH tunnel, mirroring the approach
-established in podwrap/shared/setup.py and podwrap/shared/core/.
+Two connection modes:
+  * SSH tunnel  — PodmanBackend.connect()       (default, mirrors podwrap pattern)
+  * Local socket — PodmanBackend.connect_local() (CI / --local flag)
+
+The local-socket mode reads the target URL from (in priority order):
+  1. CONTAINER_HOST env var  (standard Podman convention)
+  2. Platform defaults:
+       Linux  → unix:///run/user/<uid>/podman/podman.sock
+       macOS  → socket reported by `podman machine inspect`
+       Windows → npipe:////./pipe/podman-machine-default
 
 Dependencies (optional extra): uv add podman
 """
 
 from __future__ import annotations
 
+import os
+import shlex
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,6 +39,10 @@ if TYPE_CHECKING:
 _PODMAN_TCP_PORT = 8080
 _PODMAN_TCP_URL = f"tcp://localhost:{_PODMAN_TCP_PORT}"
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SSH-tunnel helpers (used by connect())
+# ──────────────────────────────────────────────────────────────────────────────
 
 def _get_default_podman_connection() -> dict:
     """Run 'podman system connection ls' and return the default connection as a dict."""
@@ -95,12 +110,64 @@ def _open_ssh_tunnel(connection: dict) -> subprocess.Popen:
     return process
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Local-socket helpers (used by connect_local())
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _local_socket_url() -> str:
+    """Resolve the local Podman socket URL for the current platform."""
+    # 1. Standard Podman env var takes priority
+    env = os.environ.get("CONTAINER_HOST")
+    if env:
+        return env
+
+    if sys.platform == "win32":
+        return "npipe:////./pipe/podman-machine-default"
+
+    if sys.platform == "darwin":
+        # Ask the running machine for its socket path
+        try:
+            result = subprocess.run(
+                ["podman", "machine", "inspect",
+                 "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"],
+                capture_output=True, text=True, check=True,
+            )
+            sock = result.stdout.strip()
+            if sock:
+                return f"unix://{sock}"
+        except Exception:
+            pass
+        # Fallback: common QEMU / applehv socket locations
+        home = Path.home()
+        for candidate in [
+            home / ".local/share/containers/podman/machine/qemu/podman.sock",
+            home / ".local/share/containers/podman/machine/applehv/podman.sock",
+        ]:
+            if candidate.exists():
+                return f"unix://{candidate}"
+        raise CutipError(
+            "Could not locate macOS Podman machine socket. "
+            "Set CONTAINER_HOST or run 'podman machine start'."
+        )
+
+    # Linux — rootless user socket
+    uid = os.getuid()
+    xdg = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+    return f"unix://{xdg}/podman/podman.sock"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Backend
+# ──────────────────────────────────────────────────────────────────────────────
+
 class PodmanBackend(CutipBackend):
-    """Podman backend — uses PodmanClient over a TCP-over-SSH tunnel."""
+    """Podman backend — communicates via PodmanClient (SSH tunnel or local socket)."""
 
     def __init__(self, client, tunnel_process: subprocess.Popen | None = None) -> None:
         self._client = client
         self._tunnel = tunnel_process
+
+    # ── Constructors ─────────────────────────────────────────────────────────
 
     @classmethod
     def connect(cls) -> "PodmanBackend":
@@ -109,8 +176,7 @@ class PodmanBackend(CutipBackend):
             from podman import PodmanClient
         except ImportError as exc:
             raise CutipError(
-                "The 'podman' package is required for the Podman backend. "
-                "Run: uv add podman"
+                "The 'podman' package is required. Run: uv add podman"
             ) from exc
 
         connection = _get_default_podman_connection()
@@ -121,11 +187,35 @@ class PodmanBackend(CutipBackend):
             tunnel.terminate()
             raise CutipError("Podman client ping failed after opening SSH tunnel.")
 
-        logger.info("Podman client connected.")
+        logger.info("Podman client connected (SSH tunnel).")
         return cls(client=client, tunnel_process=tunnel)
 
+    @classmethod
+    def connect_local(cls) -> "PodmanBackend":
+        """Connect to the local Podman socket without SSH. Used in CI and --local mode."""
+        try:
+            from podman import PodmanClient
+        except ImportError as exc:
+            raise CutipError(
+                "The 'podman' package is required. Run: uv add podman"
+            ) from exc
+
+        url = _local_socket_url()
+        client = PodmanClient(base_url=url)
+
+        if not client.ping():
+            raise CutipError(
+                f"Podman local socket ping failed at {url}. "
+                "Is the Podman socket/service running?"
+            )
+
+        logger.info(f"Podman client connected (local socket: {url}).")
+        return cls(client=client, tunnel_process=None)
+
+    # ── Lifecycle ────────────────────────────────────────────────────────────
+
     def disconnect(self) -> None:
-        """Close the client and terminate the SSH tunnel."""
+        """Close the client and terminate the SSH tunnel (if any)."""
         try:
             self._client.close()
         except Exception:
@@ -134,9 +224,7 @@ class PodmanBackend(CutipBackend):
             self._tunnel.terminate()
             logger.debug("SSH tunnel closed.")
 
-    # ------------------------------------------------------------------ #
-    # CutipBackend interface                                               #
-    # ------------------------------------------------------------------ #
+    # ── CutipBackend interface ───────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
         image_ref = f"{card.spec.image}:{card.spec.tag}"
@@ -148,7 +236,6 @@ class PodmanBackend(CutipBackend):
         self._client.images.pull(card.spec.image, tag=card.spec.tag)
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
-        # Resolve context relative to project_root when it is a relative path
         context = Path(card.spec.context)
         if not context.is_absolute() and project_root:
             context = project_root / context
@@ -198,15 +285,7 @@ class PodmanBackend(CutipBackend):
         card: ContainerCard,
         image_name: str | None = None,
     ) -> str:
-        """Create a container from a ContainerCard.
-
-        Args:
-            card:       The ContainerCard definition.
-            image_name: Explicit ``name:tag`` string for the image. When omitted,
-                        the image is derived from ``card.spec.imageRef`` as
-                        ``<ref-name>:<tag>``. Pass this from the workflow when you
-                        have resolved the ImageCard and know its exact tag.
-        """
+        """Create (but do not start) a container from a ContainerCard."""
         name = card.metadata.name
         try:
             self._client.containers.get(name)
@@ -215,14 +294,9 @@ class PodmanBackend(CutipBackend):
         except Exception:
             pass
 
-        # ── Image ────────────────────────────────────────────────────────────
         if image_name is None:
-            # Best-effort fallback: strip the "images/" prefix and assume :latest
             image_name = f"{card.spec.imageRef.ref.split('/')[-1]}:latest"
 
-        # ── Network ──────────────────────────────────────────────────────────
-        # network_mode covers special modes (host, none, slirp4netns, …)
-        # networkRef names a specific user-defined bridge network.
         kwargs: dict = {
             "name": name,
             "image": image_name,
@@ -237,12 +311,10 @@ class PodmanBackend(CutipBackend):
         if card.spec.network_mode:
             kwargs["network_mode"] = card.spec.network_mode
         elif card.spec.networkRef:
-            # Extract the bare network name from "networks/jireh" → "jireh"
             kwargs["network"] = [card.spec.networkRef.ref.split("/")[-1]]
 
-        # ── Optional fields ──────────────────────────────────────────────────
         if card.spec.command:
-            kwargs["command"] = card.spec.command.split()
+            kwargs["command"] = shlex.split(card.spec.command)
         if card.spec.hostname:
             kwargs["hostname"] = card.spec.hostname
         if card.spec.workdir:
@@ -251,10 +323,6 @@ class PodmanBackend(CutipBackend):
             kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
         if card.spec.mounts:
             kwargs["mounts"] = [m.model_dump() for m in card.spec.mounts]
-
-        # ── Named volumes ─────────────────────────────────────────────────────
-        # ContainerCard.spec.volumes: {volume_name: container_path}
-        # Podman SDK expects:          {volume_name: {"bind": container_path, "mode": "rw"}}
         if card.spec.volumes:
             kwargs["volumes"] = {
                 vol_name: {"bind": container_path, "mode": "rw"}
@@ -271,13 +339,16 @@ class PodmanBackend(CutipBackend):
         logger.info(f"Started container: {name}")
 
     def stop_container(self, name: str) -> None:
-        container = self._client.containers.get(name)
-        container.stop()
-        logger.info(f"Stopped container: {name}")
+        try:
+            container = self._client.containers.get(name)
+            container.stop()
+            logger.info(f"Stopped container: {name}")
+        except Exception:
+            logger.debug(f"stop_container: container '{name}' not running or not found.")
 
     def remove_container(self, name: str) -> None:
         container = self._client.containers.get(name)
-        container.remove()
+        container.remove(force=True)
         logger.info(f"Removed container: {name}")
 
     def container_status(self, name: str) -> str:
@@ -285,4 +356,12 @@ class PodmanBackend(CutipBackend):
             container = self._client.containers.get(name)
             return container.status
         except Exception:
-            return "unknown"
+            return "not_found"
+
+    def container_logs(self, name: str) -> str:
+        """Return stdout + stderr logs for a container as a string."""
+        container = self._client.containers.get(name)
+        raw = container.logs(stdout=True, stderr=True)
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8", errors="replace")
+        return b"".join(raw).decode("utf-8", errors="replace")

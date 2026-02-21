@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from enum import Enum
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
 
 console = Console()
+
+
 class BackendChoice(str, Enum):
     podman = "podman"
     docker = "docker"
@@ -27,8 +30,8 @@ def _build_context(group_name: str, project_root: Path, registry, runtime=None) 
         raise CutipError(f"Group '{group_name}' not found in registry")
 
     resolver = RefResolver(registry)
-    resolved_units = {}
-    resolved_cards = {}
+    resolved_units: dict = {}
+    resolved_cards: dict = {}
 
     for unit_ref in group.spec.units:
         unit = resolver.resolve_unit(unit_ref.ref)
@@ -42,8 +45,11 @@ def _build_context(group_name: str, project_root: Path, registry, runtime=None) 
         if isinstance(cc, ContainerCard):
             img = resolver.resolve(cc.spec.imageRef.ref)
             resolved_cards[cc.spec.imageRef.ref] = img
-            net = resolver.resolve(cc.spec.networkRef.ref)
-            resolved_cards[cc.spec.networkRef.ref] = net
+
+            # networkRef is optional when network_mode is set
+            if cc.spec.networkRef is not None:
+                net = resolver.resolve(cc.spec.networkRef.ref)
+                resolved_cards[cc.spec.networkRef.ref] = net
 
     return CutipContext(
         group=group,
@@ -60,6 +66,14 @@ def run(
     backend: BackendChoice = typer.Option(
         BackendChoice.podman, "--backend", "-b", help="Execution backend"
     ),
+    local: bool = typer.Option(
+        False,
+        "--local",
+        "-l",
+        help="Connect to the local daemon directly (no SSH tunnel). "
+             "Uses CONTAINER_HOST / DOCKER_HOST env vars when set. "
+             "Required for CI environments.",
+    ),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
     """Run a group's workflow against the selected backend."""
@@ -75,14 +89,17 @@ def run(
         console.print("[bold red]Validation failed. Fix errors before running.[/bold red]")
         raise typer.Exit(1)
 
+    # Honour env-var shortcut in addition to the CLI flag
+    is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
+
     # Connect backend
     try:
         if backend == BackendChoice.podman:
             from cutip.backends.podman import PodmanBackend
-            runtime = PodmanBackend.connect()
+            runtime = PodmanBackend.connect_local() if is_local else PodmanBackend.connect()
         else:
             from cutip.backends.docker import DockerBackend
-            runtime = DockerBackend.connect()
+            runtime = DockerBackend.connect()   # Docker always uses local daemon
     except CutipError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
