@@ -51,19 +51,18 @@ jobs:
           podman version
 
       # ── Platform: macOS ──────────────────────────────────────────────────
-      # Force CONTAINERS_MACHINE_PROVIDER=qemu: GitHub macOS runners do not
-      # expose Apple's Virtualization Framework (VZ/vfkit) to nested processes,
-      # so the Podman 5.x default VZ provider fails with "vfkit exited
-      # unexpectedly". QEMU uses macOS Hypervisor.framework (HVF) directly
-      # and works reliably in CI.
+      # Podman 5.x uses Apple's Virtualization Framework (VZ via vfkit) as its
+      # default machine provider on Apple Silicon — the same stack a developer
+      # uses when they run `brew install podman && podman machine init --now`.
+      # We avoid overriding --cpus/--memory/--disk-size so that resource limits
+      # stay within runner defaults and don't starve vfkit.
       - name: Install & start Podman (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install podman qemu
+          brew install podman
 
-          # Init + start a Podman machine using the QEMU provider
-          CONTAINERS_MACHINE_PROVIDER=qemu \
-            podman machine init --cpus 2 --memory 2048 --disk-size 10 --now
+          # Match the default developer invocation; let Podman choose defaults.
+          podman machine init --now
 
           # Resolve the socket path and export it
           SOCK=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
@@ -102,18 +101,27 @@ jobs:
         run: |
           podman machine init --cpus 2 --memory 2048 --now
 
-          # On Windows, Podman exposes a named pipe — not a Unix socket.
-          # podman-py accepts npipe:// URIs on Windows.
-          "CONTAINER_HOST=npipe:////./pipe/podman-machine-default" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
           # Confirm the full daemon connection works now that the machine is up
           podman version
+          # Note: we do NOT set CONTAINER_HOST to npipe:// here.
+          # podman-py does not support Windows named pipes.  The Windows E2E
+          # run step (below) uses the SSH-tunnel mode instead of --local.
 
       # ── Validate the CUTIP workspace ─────────────────────────────────────
       - name: Validate hello-world workspace
         run: uv run cutip validate --path tests/e2e/hello-world
 
       # ── Run end-to-end test ──────────────────────────────────────────────
-      - name: Run E2E group (Podman · ${{ matrix.os }})
+      # Linux / macOS: use --local (direct Unix socket via CONTAINER_HOST).
+      - name: Run E2E group (Podman · Linux/macOS)
+        if: runner.os != 'Windows'
         run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
+
+      # Windows: podman-py does not support named pipes, so we use the
+      # SSH-tunnel mode (no --local).  PodmanBackend.connect() reads
+      # `podman system connection ls`, opens an SSH tunnel to the Podman
+      # machine, and exposes the socket on tcp://localhost:<port> — the same
+      # flow a Windows developer uses when not specifying --local.
+      - name: Run E2E group (Podman · Windows)
+        if: runner.os == 'Windows'
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend podman

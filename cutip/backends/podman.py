@@ -122,7 +122,17 @@ def _local_socket_url() -> str:
         return env
 
     if sys.platform == "win32":
-        return "npipe:////./pipe/podman-machine-default"
+        # podman-py does not support Windows named pipes (npipe:// scheme).
+        # On Windows, use PodmanBackend.connect() instead — it opens an SSH
+        # tunnel to the Podman machine and connects via tcp://localhost:<port>,
+        # which podman-py handles correctly.
+        raise CutipError(
+            "connect_local() (--local) is not supported on Windows because "
+            "podman-py does not speak the Windows named-pipe protocol.\n"
+            "Use the SSH-tunnel mode instead:\n"
+            "  cutip run <group> --backend podman   (no --local flag)\n"
+            "Ensure 'podman machine start' has been run first."
+        )
 
     if sys.platform == "darwin":
         # Ask the running machine for its socket path

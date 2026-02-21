@@ -45,17 +45,17 @@ jobs:
 
       # ── Platform: macOS ──────────────────────────────────────────────────
       # Docker Desktop is not available on macOS runners; use Colima instead.
-      # Force --vm-type qemu: GitHub macOS runners do not expose Apple's
-      # Virtualization Framework (VZ/vfkit) to nested processes, so the
-      # default VZ driver fails with "vfkit exited unexpectedly". QEMU uses
-      # macOS Hypervisor.framework (HVF) directly and works reliably in CI.
+      # Colima's default VM type on Apple Silicon is VZ (Apple Virtualization
+      # Framework via vfkit) — the same stack a developer uses when they run
+      # `brew install colima && colima start`.  We don't override --vm-type or
+      # specify --disk so that resource limits stay within runner defaults.
       - name: Install Docker via Colima (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install colima docker
 
-          # Start Colima with QEMU (HVF-accelerated, no Apple VZ needed)
-          colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
+          # Match the default developer invocation; let Colima choose VM type.
+          colima start --cpu 2 --memory 4
 
           # Verify the daemon is reachable
           docker version

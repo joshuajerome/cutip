@@ -69,11 +69,30 @@ class DockerBackend(CutipBackend):
             pass
 
         logger.info(f"Pulling image: {image_ref}")
-        image = self._client.images.pull(card.spec.image, tag=card.spec.tag)
+        # docker-py's images.pull() pulls the image and then does a
+        # GET /images/{ref}/json to return an Image object.  On Windows,
+        # Docker normalises "docker.io/library/alpine:3.20" → "alpine:3.20",
+        # so the post-pull inspect with the full registry URL returns 404.
+        # We catch that and locate the image by its short name instead.
+        image = None
+        try:
+            image = self._client.images.pull(card.spec.image, tag=card.spec.tag)
+        except Exception:
+            # The pull may have succeeded even though the post-pull inspect
+            # failed (Windows registry-name normalisation).  Try the short name.
+            short_ref = f"{card.spec.image.split('/')[-1]}:{card.spec.tag}"
+            try:
+                image = self._client.images.get(short_ref)
+            except Exception:
+                pass  # also try the full ref below
+
+        if image is None:
+            # Last-ditch attempt using the full ref (raises if truly not found)
+            image = self._client.images.get(image_ref)
 
         # Tag the pulled image with the card's canonical alias so that
         # create_container can reference it by name regardless of registry path.
-        if alias != image_ref:
+        if alias not in (image.tags or []):
             name, tag = alias.rsplit(":", 1)
             image.tag(name, tag)
             logger.info(f"Tagged {image_ref} → {alias}")
