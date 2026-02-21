@@ -24,7 +24,9 @@ jobs:
           version: "latest"
 
       - name: Install cutip with Docker extra
-        run: uv pip install -e ".[docker]" --system
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docker]"
 
       # ── Platform: Ubuntu ─────────────────────────────────────────────────
       # Docker Engine is pre-installed on GitHub-hosted ubuntu-latest runners.
@@ -63,8 +65,8 @@ jobs:
 
       # ── Validate the CUTIP workspace ─────────────────────────────────────
       - name: Validate hello-world workspace
-        run: cutip validate --path tests/e2e/hello-world
+        run: uv run cutip validate --path tests/e2e/hello-world
 
       # ── Run end-to-end test ──────────────────────────────────────────────
       - name: Run E2E group (Docker · ${{ matrix.os }})
-        run: cutip run hello --path tests/e2e/hello-world --backend docker
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend docker
