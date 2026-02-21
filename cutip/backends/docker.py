@@ -54,15 +54,29 @@ class DockerBackend(CutipBackend):
     # ── CutipBackend interface ───────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
+        # The alias is how the workflow (and create_container) will reference this image:
+        # {card.metadata.name}:{card.spec.tag}  (e.g. "hello:3.20").
+        # This mirrors how build_image tags images, making pull/build symmetric.
+        alias = f"{card.metadata.name}:{card.spec.tag}"
         image_ref = f"{card.spec.image}:{card.spec.tag}"
+
+        # Idempotent: if alias already exists, nothing to do.
         try:
-            self._client.images.get(image_ref)
-            logger.info(f"Image already present: {image_ref}")
+            self._client.images.get(alias)
+            logger.info(f"Image already present as {alias}")
             return
         except Exception:
             pass
+
         logger.info(f"Pulling image: {image_ref}")
-        self._client.images.pull(card.spec.image, tag=card.spec.tag)
+        image = self._client.images.pull(card.spec.image, tag=card.spec.tag)
+
+        # Tag the pulled image with the card's canonical alias so that
+        # create_container can reference it by name regardless of registry path.
+        if alias != image_ref:
+            name, tag = alias.rsplit(":", 1)
+            image.tag(name, tag)
+            logger.info(f"Tagged {image_ref} → {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)

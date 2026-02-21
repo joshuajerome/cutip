@@ -2,7 +2,13 @@ name: E2E — Docker
 
 on:
   push:
-    branches: ["main"]
+    # ── Branch triggers ─────────────────────────────────────────────────────
+    # To add more branch patterns in the future, append them to this list.
+    # Glob syntax is supported (e.g. "release/**", "feature/**").
+    # ────────────────────────────────────────────────────────────────────────
+    branches:
+      - main
+      - "gh/**"        # workflow / CI / runner branches
   pull_request:
 
 jobs:
@@ -39,13 +45,17 @@ jobs:
 
       # ── Platform: macOS ──────────────────────────────────────────────────
       # Docker Desktop is not available on macOS runners; use Colima instead.
+      # Force --vm-type qemu: GitHub macOS runners do not expose Apple's
+      # Virtualization Framework (VZ/vfkit) to nested processes, so the
+      # default VZ driver fails with "vfkit exited unexpectedly". QEMU uses
+      # macOS Hypervisor.framework (HVF) directly and works reliably in CI.
       - name: Install Docker via Colima (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install colima docker
 
-          # Start Colima with a lightweight VM
-          colima start --cpu 2 --memory 4 --disk 20
+          # Start Colima with QEMU (HVF-accelerated, no Apple VZ needed)
+          colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
 
           # Verify the daemon is reachable
           docker version

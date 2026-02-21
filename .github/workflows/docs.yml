@@ -1,0 +1,46 @@
+name: Docs — Build & Deploy
+
+on:
+  push:
+    # ── Branch triggers ─────────────────────────────────────────────────────
+    # To add more branch patterns in the future, append them to this list.
+    # Glob syntax is supported (e.g. "release/**", "docs/**").
+    # ────────────────────────────────────────────────────────────────────────
+    branches:
+      - main
+      - "gh/**"        # workflow / CI / docs branches
+  pull_request:
+
+# Required for mkdocs gh-deploy to push to the gh-pages branch
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    name: MkDocs · Build${{ github.ref == 'refs/heads/main' && ' & Deploy' || '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history is required for mkdocs gh-deploy to correctly
+          # determine which commits changed which pages.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install docs dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docs]"
+
+      - name: Build docs (strict — fails on any warning)
+        run: uv run mkdocs build --strict
+
+      # Deploy only on push to main — not on PRs or gh/ branches
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: uv run mkdocs gh-deploy --force

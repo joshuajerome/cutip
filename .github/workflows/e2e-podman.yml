@@ -2,7 +2,13 @@ name: E2E — Podman
 
 on:
   push:
-    branches: ["main"]
+    # ── Branch triggers ─────────────────────────────────────────────────────
+    # To add more branch patterns in the future, append them to this list.
+    # Glob syntax is supported (e.g. "release/**", "feature/**").
+    # ────────────────────────────────────────────────────────────────────────
+    branches:
+      - main
+      - "gh/**"        # workflow / CI / runner branches
   pull_request:
 
 jobs:
@@ -45,13 +51,19 @@ jobs:
           podman version
 
       # ── Platform: macOS ──────────────────────────────────────────────────
+      # Force CONTAINERS_MACHINE_PROVIDER=qemu: GitHub macOS runners do not
+      # expose Apple's Virtualization Framework (VZ/vfkit) to nested processes,
+      # so the Podman 5.x default VZ provider fails with "vfkit exited
+      # unexpectedly". QEMU uses macOS Hypervisor.framework (HVF) directly
+      # and works reliably in CI.
       - name: Install & start Podman (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install podman
+          brew install podman qemu
 
-          # Init + start a Podman VM (--now = init and start in one step)
-          podman machine init --cpus 2 --memory 2048 --disk-size 10 --now
+          # Init + start a Podman machine using the QEMU provider
+          CONTAINERS_MACHINE_PROVIDER=qemu \
+            podman machine init --cpus 2 --memory 2048 --disk-size 10 --now
 
           # Resolve the socket path and export it
           SOCK=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
@@ -80,8 +92,9 @@ jobs:
 
           echo "CUTIP_BACKEND_NAME=podman" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          # --client: print client binary version only, no socket connection needed yet
-          & "$podmanPath\podman.exe" version --client
+          # Print the client binary version only (no --client flag; use --format instead).
+          # The socket/machine is not up yet so we can't do a full `podman version`.
+          & "$podmanPath\podman.exe" --version
 
       - name: Start Podman machine (Windows)
         if: runner.os == 'Windows'

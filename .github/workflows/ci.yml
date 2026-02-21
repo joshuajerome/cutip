@@ -2,7 +2,13 @@ name: CI — Build & Test
 
 on:
   push:
-    branches: ["main", "dev"]
+    # ── Branch triggers ─────────────────────────────────────────────────────
+    # To add more branch patterns in the future, append them to this list.
+    # Glob syntax is supported (e.g. "release/**", "feature/**").
+    # ────────────────────────────────────────────────────────────────────────
+    branches:
+      - main
+      - "gh/**"        # workflow / CI / runner branches
   pull_request:
 
 jobs:
