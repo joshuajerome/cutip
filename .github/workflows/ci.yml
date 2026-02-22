@@ -1,16 +1,15 @@
 name: CI — Build & Test
 
 on:
+  # Runs on every pull request — validates the branch before merge.
+  pull_request:
+
+  # Runs on direct commits to main (e.g. merge, hotfix, squash-merge).
+  # Feature branches are covered by pull_request above, so they are
+  # intentionally omitted here to avoid double-running on open PRs.
   push:
-    # ── Branch triggers ─────────────────────────────────────────────────────
-    # To add more branch patterns in the future, append them to this list.
-    # Glob syntax is supported (e.g. "release/**", "feature/**").
-    # ────────────────────────────────────────────────────────────────────────
     branches:
       - main
-      - "gh/**"        # workflow / CI / runner branches
-      - "dev/**"
-  pull_request:
 
 jobs:
   build-and-test:
