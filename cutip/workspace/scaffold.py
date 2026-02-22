@@ -167,7 +167,7 @@ spec:
   # ImageCard, NetworkCard, VolumeCard, …) before workflow.py is invoked.
   # The resolved objects are available via ctx.resolved_cards.
   units:
-    - ref: hello
+    - ref: units/hello
 
   # ── Workflow ───────────────────────────────────────────────────────────────
   # Path to the workflow module, relative to this group's directory.
