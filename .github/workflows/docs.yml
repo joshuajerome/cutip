@@ -40,7 +40,13 @@ jobs:
       - name: Build docs (strict — fails on any warning)
         run: uv run mkdocs build --strict
 
-      # Deploy only on push to main — not on PRs or gh/ branches
+      # Deploy only on push to main AND when the repo is public.
+      # GitHub Pages is not available for private repos on the Free plan.
+      # Remove the `!github.event.repository.private` condition once the
+      # repo is made public or the account is upgraded to GitHub Pro.
       - name: Deploy to GitHub Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          !github.event.repository.private
         run: uv run mkdocs gh-deploy --force

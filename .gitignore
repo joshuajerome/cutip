@@ -33,6 +33,11 @@ build/
 coverage.xml
 htmlcov/
 
+# ── MkDocs ────────────────────────────────────────────────────────────────────
+# site/ is a build artifact produced by `mkdocs build`.
+# It is deployed automatically by the docs workflow; never commit it.
+site/
+
 # ── IDE & Editor ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/

@@ -19,7 +19,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS is intentionally excluded: GitHub's shared macOS runners do not
+        # grant the com.apple.vm.hypervisor entitlement required by Apple's
+        # Virtualization Framework (VZ/vfkit).  Both Colima and Docker Desktop
+        # rely on VZ on Apple Silicon, so any VM-based Docker setup fails with
+        # "vfkit exited unexpectedly".  Run macOS E2E locally or on a
+        # self-hosted macOS runner where the entitlement is available.
+        os: [ubuntu-latest, windows-latest]
+
+    # Force UTF-8 for all Python I/O so that Unicode log output (arrows,
+    # checkmarks, etc.) does not crash the cp1252 console on Windows.
+    env:
+      PYTHONUTF8: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -41,26 +52,6 @@ jobs:
         run: |
           docker version
           docker info
-          echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
-
-      # ── Platform: macOS ──────────────────────────────────────────────────
-      # Docker Desktop is not available on macOS runners; use Colima instead.
-      # Colima's default VM type on Apple Silicon is VZ (Apple Virtualization
-      # Framework via vfkit) — the same stack a developer uses when they run
-      # `brew install colima && colima start`.  We don't override --vm-type or
-      # specify --disk so that resource limits stay within runner defaults.
-      - name: Install Docker via Colima (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install colima docker
-
-          # Match the default developer invocation; let Colima choose VM type.
-          colima start --cpu 2 --memory 4
-
-          # Verify the daemon is reachable
-          docker version
-          docker info
-
           echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
 
       # ── Platform: Windows ────────────────────────────────────────────────

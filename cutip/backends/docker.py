@@ -69,33 +69,28 @@ class DockerBackend(CutipBackend):
             pass
 
         logger.info(f"Pulling image: {image_ref}")
-        # docker-py's images.pull() pulls the image and then does a
-        # GET /images/{ref}/json to return an Image object.  On Windows,
-        # Docker normalises "docker.io/library/alpine:3.20" → "alpine:3.20",
-        # so the post-pull inspect with the full registry URL returns 404.
-        # We catch that and locate the image by its short name instead.
-        image = None
-        try:
-            image = self._client.images.pull(card.spec.image, tag=card.spec.tag)
-        except Exception:
-            # The pull may have succeeded even though the post-pull inspect
-            # failed (Windows registry-name normalisation).  Try the short name.
-            short_ref = f"{card.spec.image.split('/')[-1]}:{card.spec.tag}"
-            try:
-                image = self._client.images.get(short_ref)
-            except Exception:
-                pass  # also try the full ref below
+        # docker-py's images.pull() does a GET /images/{ref}/json after the
+        # pull to return an Image object.  On Windows, Docker stores official
+        # Hub images under the short name ("alpine:3.20") rather than the full
+        # registry URL ("docker.io/library/alpine:3.20"), so the post-pull
+        # inspect of the full URL returns 404.
+        #
+        # Fix: strip the "docker.io/library/" prefix before calling pull() so
+        # that docker-py inspects the same short name that Docker stored — this
+        # is cross-platform safe because Docker normalises "alpine" back to the
+        # full registry URL when it pulls.
+        pull_repo = card.spec.image
+        if pull_repo.startswith("docker.io/library/"):
+            pull_repo = pull_repo[len("docker.io/library/"):]
 
-        if image is None:
-            # Last-ditch attempt using the full ref (raises if truly not found)
-            image = self._client.images.get(image_ref)
+        image = self._client.images.pull(pull_repo, tag=card.spec.tag)
 
         # Tag the pulled image with the card's canonical alias so that
         # create_container can reference it by name regardless of registry path.
         if alias not in (image.tags or []):
             name, tag = alias.rsplit(":", 1)
             image.tag(name, tag)
-            logger.info(f"Tagged {image_ref} → {alias}")
+            logger.info(f"Tagged {image_ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)

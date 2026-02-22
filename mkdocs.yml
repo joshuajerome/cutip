@@ -2,9 +2,9 @@ site_name: CUTIP
 site_description: >
   Container Unit Templates in Python — a deterministic framework for defining,
   validating, and orchestrating container environments.
-site_url: https://your-org.github.io/cutip
-repo_url: https://github.com/your-org/cutip
-repo_name: your-org/cutip
+site_url: https://joshuajerome.github.io/cutip
+repo_url: https://github.com/joshuajerome/cutip
+repo_name: joshuajerome/cutip
 edit_uri: edit/main/docs/
 
 docs_dir: docs

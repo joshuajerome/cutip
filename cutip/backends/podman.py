@@ -257,7 +257,7 @@ class PodmanBackend(CutipBackend):
         if alias != image_ref:
             name, tag = alias.rsplit(":", 1)
             image.tag(name, tag)
-            logger.info(f"Tagged {image_ref} → {alias}")
+            logger.info(f"Tagged {image_ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)

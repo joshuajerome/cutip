@@ -19,7 +19,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS is intentionally excluded: GitHub's shared macOS runners do not
+        # grant the com.apple.vm.hypervisor entitlement required by Apple's
+        # Virtualization Framework (VZ/vfkit).  Podman machine on Apple Silicon
+        # uses VZ by default and fails with "vfkit exited unexpectedly" when
+        # that entitlement is missing.  Run macOS E2E locally or on a
+        # self-hosted macOS runner where the entitlement is available.
+        os: [ubuntu-latest, windows-latest]
+
+    # Force UTF-8 for all Python I/O so that Unicode log output (arrows,
+    # checkmarks, etc.) does not crash the cp1252 console on Windows.
+    env:
+      PYTHONUTF8: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -46,27 +57,6 @@ jobs:
 
           # Export CONTAINER_HOST so connect_local() finds the socket
           echo "CONTAINER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-          echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
-
-          podman version
-
-      # ── Platform: macOS ──────────────────────────────────────────────────
-      # Podman 5.x uses Apple's Virtualization Framework (VZ via vfkit) as its
-      # default machine provider on Apple Silicon — the same stack a developer
-      # uses when they run `brew install podman && podman machine init --now`.
-      # We avoid overriding --cpus/--memory/--disk-size so that resource limits
-      # stay within runner defaults and don't starve vfkit.
-      - name: Install & start Podman (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install podman
-
-          # Match the default developer invocation; let Podman choose defaults.
-          podman machine init --now
-
-          # Resolve the socket path and export it
-          SOCK=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
-          echo "CONTAINER_HOST=unix://${SOCK}" >> "$GITHUB_ENV"
           echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
 
           podman version
@@ -112,9 +102,9 @@ jobs:
         run: uv run cutip validate --path tests/e2e/hello-world
 
       # ── Run end-to-end test ──────────────────────────────────────────────
-      # Linux / macOS: use --local (direct Unix socket via CONTAINER_HOST).
-      - name: Run E2E group (Podman · Linux/macOS)
-        if: runner.os != 'Windows'
+      # Ubuntu: use --local (direct Unix socket via CONTAINER_HOST).
+      - name: Run E2E group (Podman · Ubuntu)
+        if: runner.os == 'Linux'
         run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
 
       # Windows: podman-py does not support named pipes, so we use the

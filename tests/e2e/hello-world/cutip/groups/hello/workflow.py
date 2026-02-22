@@ -86,8 +86,8 @@ def main(ctx: CutipContext) -> None:
         f"Sentinel 'CUTIP_OK' not found in container logs.\n"
         f"Got:\n{logs}"
     )
-    print("[hello-world] ✓ CUTIP_OK confirmed in logs")
+    print("[hello-world] [OK] CUTIP_OK confirmed in logs")
 
     # ── Cleanup ────────────────────────────────────────────────────────────
     runtime.remove_container(container_name)
-    print("[hello-world] container removed — E2E test PASSED ✓")
+    print("[hello-world] container removed - E2E test PASSED")
