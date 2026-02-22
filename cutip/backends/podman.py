@@ -122,7 +122,17 @@ def _local_socket_url() -> str:
         return env
 
     if sys.platform == "win32":
-        return "npipe:////./pipe/podman-machine-default"
+        # podman-py does not support Windows named pipes (npipe:// scheme).
+        # On Windows, use PodmanBackend.connect() instead — it opens an SSH
+        # tunnel to the Podman machine and connects via tcp://localhost:<port>,
+        # which podman-py handles correctly.
+        raise CutipError(
+            "connect_local() (--local) is not supported on Windows because "
+            "podman-py does not speak the Windows named-pipe protocol.\n"
+            "Use the SSH-tunnel mode instead:\n"
+            "  cutip run <group> --backend podman   (no --local flag)\n"
+            "Ensure 'podman machine start' has been run first."
+        )
 
     if sys.platform == "darwin":
         # Ask the running machine for its socket path
@@ -227,13 +237,27 @@ class PodmanBackend(CutipBackend):
     # ── CutipBackend interface ───────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
+        # The alias is how the workflow (and create_container) will reference this image:
+        # {card.metadata.name}:{card.spec.tag}  (e.g. "hello:3.20").
+        # This mirrors how build_image tags images, making pull/build symmetric.
+        alias = f"{card.metadata.name}:{card.spec.tag}"
         image_ref = f"{card.spec.image}:{card.spec.tag}"
-        existing = [img for img in self._client.images.list() if image_ref in (img.tags or [])]
-        if existing:
-            logger.info(f"Image already present: {image_ref}")
+
+        # Idempotent: if alias already exists, nothing to do.
+        all_tags = {t for img in self._client.images.list() for t in (img.tags or [])}
+        if alias in all_tags:
+            logger.info(f"Image already present as {alias}")
             return
+
         logger.info(f"Pulling image: {image_ref}")
-        self._client.images.pull(card.spec.image, tag=card.spec.tag)
+        image = self._client.images.pull(card.spec.image, tag=card.spec.tag)
+
+        # Tag the pulled image with the card's canonical alias so that
+        # create_container can reference it by name regardless of registry path.
+        if alias != image_ref:
+            name, tag = alias.rsplit(":", 1)
+            image.tag(name, tag)
+            logger.info(f"Tagged {image_ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)

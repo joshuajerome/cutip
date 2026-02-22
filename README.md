@@ -1,428 +1,148 @@
 # CUTIP
 
-[![Static Badge](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/downloads/)
-[![Static Badge](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
-[![Static Badge](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
-[![Static Badge](https://img.shields.io/badge/runtime-podman%20%7C%20docker-e44c11)](https://podman.io/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/downloads/)
+[![Pydantic v2](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
+[![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
+[![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-e44c11)](https://podman.io/)
+[![CI](https://github.com/your-org/cutip/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/cutip/actions/workflows/ci.yml)
 
-<!-- TOC -->
-- [CUTIP](#cutip)
-  - [📚 About](#-about)
-  - [🧱 Core Concepts](#-core-concepts)
-    - [Cards](#cards)
-    - [Units](#units)
-    - [Groups](#groups)
-  - [✅ Prerequisites](#-prerequisites)
-  - [📦 Installation](#-installation)
-  - [🗂️ Workspace Layout](#️-workspace-layout)
-  - [🚀 Quick Start](#-quick-start)
-  - [🖥️ CLI Reference](#️-cli-reference)
-  - [📄 Card Reference](#-card-reference)
-    - [ImageCard](#imagecard)
-    - [ContainerCard](#containercard)
-    - [NetworkCard](#networkcard)
-    - [VolumeCard](#volumecard)
-  - [🔗 Unit & Group Reference](#-unit--group-reference)
-    - [Unit](#unit)
-    - [Group](#group)
-  - [🐍 Workflow Contract](#-workflow-contract)
-  - [🧪 Testing](#-testing)
-<!-- /TOC -->
+**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
 
-## 📚 About
+CUTIP is not a wrapper around `docker-compose`. It is an opinionated engineering layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function.
 
-**CUTIP** (Container Unit Templates in Python) is a deterministic Python framework for defining and orchestrating container environments using structured YAML artifacts and Python workflows.
+---
 
-Container infrastructure is organized into three composable levels:
+## The Model
+
+Container infrastructure is organized into four composable layers:
 
 ```
 ImageCard   ─┐
-NetworkCard ─┤─▶  ContainerCard  ─▶  Unit  ─▶  Group  ─▶  workflow.py
+NetworkCard ─┤──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
 VolumeCard  ─┘
 ```
 
-CUTIP provides:
-
-* A **declarative layer** — Cards, Units, and Groups defined as versioned YAML
-* A **validation layer** — Pydantic v2 schema enforcement + semantic graph checking
-* A **workflow layer** — Python orchestration via `main(ctx: CutipContext)`
-* An **execution layer** — Podman and Docker backends (Docker is a stub; Podman is fully implemented)
-
-## 🧱 Core Concepts
-
-### Cards
-
-Cards are the smallest building blocks. Each card represents one atomic container component.
-
-| Kind | What it defines |
+| Layer | What it represents |
 |---|---|
-| `ImageCard` | How an image is pulled or built |
-| `ContainerCard` | Runtime configuration (refs to an image and a network) |
-| `NetworkCard` | Network driver, subnet, and gateway |
-| `VolumeCard` | Named volume with driver and options |
+| **Card** | One atomic container resource (image, network, volume, or container config) |
+| **Unit** | One running container instance — a ContainerCard reference |
+| **Group** | A collection of Units + a Python `workflow.py` — the executable artifact |
+| **Workflow** | A plain Python function `main(ctx: CutipContext)` — full control, no magic |
 
-Cards live under `cutip/cards/<kind>/`.
+Every artifact is a versioned YAML file. Every ref is validated before any backend is contacted.
 
-### Units
+---
 
-A **Unit** composes the cards needed for one running container instance. It holds a single `containerRef` that points to a `ContainerCard`, which transitively references an `ImageCard` and a `NetworkCard`.
-
-Units live under `cutip/units/`.
-
-### Groups
-
-A **Group** is a collection of Units plus a Python `workflow.py`. Groups are the top-level executable artifact — `cutip run` operates on a group.
-
-Groups live under `cutip/groups/<group-name>/`.
-
-## ✅ Prerequisites
-
-* **Python 3.11+**
-* **[uv](https://github.com/astral-sh/uv)** — package manager
-* **[Podman](https://podman.io/)** _(required for `cutip run` with the Podman backend)_
-  * Podman machine must be initialized and running (`podman machine start`)
-  * A default connection must be present (`podman system connection ls`)
-
-> [!NOTE]
-> CUTIP itself installs without Podman. The `podman` SDK is an optional extra (`uv add "cutip[podman]"`). You can use `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` without any container runtime installed.
-
-## 📦 Installation
-
-1. Clone the repository and navigate into it:
-
-    ```shell
-    git clone <repo-url> cutip
-    cd cutip
-    ```
-
-2. Create a virtual environment and install dependencies:
-
-    ```shell
-    uv venv
-    uv pip install -e .
-    ```
-
-3. _(Optional)_ Install the Podman backend extra:
-
-    ```shell
-    uv add "cutip[podman]"
-    ```
-
-4. Verify the CLI is available:
-
-    ```shell
-    cutip --help
-    ```
-
-## 🗂️ Workspace Layout
-
-After running `cutip init` inside a project, the following structure is created:
-
-```
-cutip.yaml              ← project metadata (name, version)
-cutip/                  ← version-controlled artifacts
-│
-├── cards/
-│   ├── images/         ← ImageCard YAMLs
-│   ├── containers/     ← ContainerCard YAMLs
-│   ├── networks/       ← NetworkCard YAMLs
-│   └── volumes/        ← VolumeCard YAMLs
-│
-├── units/              ← Unit YAMLs
-│
-└── groups/
-    └── <group-name>/
-        ├── group.yaml  ← Group YAML
-        └── workflow.py ← Python workflow
-
-.cutip/                 ← runtime state (add to .gitignore)
-├── logs/
-├── cache/
-├── runs/
-└── locks/
-```
-
-> [!IMPORTANT]
-> Add `.cutip/` to your `.gitignore`. It contains runtime-only state (logs, locks, run artifacts) and should not be committed.
-
-## 🚀 Quick Start
-
-**1. Initialize CUTIP in your project:**
+## Install
 
 ```shell
-cutip init
+git clone <repo-url> cutip && cd cutip
+uv venv && uv pip install -e .
+
+# Runtime backend (choose one or both)
+uv pip install -e ".[podman]"
+uv pip install -e ".[docker]"
+
+cutip --help
 ```
 
-**2. Define an image card** (`cutip/cards/images/my-image.yaml`):
+> [!NOTE]
+> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires a backend.
+
+---
+
+## Quick Look
 
 ```yaml
+# cutip/cards/images/app.yaml
 apiVersion: cutip/v1
 kind: ImageCard
 metadata:
-  name: my-image
+  name: app
 spec:
-  source: pull
-  image: ubuntu
-  tag: "22.04"
+  source: build
+  context: containers/dockerfiles
+  dockerfile: app.dockerfile
+  tag: latest
 ```
 
-**3. Define a network card** (`cutip/cards/networks/my-network.yaml`):
-
 ```yaml
-apiVersion: cutip/v1
-kind: NetworkCard
-metadata:
-  name: my-network
-spec:
-  driver: bridge
-  subnet: "10.89.0.0/16"
-  gateway: "10.89.0.1"
-```
-
-**4. Define a container card** (`cutip/cards/containers/my-container.yaml`):
-
-```yaml
+# cutip/cards/containers/app.yaml
 apiVersion: cutip/v1
 kind: ContainerCard
 metadata:
-  name: my-container
+  name: app
 spec:
   imageRef:
-    ref: images/my-image
+    ref: images/app
   networkRef:
-    ref: networks/my-network
-  command: "tail -f /dev/null"
+    ref: networks/dev
+  environment:
+    ENV: production
+  workdir: /app
 ```
-
-**5. Define a unit** (`cutip/units/my-unit.yaml`):
-
-```yaml
-apiVersion: cutip/v1
-kind: Unit
-metadata:
-  name: my-unit
-spec:
-  containerRef:
-    ref: containers/my-container
-```
-
-**6. Define a group** (`cutip/groups/infra/group.yaml`):
-
-```yaml
-apiVersion: cutip/v1
-kind: Group
-metadata:
-  name: infra
-spec:
-  units:
-    - ref: units/my-unit
-  workflow: workflow.py
-```
-
-**7. Write a workflow** (`cutip/groups/infra/workflow.py`):
 
 ```python
+# cutip/groups/dev/workflow.py
 def main(ctx):
-    print(f"Deploying: {ctx.group.name}")
-    for name, unit in ctx.resolved_units.items():
-        ctx.runtime.prepare_unit(ctx.resolved_cards[unit.spec.containerRef.ref])
-```
+    img  = ctx.resolved_cards["images/app"]
+    cc   = ctx.resolved_cards["containers/app"]
+    net  = ctx.resolved_cards["networks/dev"]
 
-**8. Validate, inspect, and run:**
+    ctx.runtime.build_image(img, project_root=ctx.project_root)
+    ctx.runtime.ensure_network(net)
+    ctx.runtime.create_container(cc, image_name=f"{img.name}:{img.spec.tag}")
+    ctx.runtime.start_container(cc.name)
+```
 
 ```shell
 cutip validate
-cutip plan infra
-cutip run infra
+cutip plan dev
+cutip run dev --backend podman
 ```
 
-## 🖥️ CLI Reference
+---
+
+## CLI
 
 | Command | Description |
 |---|---|
-| `cutip init [--path]` | Initialize a CUTIP workspace (creates `cutip/`, `.cutip/`, `cutip.yaml`) |
-| `cutip tree [--path]` | Print a tree of all discovered cards, units, and groups |
-| `cutip validate [--path]` | Validate the full artifact graph (schema + ref resolution) |
-| `cutip show card <ref>` | Inspect a card (e.g. `cutip show card containers/my-container`) |
-| `cutip show unit <name>` | Show a unit and its fully resolved card graph |
-| `cutip show group <name>` | Show a group, its units, and workflow resolution status |
-| `cutip plan <group>` | Dry-run: print the execution table without starting anything |
-| `cutip run <group> [--backend podman\|docker]` | Validate → connect backend → execute workflow |
+| `cutip init [--path]` | Scaffold workspace directories and `cutip.yaml` |
+| `cutip tree [--path]` | Print discovered cards, units, and groups |
+| `cutip validate [--path]` | Full schema + graph validation (no backend required) |
+| `cutip show card <ref>` | Dump a resolved card as YAML |
+| `cutip show unit <name>` | Show a unit's resolved card graph |
+| `cutip show group <name>` | Show a group's units and workflow status |
+| `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
+| `cutip run <group> [--backend podman\|docker] [--local]` | Validate → connect → execute workflow |
 
-### Example: `cutip tree`
+Full flag reference: [`docs/reference/cli.md`](docs/reference/cli.md)
 
-```
-Project: /my/project
-├── Cards
-│   ├── containers/my-container
-│   ├── images/my-image
-│   └── networks/my-network
-├── Units
-│   └── my-unit
-└── Groups
-    └── infra
-```
+---
 
-### Example: `cutip show unit my-unit`
+## Documentation
 
-```
-Unit: my-unit
-└── ContainerCard: my-container
-    ├── ImageCard:   my-image
-    └── NetworkCard: my-network
-```
+| Section | Contents |
+|---|---|
+| [Getting Started](docs/getting-started/installation.md) | Installation, quickstart, workspace layout |
+| [Concepts](docs/concepts/overview.md) | The 4-layer model, cards, units, groups, graph resolution |
+| [Reference](docs/reference/cli.md) | CLI flags, card schemas, workflow contract, exceptions |
+| [Guides — Runtimes](docs/guides/runtimes/podman.md) | Podman (SSH tunnel + local), Docker, per-platform setup |
+| [Guides — Workflows](docs/guides/workflows/writing-workflows.md) | Patterns, runtime injection, plan-safe guards |
+| [Guides — CI/CD](docs/guides/ci-cd/github-actions.md) | GitHub Actions (build, Podman E2E, Docker E2E) |
+| [Architecture](docs/architecture/design-decisions.md) | Design decisions, backend interface, registry internals |
 
-### Example: `cutip validate`
+---
 
-```
-Validation OK
-```
+## Project Status
 
-Or, on failure:
+| Backend | Status |
+|---|---|
+| Podman | ✅ Fully implemented (SSH tunnel + local socket) |
+| Docker | ✅ Implemented (local daemon via docker-py) |
 
-```
-[UnitResolve] my-unit: Card 'containers/bad-ref' not found in registry
-[WorkflowPath] infra: workflow file not found: '.../workflow.py'
+---
 
-2 error(s) found.
-```
+## License
 
-## 📄 Card Reference
-
-All cards share the same envelope:
-
-```yaml
-apiVersion: cutip/v1      # required, must be exactly "cutip/v1"
-kind: <CardKind>          # required
-metadata:
-  name: <string>          # required, used as the registry key
-  labels: {}              # optional
-spec:
-  ...
-```
-
-### ImageCard
-
-```yaml
-spec:
-  source: pull | build    # required
-  image: <str>            # required if source: pull  (e.g. "ubuntu")
-  tag: <str>              # default: "latest"
-  context: <path>         # required if source: build (path to Dockerfile dir)
-  dockerfile: <str>       # default: "Dockerfile"
-  build_args: {}          # key-value pairs passed to docker/podman build
-```
-
-### ContainerCard
-
-```yaml
-spec:
-  imageRef:
-    ref: images/<name>      # required
-  networkRef:
-    ref: networks/<name>    # required
-  command: <str>            # optional shell command
-  hostname: <str>           # optional
-  privileged: false
-  ports: {}                 # { "8080/tcp": "8080" }
-  environment: {}           # { "MY_VAR": "value" }
-  mounts:
-    - type: bind | volume
-      source: <path>
-      target: <path>
-      read_only: false
-  cap_add: []
-  security_opts: []
-  restart_policy: <str>     # e.g. "always"
-```
-
-### NetworkCard
-
-```yaml
-spec:
-  driver: bridge            # default: "bridge"
-  subnet: "10.89.0.0/16"   # required, must be valid CIDR
-  gateway: "10.89.0.1"     # optional, must be within subnet
-```
-
-### VolumeCard
-
-```yaml
-spec:
-  driver: local             # default: "local"
-  labels: {}
-  options: {}
-```
-
-## 🔗 Unit & Group Reference
-
-### Unit
-
-```yaml
-apiVersion: cutip/v1
-kind: Unit
-metadata:
-  name: <name>
-spec:
-  containerRef:
-    ref: containers/<name>    # must resolve to a ContainerCard
-```
-
-### Group
-
-```yaml
-apiVersion: cutip/v1
-kind: Group
-metadata:
-  name: <name>
-spec:
-  units:
-    - ref: units/<name>       # one or more unit refs
-  workflow: workflow.py       # relative path to workflow, from this file's directory
-```
-
-## 🐍 Workflow Contract
-
-CUTIP dynamically imports a group's `workflow.py` and calls `main(ctx)`. The `ctx` argument is a `CutipContext` dataclass:
-
-```python
-@dataclass
-class CutipContext:
-    group: Group                              # the Group being executed
-    resolved_units: dict[str, Unit]           # unit name → Unit
-    resolved_cards: dict[str, CutipBaseModel] # card ref → Card
-    registry: CutipRegistry                   # full workspace registry
-    project_root: Path                        # absolute path to project root
-    runtime: CutipBackend | None              # backend handle (None in plan/dry-run)
-```
-
-A minimal workflow:
-
-```python
-def main(ctx):
-    for name, unit in ctx.resolved_units.items():
-        container_ref = unit.spec.containerRef.ref
-        container_card = ctx.resolved_cards[container_ref]
-        ctx.runtime.create_container(container_card)
-        ctx.runtime.start_container(container_card.name)
-```
-
-> [!TIP]
-> `ctx.runtime` is `None` when invoked via `cutip plan`. Guard against this if you want your workflow to be plan-safe:
-> ```python
-> def main(ctx):
->     if ctx.runtime is None:
->         print("Dry-run mode — skipping container operations")
->         return
->     ...
-> ```
-
-## 🧪 Testing
-
-Run the test suite with `uv`:
-
-```shell
-uv run pytest
-```
-
-Tests live under `tests/` and cover model validation, ref resolution, and graph validation. Fixture YAML files are under `tests/fixtures/`.
+[MIT](LICENSE)

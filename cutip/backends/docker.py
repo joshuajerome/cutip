@@ -54,15 +54,68 @@ class DockerBackend(CutipBackend):
     # ── CutipBackend interface ───────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
+        # The alias is how the workflow (and create_container) will reference this image:
+        # {card.metadata.name}:{card.spec.tag}  (e.g. "hello:3.20").
+        # This mirrors how build_image tags images, making pull/build symmetric.
+        alias = f"{card.metadata.name}:{card.spec.tag}"
         image_ref = f"{card.spec.image}:{card.spec.tag}"
+
+        # Idempotent: if alias already exists, nothing to do.
         try:
-            self._client.images.get(image_ref)
-            logger.info(f"Image already present: {image_ref}")
+            self._client.images.get(alias)
+            logger.info(f"Image already present as {alias}")
             return
         except Exception:
             pass
+
         logger.info(f"Pulling image: {image_ref}")
-        self._client.images.pull(card.spec.image, tag=card.spec.tag)
+        # docker-py's high-level images.pull() pulls the image and then calls
+        # GET /images/{ref}/json to build its return value.  On Windows, Docker
+        # may store official Hub images under a normalised short name that
+        # differs from what docker-py uses for the inspect, causing a 404 even
+        # when the pull itself succeeded.
+        #
+        # We use the low-level api.pull() with streaming instead so that we:
+        #   (a) explicitly consume the full response and surface any error lines,
+        #   (b) avoid the unreliable post-pull inspect entirely.
+        #
+        # Strip "docker.io/library/" so that the pull ref and the local image
+        # name are consistent across platforms.
+        pull_repo = card.spec.image
+        if pull_repo.startswith("docker.io/library/"):
+            pull_repo = pull_repo[len("docker.io/library/"):]
+
+        # Consume the streaming pull response; raise on embedded error lines.
+        for line in self._client.api.pull(
+            pull_repo, tag=card.spec.tag, stream=True, decode=True
+        ):
+            if isinstance(line, dict) and "error" in line:
+                raise CutipError(
+                    f"Pull failed for {image_ref}: {line['error']}"
+                )
+
+        # Locate the image object — try the short name first (Windows),
+        # then the full registry ref (Linux/macOS).
+        image = None
+        for ref in (f"{pull_repo}:{card.spec.tag}", image_ref):
+            try:
+                image = self._client.images.get(ref)
+                break
+            except Exception:
+                continue
+
+        if image is None:
+            raise CutipError(
+                f"Pulled {image_ref} but could not find it locally "
+                f"(tried: {pull_repo}:{card.spec.tag}, {image_ref})."
+            )
+
+        # Tag with the card's canonical alias so create_container can reference
+        # the image by card name regardless of how Docker stored it.
+        if alias not in (image.tags or []):
+            name, tag = alias.rsplit(":", 1)
+            image.tag(name, tag)
+            logger.info(f"Tagged {image_ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)

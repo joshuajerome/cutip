@@ -1,0 +1,111 @@
+site_name: CUTIP
+site_description: >
+  Container Unit Templates in Python — a deterministic framework for defining,
+  validating, and orchestrating container environments.
+site_url: https://joshuajerome.github.io/cutip
+repo_url: https://github.com/joshuajerome/cutip
+repo_name: joshuajerome/cutip
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+  features:
+    - navigation.tabs           # top sections render as header tabs
+    - navigation.sections       # subsections shown as groups in the sidebar
+    - navigation.expand         # expand all sections by default
+    - navigation.top            # back-to-top button
+    - toc.follow                # TOC follows scroll position
+    - search.suggest            # search autocomplete
+    - search.highlight          # highlight terms in search results
+    - content.code.copy         # copy button on all code blocks
+    - content.code.annotate     # inline code annotations
+    - content.action.edit       # "Edit this page" link (uses edit_uri above)
+
+plugins:
+  - search
+  - callouts   # converts > [!NOTE] / > [!TIP] / > [!IMPORTANT] → Material admonitions
+
+markdown_extensions:
+  # Code highlighting
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+
+  # File inclusion — lets docs/index.md pull in root README.md
+  - pymdownx.snippets:
+      base_path: ["."]         # search from repo root, so --8<-- "README.md" works
+
+  # Fenced code blocks (must come after highlight)
+  - pymdownx.superfences
+
+  # Collapsible details / admonitions
+  - admonition
+  - pymdownx.details
+
+  # Tables, task lists, footnotes
+  - tables
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+  # TOC with permalink anchors
+  - toc:
+      permalink: true
+      title: On this page
+
+# ── Navigation ──────────────────────────────────────────────────────────────
+# Paths are relative to docs_dir (docs/).
+nav:
+  - Home: index.md
+
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+    - Workspace Layout: getting-started/workspace-layout.md
+
+  - Concepts:
+    - Overview: concepts/overview.md
+    - Cards: concepts/cards.md
+    - Units: concepts/units.md
+    - Groups: concepts/groups.md
+    - Graph Resolution: concepts/graph-resolution.md
+
+  - Reference:
+    - CLI: reference/cli.md
+    - Workflow Contract: reference/workflow-contract.md
+    - Exceptions: reference/exceptions.md
+    - Cards:
+      - ImageCard: reference/cards/image-card.md
+      - ContainerCard: reference/cards/container-card.md
+      - NetworkCard: reference/cards/network-card.md
+      - VolumeCard: reference/cards/volume-card.md
+
+  - Guides:
+    - Runtimes:
+      - Podman: guides/runtimes/podman.md
+      - Docker: guides/runtimes/docker.md
+    - Workflows:
+      - Writing Workflows: guides/workflows/writing-workflows.md
+      - Plan-Safe Workflows: guides/workflows/plan-safe.md
+    - CI/CD:
+      - GitHub Actions: guides/ci-cd/github-actions.md
+
+  - Architecture:
+    - Design Decisions: architecture/design-decisions.md
+    - Backend Interface: architecture/backend-interface.md

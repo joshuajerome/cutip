@@ -2,7 +2,13 @@ name: E2E — Docker
 
 on:
   push:
-    branches: ["main"]
+    # ── Branch triggers ─────────────────────────────────────────────────────
+    # To add more branch patterns in the future, append them to this list.
+    # Glob syntax is supported (e.g. "release/**", "feature/**").
+    # ────────────────────────────────────────────────────────────────────────
+    branches:
+      - main
+      - "gh/**"        # workflow / CI / runner branches
   pull_request:
 
 jobs:
@@ -13,7 +19,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS excluded: GitHub shared macOS runners lack the
+        # com.apple.vm.hypervisor entitlement that VZ/vfkit requires; Colima
+        # fails with "vfkit exited unexpectedly".  Run locally or on a
+        # self-hosted macOS runner.
+        #
+        # Windows excluded: GitHub windows-latest (Windows Server 2025) runs
+        # Docker Engine in Windows containers mode by default.  Linux images
+        # like alpine have no Windows manifest variant, so pulls fail with
+        # "no matching manifest for windows/amd64".  Switching to Linux
+        # containers requires Docker Desktop's DockerCli.exe, which is absent
+        # on the server runner image.  The Ubuntu job fully validates the Docker
+        # backend; Windows-specific code paths are covered by the Podman E2E.
+        os: [ubuntu-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,45 +46,17 @@ jobs:
           uv venv .venv
           uv pip install -e ".[docker]"
 
-      # ── Platform: Ubuntu ─────────────────────────────────────────────────
       # Docker Engine is pre-installed on GitHub-hosted ubuntu-latest runners.
-      - name: Verify Docker (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Verify Docker
         run: |
           docker version
           docker info
           echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
-
-      # ── Platform: macOS ──────────────────────────────────────────────────
-      # Docker Desktop is not available on macOS runners; use Colima instead.
-      - name: Install Docker via Colima (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install colima docker
-
-          # Start Colima with a lightweight VM
-          colima start --cpu 2 --memory 4 --disk 20
-
-          # Verify the daemon is reachable
-          docker version
-          docker info
-
-          echo "CUTIP_BACKEND_NAME=docker" >> "$GITHUB_ENV"
-
-      # ── Platform: Windows ────────────────────────────────────────────────
-      # Docker Engine ships with windows-latest GitHub-hosted runners.
-      - name: Verify Docker (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          docker version
-          docker info
-          "CUTIP_BACKEND_NAME=docker" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       # ── Validate the CUTIP workspace ─────────────────────────────────────
       - name: Validate hello-world workspace
         run: uv run cutip validate --path tests/e2e/hello-world
 
       # ── Run end-to-end test ──────────────────────────────────────────────
-      - name: Run E2E group (Docker · ${{ matrix.os }})
+      - name: Run E2E group (Docker · Ubuntu)
         run: uv run cutip run hello --path tests/e2e/hello-world --backend docker
