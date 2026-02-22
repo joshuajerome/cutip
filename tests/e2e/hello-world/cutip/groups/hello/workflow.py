@@ -16,13 +16,14 @@ from __future__ import annotations
 import os
 import time
 
+from cutip.backends.base import CutipBackend
 from cutip.context.workflow import CutipContext
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 
 
 def main(ctx: CutipContext) -> None:
-    runtime = ctx.runtime
+    runtime: CutipBackend = ctx.runtime
     backend_name = os.environ.get("CUTIP_BACKEND_NAME", "unknown")
 
     # ── Resolve cards ──────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ def main(ctx: CutipContext) -> None:
     print(f"[hello-world] backend={backend_name}  image={image_name}")
 
     # ── Pull ───────────────────────────────────────────────────────────────
-    print("[hello-world] pulling image …")
+    print("[hello-world] pulling image ...")
     runtime.pull_image(img_card)
 
     # ── Clean up any leftover from a previous run ──────────────────────────
@@ -58,10 +59,10 @@ def main(ctx: CutipContext) -> None:
         runtime.remove_container(container_name)
 
     # ── Create & start ─────────────────────────────────────────────────────
-    print("[hello-world] creating container …")
+    print("[hello-world] creating container ...")
     runtime.create_container(cc, image_name=image_name)
 
-    print("[hello-world] starting container …")
+    print("[hello-world] starting container ...")
     runtime.start_container(container_name)
 
     # ── Wait for exit (up to 15 s) ─────────────────────────────────────────
@@ -90,4 +91,4 @@ def main(ctx: CutipContext) -> None:
 
     # ── Cleanup ────────────────────────────────────────────────────────────
     runtime.remove_container(container_name)
-    print("[hello-world] container removed - E2E test PASSED")
+    print("[hello-world] container removed - E2E test PASSED [OK]")

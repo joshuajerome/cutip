@@ -11,6 +11,7 @@ from cutip.context.workflow import CutipContext, WorkflowLoader
 from cutip.resolver.refs import RefResolver
 from cutip.utils.exceptions import CutipError, CutipWorkflowError
 from cutip.utils.logging import setup_logging
+from cutip.utils.runs import iso_now, run_lock, write_run_record
 from cutip.validation.graph import GraphValidator
 from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
@@ -77,8 +78,10 @@ def run(
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
     """Run a group's workflow against the selected backend."""
-    setup_logging()
     project_root = path or _find_project_root()
+    cutip_dir   = project_root / ".cutip"
+    setup_logging(log_dir=cutip_dir / "logs")
+
     registry = WorkspaceDiscovery(project_root).discover()
 
     # Validate first
@@ -104,12 +107,31 @@ def run(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
 
+    started_at = iso_now()
+    status = "failure"
+    run_error: str | None = None
+
     try:
-        ctx = _build_context(group_name, project_root, registry, runtime=runtime)
-        WorkflowLoader(project_root).run(ctx.group, ctx, registry)
-    except (CutipError, CutipWorkflowError) as exc:
+        with run_lock(cutip_dir / "locks", group_name):
+            ctx = _build_context(group_name, project_root, registry, runtime=runtime)
+            WorkflowLoader(project_root).run(ctx.group, ctx, registry)
+            status = "success"
+    except CutipError as exc:
+        run_error = str(exc)
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    except CutipWorkflowError as exc:
+        run_error = str(exc)
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
     finally:
+        write_run_record(
+            cutip_dir / "runs",
+            group=group_name,
+            backend=backend.value,
+            started_at=started_at,
+            status=status,
+            error=run_error,
+        )
         if hasattr(runtime, "disconnect"):
             runtime.disconnect()
