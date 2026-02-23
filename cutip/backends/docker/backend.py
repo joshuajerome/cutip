@@ -1,9 +1,8 @@
-"""Docker execution backend.
+"""Docker execution backend — container operations.
 
-Connects to the local Docker daemon via docker-py (reads DOCKER_HOST env var
-automatically, so CI setups that set DOCKER_HOST work without extra flags).
-
-Dependencies (optional extra): uv add docker
+Connection setup lives in :mod:`cutip.backends.docker.connection`.
+This module contains only the :class:`DockerBackend` class and its
+container/image/network/volume operations.
 """
 
 from __future__ import annotations
@@ -15,6 +14,8 @@ from pathlib import Path
 from loguru import logger
 
 from cutip.backends.base import CutipBackend
+from cutip.backends.docker.connection import connect_client
+from cutip.backends.shared.image import image_alias, image_ref
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
@@ -28,112 +29,89 @@ class DockerBackend(CutipBackend):
     def __init__(self, client) -> None:
         self._client = client
 
+    # ── Constructor ───────────────────────────────────────────────────────────
+
     @classmethod
     def connect(cls) -> "DockerBackend":
-        """Connect to the Docker daemon (respects DOCKER_HOST env var)."""
-        try:
-            import docker
-        except ImportError as exc:
-            raise CutipError(
-                "The 'docker' package is required for the Docker backend. "
-                "Run: uv add docker"
-            ) from exc
+        """Connect to the Docker daemon and return a connected backend.
 
-        try:
-            client = docker.from_env()
-            client.ping()
-        except Exception as exc:
-            raise CutipError(
-                f"Docker connection failed: {exc}. "
-                "Is Docker running? Check DOCKER_HOST if using a remote daemon."
-            ) from exc
-
-        logger.info("Docker client connected.")
+        Respects ``DOCKER_HOST`` automatically via docker-py.
+        """
+        client = connect_client()
         return cls(client=client)
 
-    # ── CutipBackend interface ───────────────────────────────────────────────
+    # ── Image operations ──────────────────────────────────────────────────────
 
     def pull_image(self, card: ImageCard) -> None:
-        # The alias is how the workflow (and create_container) will reference this image:
-        # {card.metadata.name}:{card.spec.tag}  (e.g. "hello:3.20").
-        # This mirrors how build_image tags images, making pull/build symmetric.
-        alias = f"{card.metadata.name}:{card.spec.tag}"
-        image_ref = f"{card.spec.image}:{card.spec.tag}"
+        alias = image_alias(card)
+        ref   = image_ref(card)
 
-        # Idempotent: if alias already exists, nothing to do.
+        # Idempotent: skip if the alias already exists locally.
         try:
             self._client.images.get(alias)
-            logger.info(f"Image already present as {alias}")
+            logger.info(f"Image already present: {alias}")
             return
         except Exception:
             pass
 
-        logger.info(f"Pulling image: {image_ref}")
-        # docker-py's high-level images.pull() pulls the image and then calls
-        # GET /images/{ref}/json to build its return value.  On Windows, Docker
-        # may store official Hub images under a normalised short name that
-        # differs from what docker-py uses for the inspect, causing a 404 even
-        # when the pull itself succeeded.
+        logger.info(f"Pulling image: {ref}")
+
+        # Use the low-level streaming API to:
+        #   (a) surface real error messages embedded in the response stream, and
+        #   (b) avoid the unreliable post-pull inspect that docker-py's high-level
+        #       images.pull() performs (causes 404s on Windows with normalised names).
         #
-        # We use the low-level api.pull() with streaming instead so that we:
-        #   (a) explicitly consume the full response and surface any error lines,
-        #   (b) avoid the unreliable post-pull inspect entirely.
-        #
-        # Strip "docker.io/library/" so that the pull ref and the local image
-        # name are consistent across platforms.
+        # Strip "docker.io/library/" so the pull ref matches the local short name
+        # across all platforms.
         pull_repo = card.spec.image
         if pull_repo.startswith("docker.io/library/"):
             pull_repo = pull_repo[len("docker.io/library/"):]
 
-        # Consume the streaming pull response; raise on embedded error lines.
         for line in self._client.api.pull(
             pull_repo, tag=card.spec.tag, stream=True, decode=True
         ):
             if isinstance(line, dict) and "error" in line:
-                raise CutipError(
-                    f"Pull failed for {image_ref}: {line['error']}"
-                )
+                raise CutipError(f"Pull failed for {ref}: {line['error']}")
 
-        # Locate the image object — try the short name first (Windows),
-        # then the full registry ref (Linux/macOS).
+        # Locate the image — short name first (Windows), then full ref.
         image = None
-        for ref in (f"{pull_repo}:{card.spec.tag}", image_ref):
+        for lookup in (f"{pull_repo}:{card.spec.tag}", ref):
             try:
-                image = self._client.images.get(ref)
+                image = self._client.images.get(lookup)
                 break
             except Exception:
                 continue
 
         if image is None:
             raise CutipError(
-                f"Pulled {image_ref} but could not find it locally "
-                f"(tried: {pull_repo}:{card.spec.tag}, {image_ref})."
+                f"Pulled {ref} but could not find it locally "
+                f"(tried: {pull_repo}:{card.spec.tag}, {ref})."
             )
 
-        # Tag with the card's canonical alias so create_container can reference
+        # Tag with the canonical alias so create_container can reference
         # the image by card name regardless of how Docker stored it.
         if alias not in (image.tags or []):
             name, tag = alias.rsplit(":", 1)
             image.tag(name, tag)
-            logger.info(f"Tagged {image_ref} -> {alias}")
+            logger.info(f"Tagged {ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
         context = Path(card.spec.context)
         if not context.is_absolute() and project_root:
             context = project_root / context
 
-        dockerfile = card.spec.dockerfile
-        tag = f"{card.metadata.name}:{card.spec.tag}"
-
-        cmd = ["docker", "build", "--tag", tag, "--file", dockerfile]
+        tag = image_alias(card)
+        cmd = ["docker", "build", "--tag", tag, "--file", card.spec.dockerfile]
         for k, v in card.spec.build_args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         cmd.append(str(context))
 
-        logger.info(f"Building image {tag} from {context}/{dockerfile}")
+        logger.info(f"Building image {tag} from {context}/{card.spec.dockerfile}")
         result = subprocess.run(cmd, cwd=str(context))
         if result.returncode != 0:
             raise CutipError(f"Image build failed for '{tag}'")
+
+    # ── Network / volume operations ───────────────────────────────────────────
 
     def ensure_network(self, card: NetworkCard) -> None:
         import docker as docker_mod
@@ -169,12 +147,14 @@ class DockerBackend(CutipBackend):
         self._client.volumes.create(name, driver=card.spec.driver, labels=card.spec.labels)
         logger.info(f"Created volume: {name}")
 
+    # ── Container operations ──────────────────────────────────────────────────
+
     def create_container(
         self,
         card: ContainerCard,
         image_name: str | None = None,
     ) -> str:
-        """Create (but do not start) a container from a ContainerCard."""
+        """Create (but do not start) a container. Returns the container name."""
         import docker as docker_mod
         name = card.metadata.name
         try:
@@ -197,15 +177,12 @@ class DockerBackend(CutipBackend):
             "detach": True,
         }
 
-        # Ports: docker-py expects {container_port/proto: host_port}
         if card.spec.ports:
             kwargs["ports"] = card.spec.ports
-
         if card.spec.network_mode:
             kwargs["network_mode"] = card.spec.network_mode
         elif card.spec.networkRef:
             kwargs["network"] = card.spec.networkRef.ref.split("/")[-1]
-
         if card.spec.command:
             kwargs["command"] = shlex.split(card.spec.command)
         if card.spec.hostname:
@@ -214,8 +191,6 @@ class DockerBackend(CutipBackend):
             kwargs["working_dir"] = card.spec.workdir
         if card.spec.restart_policy:
             kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
-
-        # Bind mounts
         if card.spec.mounts:
             kwargs["mounts"] = [
                 docker_mod.types.Mount(
@@ -226,12 +201,10 @@ class DockerBackend(CutipBackend):
                 )
                 for m in card.spec.mounts
             ]
-
-        # Named volumes: {vol_name: container_path}
         if card.spec.volumes:
             kwargs["volumes"] = {
-                vol_name: {"bind": container_path, "mode": "rw"}
-                for vol_name, container_path in card.spec.volumes.items()
+                vol: {"bind": path, "mode": "rw"}
+                for vol, path in card.spec.volumes.items()
             }
 
         self._client.containers.create(**kwargs)
@@ -239,37 +212,31 @@ class DockerBackend(CutipBackend):
         return name
 
     def start_container(self, name: str) -> None:
-        container = self._client.containers.get(name)
-        container.start()
+        self._client.containers.get(name).start()
         logger.info(f"Started container: {name}")
 
     def stop_container(self, name: str) -> None:
         try:
-            container = self._client.containers.get(name)
-            container.stop()
+            self._client.containers.get(name).stop()
             logger.info(f"Stopped container: {name}")
         except Exception:
             logger.debug(f"stop_container: '{name}' not running or not found.")
 
     def remove_container(self, name: str) -> None:
-        container = self._client.containers.get(name)
-        container.remove(force=True)
+        self._client.containers.get(name).remove(force=True)
         logger.info(f"Removed container: {name}")
 
     def container_status(self, name: str) -> str:
         import docker as docker_mod
         try:
-            container = self._client.containers.get(name)
-            return container.status
+            return self._client.containers.get(name).status
         except docker_mod.errors.NotFound:
             return "not_found"
         except Exception:
             return "unknown"
 
     def container_logs(self, name: str) -> str:
-        """Return stdout + stderr logs for a container as a string."""
-        container = self._client.containers.get(name)
-        raw = container.logs(stdout=True, stderr=True)
+        raw = self._client.containers.get(name).logs(stdout=True, stderr=True)
         if isinstance(raw, bytes):
             return raw.decode("utf-8", errors="replace")
         return b"".join(raw).decode("utf-8", errors="replace")
