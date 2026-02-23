@@ -12,29 +12,64 @@ class Ref(BaseModel):
 
 
 class MountSpec(BaseModel):
+    """A bind-mount inside the container.
+
+    Attributes:
+        type:              Mount type -- "bind" (host path) or "volume" (named volume).
+        source:            Host filesystem path (bind) or volume name (volume).
+                           Relative paths are resolved against the project root at runtime.
+        target:            Absolute path inside the container.
+        read_only:         Mount as read-only (default False).
+        create_host_path:  When True, CUTIP creates the host directory before the
+                           workflow runs -- mirroring the podwrap pattern of pre-creating
+                           bind-mount source dirs (e.g. data dirs, sheet dirs) so the
+                           container starts without a missing-source error.
+                           Only meaningful for type "bind".
+    """
+
     type: Literal["bind", "volume"]
     source: str
     target: str
     read_only: bool = False
+    create_host_path: bool = False
 
 
 class ContainerSpec(BaseModel):
+    # -- Image -----------------------------------------------------------------
     imageRef: Ref
-    # Network: exactly one of networkRef (bridge to a named NetworkCard) or
-    # network_mode (e.g. "host", "none", "slirp4netns") must be provided.
+
+    # -- Network ---------------------------------------------------------------
+    # Exactly one of networkRef (bridge to a named NetworkCard) or
+    # network_mode (e.g. "host", "none", "bridge", "slirp4netns") must be given.
     networkRef: Ref | None = None
     network_mode: str | None = None
+
+    # -- Process ---------------------------------------------------------------
     command: str | None = None
     hostname: str | None = None
     workdir: str | None = None
+
+    # -- Privileges ------------------------------------------------------------
     privileged: bool = False
-    ports: dict[str, str] = {}
-    environment: dict[str, str] = {}
-    mounts: list[MountSpec] = []
-    # Named volumes: {volume_name: container_path}  e.g. {"node_modules": "/app/node_modules"}
-    volumes: dict[str, str] = {}
     cap_add: list[str] = []
     security_opts: list[str] = []
+
+    # -- Ports -----------------------------------------------------------------
+    ports: dict[str, str] = {}
+
+    # -- Environment variables -------------------------------------------------
+    environment: dict[str, str] = {}
+
+    # -- Bind mounts -----------------------------------------------------------
+    mounts: list[MountSpec] = []
+
+    # -- Named volumes ---------------------------------------------------------
+    volumes: dict[str, str] = {}
+
+    # -- Labels ----------------------------------------------------------------
+    labels: dict[str, str] = {}
+
+    # -- Restart policy --------------------------------------------------------
     restart_policy: str | None = None
 
     @model_validator(mode="after")
@@ -42,7 +77,7 @@ class ContainerSpec(BaseModel):
         if self.networkRef is None and self.network_mode is None:
             raise ValueError(
                 "Either 'networkRef' (bridge to a named NetworkCard) "
-                "or 'network_mode' (e.g. 'host') must be provided"
+                "or 'network_mode' (e.g. 'bridge', 'host') must be provided"
             )
         if self.networkRef is not None and self.network_mode is not None:
             raise ValueError(

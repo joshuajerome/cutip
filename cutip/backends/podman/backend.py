@@ -21,11 +21,11 @@ from cutip.backends.podman.connection import (
     local_socket_url,
     open_ssh_tunnel,
 )
+from cutip.backends.shared.build import stage_buildtime_resources
 from cutip.backends.shared.image import image_alias, image_ref
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
-from cutip.models.cards.volume import VolumeCard
 from cutip.utils.exceptions import CutipError
 
 
@@ -35,6 +35,11 @@ class PodmanBackend(CutipBackend):
     def __init__(self, client, tunnel_process: subprocess.Popen | None = None) -> None:
         self._client = client
         self._tunnel = tunnel_process
+
+    @property
+    def client(self):
+        """The raw PodmanClient instance. Injected into ctx.runtime for workflows."""
+        return self._client
 
     # ── Constructors ──────────────────────────────────────────────────────────
 
@@ -119,20 +124,26 @@ class PodmanBackend(CutipBackend):
             logger.info(f"Tagged {ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
-        ctx_path = card.spec.context
-        if not ctx_path:
-            raise CutipError(f"Card context path invalid. {card.spec}")
-        context = Path(ctx_path)
+        context = Path(card.spec.context or "")
         if not context.is_absolute() and project_root:
             context = project_root / context
 
+        # Stage any extra files into {context}/buildtime (or buildtime_dir) before
+        # building -- mirrors the podwrap buildtime_resources pattern.
+        staging = stage_buildtime_resources(card, project_root)
+        build_ctx = staging if card.spec.buildtime_resources else context
+
         tag = image_alias(card)
-        cmd = ["podman", "build", "--tag", tag, "--file", card.spec.dockerfile]
+        cmd = [
+            "podman", "build",
+            "--tag", tag,
+            "--file", str(context / card.spec.dockerfile),
+        ]
         for k, v in card.spec.build_args.items():
             cmd += ["--build-arg", f"{k}={v}"]
-        cmd.append(str(context))
+        cmd.append(str(build_ctx))
 
-        logger.info(f"Building image {tag} from {context}/{card.spec.dockerfile}")
+        logger.info(f"Building image {tag} from {build_ctx}/{card.spec.dockerfile}")
         result = subprocess.run(cmd, cwd=str(context))
         if result.returncode != 0:
             raise CutipError(f"Image build failed for '{tag}'")
@@ -157,14 +168,6 @@ class PodmanBackend(CutipBackend):
         }
         self._client.networks.create(name, driver=card.spec.driver, ipam=ipam)
         logger.info(f"Created network: {name}")
-
-    def ensure_volume(self, card: VolumeCard) -> None:
-        name = card.metadata.name
-        if any(v.name == name for v in self._client.volumes.list()):
-            logger.info(f"Volume already exists: {name}")
-            return
-        self._client.volumes.create(name, driver=card.spec.driver, labels=card.spec.labels)
-        logger.info(f"Created volume: {name}")
 
     # ── Container operations ──────────────────────────────────────────────────
 

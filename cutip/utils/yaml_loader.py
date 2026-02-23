@@ -10,7 +10,6 @@ from cutip.models.base import CutipBaseModel
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
-from cutip.models.cards.volume import VolumeCard
 from cutip.models.group import Group
 from cutip.models.unit import Unit
 from cutip.utils.exceptions import CutipParseError
@@ -19,7 +18,6 @@ _KIND_MAP: dict[str, type[CutipBaseModel]] = {
     "ImageCard": ImageCard,
     "ContainerCard": ContainerCard,
     "NetworkCard": NetworkCard,
-    "VolumeCard": VolumeCard,
     "Unit": Unit,
     "Group": Group,
 }
@@ -28,7 +26,6 @@ _KIND_PREFIX: dict[str, str] = {
     "ImageCard": "images",
     "ContainerCard": "containers",
     "NetworkCard": "networks",
-    "VolumeCard": "volumes",
     "Unit": "units",
     "Group": "groups",
 }

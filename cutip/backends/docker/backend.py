@@ -2,7 +2,7 @@
 
 Connection setup lives in :mod:`cutip.backends.docker.connection`.
 This module contains only the :class:`DockerBackend` class and its
-container/image/network/volume operations.
+container/image/network operations.
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ from loguru import logger
 
 from cutip.backends.base import CutipBackend
 from cutip.backends.docker.connection import connect_client
+from cutip.backends.shared.build import stage_buildtime_resources
 from cutip.backends.shared.image import image_alias, image_ref
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
-from cutip.models.cards.volume import VolumeCard
 from cutip.utils.exceptions import CutipError
 
 
@@ -28,6 +28,11 @@ class DockerBackend(CutipBackend):
 
     def __init__(self, client) -> None:
         self._client = client
+
+    @property
+    def client(self):
+        """The raw DockerClient instance. Injected into ctx.runtime for workflows."""
+        return self._client
 
     # ── Constructor ───────────────────────────────────────────────────────────
 
@@ -39,6 +44,15 @@ class DockerBackend(CutipBackend):
         """
         client = connect_client()
         return cls(client=client)
+
+    # ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    def disconnect(self) -> None:
+        """Close the Docker client connection."""
+        try:
+            self._client.close()
+        except Exception:
+            pass
 
     # ── Image operations ──────────────────────────────────────────────────────
 
@@ -96,22 +110,31 @@ class DockerBackend(CutipBackend):
             logger.info(f"Tagged {ref} -> {alias}")
 
     def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
-        context = Path(card.spec.context)
+        context = Path(card.spec.context or "")
         if not context.is_absolute() and project_root:
             context = project_root / context
 
+        # Stage any extra files into {context}/buildtime (or buildtime_dir) before
+        # building -- mirrors the podwrap buildtime_resources pattern.
+        staging = stage_buildtime_resources(card, project_root)
+        build_ctx = staging if card.spec.buildtime_resources else context
+
         tag = image_alias(card)
-        cmd = ["docker", "build", "--tag", tag, "--file", card.spec.dockerfile]
+        cmd = [
+            "docker", "build",
+            "--tag", tag,
+            "--file", str(context / card.spec.dockerfile),
+        ]
         for k, v in card.spec.build_args.items():
             cmd += ["--build-arg", f"{k}={v}"]
-        cmd.append(str(context))
+        cmd.append(str(build_ctx))
 
-        logger.info(f"Building image {tag} from {context}/{card.spec.dockerfile}")
+        logger.info(f"Building image {tag} from {build_ctx}/{card.spec.dockerfile}")
         result = subprocess.run(cmd, cwd=str(context))
         if result.returncode != 0:
             raise CutipError(f"Image build failed for '{tag}'")
 
-    # ── Network / volume operations ───────────────────────────────────────────
+    # ── Network operations ────────────────────────────────────────────────────
 
     def ensure_network(self, card: NetworkCard) -> None:
         import docker as docker_mod
@@ -134,18 +157,6 @@ class DockerBackend(CutipBackend):
         )
         self._client.networks.create(name, driver=card.spec.driver, ipam=ipam)
         logger.info(f"Created network: {name}")
-
-    def ensure_volume(self, card: VolumeCard) -> None:
-        import docker as docker_mod
-        name = card.metadata.name
-        try:
-            self._client.volumes.get(name)
-            logger.info(f"Volume already exists: {name}")
-            return
-        except docker_mod.errors.NotFound:
-            pass
-        self._client.volumes.create(name, driver=card.spec.driver, labels=card.spec.labels)
-        logger.info(f"Created volume: {name}")
 
     # ── Container operations ──────────────────────────────────────────────────
 

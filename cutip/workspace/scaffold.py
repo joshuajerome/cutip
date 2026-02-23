@@ -12,7 +12,6 @@ _CUTIP_DIRS = [
     "cutip/cards/images",
     "cutip/cards/containers",
     "cutip/cards/networks",
-    "cutip/cards/volumes",
     "cutip/units",
     "cutip/groups",
 ]
@@ -24,19 +23,20 @@ _RUNTIME_DIRS = [
     ".cutip/locks",
 ]
 
-# ── Example file contents written by `cutip init` ────────────────────────────
-# All files are idempotent — they are skipped if they already exist.
+# -- Example file contents written by `cutip init` ----------------------------
+# All files are idempotent -- they are skipped if they already exist.
 
 _EXAMPLE_IMAGE_YAML = """\
-# ─────────────────────────────────────────────────────────────────────────────
-# ImageCard — tells CUTIP where to get the container image.
+# -----------------------------------------------------------------------------
+# ImageCard -- tells CUTIP where to get the container image.
 #
 # Two sources are supported:
-#   source: pull   Pull a pre-built image from a registry (Docker Hub, GHCR, …)
+#   source: pull   Pull a pre-built image from a registry (Docker Hub, GHCR, ...)
 #   source: build  Build an image locally from a Dockerfile
 #
 # This card pulls the official Alpine Linux image from Docker Hub.
-# ─────────────────────────────────────────────────────────────────────────────
+# For a build example, see the commented block at the bottom.
+# -----------------------------------------------------------------------------
 apiVersion: cutip/v1
 kind: ImageCard
 metadata:
@@ -49,22 +49,51 @@ spec:
   source: pull
 
   # Full registry path.  Docker Hub official images use docker.io/library/.
-  # For private registries: registry.example.com/my-org/my-image
+  # Private registries: registry.example.com/my-org/my-image
   image: docker.io/library/alpine
 
   # Pin to an explicit tag for reproducible runs.
-  # Use "latest" during exploration; pin to a digest in production.
   tag: "3.20"
+
+# -----------------------------------------------------------------------------
+# BUILD EXAMPLE — uncomment and adapt for a locally built image:
+#
+# spec:
+#   source: build
+#   tag: "1.0"
+#
+#   # Directory containing your Dockerfile (relative to project root).
+#   context: containers/dockerfiles
+#
+#   # Dockerfile filename inside context (defaults to "Dockerfile").
+#   dockerfile: myapp.dockerfile
+#
+#   # Build-time arguments passed as --build-arg to podman/docker build.
+#   build_args:
+#     PYTHON_VERSION: "3.11"
+#     APP_ENV: production
+#
+#   # Files and directories to stage into {context}/buildtime/ before the build.
+#   # CUTIP copies these alongside the Dockerfile so COPY instructions can reach
+#   # them -- mirrors the podwrap buildtime_resources pattern.
+#   # Paths are relative to the project root (where cutip.yaml lives).
+#   buildtime_resources:
+#     - src: containers/resources/requirements.txt
+#     - src: containers/resources/collections.yaml
+#     - src: containers/resources/settings.json
+#       dest: vscode-settings.json     # optional rename on the way in
+#     - src: containers/scripts/       # directories are copied recursively
+#
+#   # Staging directory (defaults to {context}/buildtime if omitted).
+#   # buildtime_dir: containers/dockerfiles/buildtime
+# -----------------------------------------------------------------------------
 """
 
 _EXAMPLE_CONTAINER_YAML = """\
-# ─────────────────────────────────────────────────────────────────────────────
-# ContainerCard — describes a single container: image, network, command,
-# environment variables, ports, mounts, volumes, and more.
-#
-# Cards are immutable definitions. workflow.py can layer runtime values on top
-# using Pydantic's model_copy(update=…) before passing them to the backend.
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# ContainerCard -- describes a single container: image, network, command,
+# environment variables, ports, mounts, volumes, labels, and more.
+# -----------------------------------------------------------------------------
 apiVersion: cutip/v1
 kind: ContainerCard
 metadata:
@@ -73,123 +102,137 @@ metadata:
   name: cutip-hello
 
 spec:
-  # ── Image ──────────────────────────────────────────────────────────────────
+  # -- Image ------------------------------------------------------------------
   # Reference to an ImageCard by its metadata.name.
-  # CUTIP pulls or builds the image before creating this container.
   imageRef:
     ref: images/alpine
 
-  # ── Network ────────────────────────────────────────────────────────────────
-  # Exactly one of `network_mode` or `networkRef` must be provided.
+  # -- Network ----------------------------------------------------------------
+  # Exactly one of network_mode or networkRef must be provided.
   #
-  # network_mode: bridge   — shared bridge (default Docker/Podman behaviour)
-  # network_mode: host     — share the host network stack (Linux only)
-  # network_mode: none     — fully isolated, no network access
+  # network_mode: bridge   -- default bridge network
+  # network_mode: host     -- share the host network stack (Linux only)
+  # network_mode: none     -- fully isolated
   #
-  # To use a named network managed by CUTIP, replace network_mode with:
+  # To use a named network managed by CUTIP:
   #   networkRef:
   #     ref: networks/<NetworkCard-name>
   network_mode: bridge
 
-  # ── Command ────────────────────────────────────────────────────────────────
-  # Shell command run inside the container.  Supports quoting (shlex-parsed).
-  # This short-lived command prints a greeting and exits immediately, which
-  # makes it easy to verify the full CUTIP round-trip end-to-end.
+  # -- Command ----------------------------------------------------------------
   command: 'sh -c "echo Hello from CUTIP! && echo backend=$CUTIP_BACKEND"'
 
-  # ── Environment variables ──────────────────────────────────────────────────
-  # Static values defined here; workflow.py can add or override at runtime.
+  # -- Environment variables --------------------------------------------------
+  # Static values defined in YAML.  Use descriptive names -- prefer full
+  # command strings or meaningful paths, as in the podwrap pattern.
+  # workflow.py can inject or override values at runtime via model_copy(update=).
   environment:
-    CUTIP_BACKEND: "unknown"    # overwritten at runtime by workflow.py
+    CUTIP_BACKEND: "unknown"       # overwritten at runtime by workflow.py
+    LANG: "C.UTF-8"
+    LC_ALL: "C.UTF-8"
+    # CLEANUP_CMD: "ansible-playbook -i hosts /app/playbooks/cleanup.yaml"
 
-  # ── Ports ─────────────────────────────────────────────────────────────────
-  # Map container ports to host ports: {container_port: host_port}
+  # -- Labels -----------------------------------------------------------------
+  # Arbitrary metadata attached to the container (visible in podman ps / docker ps).
+  labels:
+    app: cutip-hello
+    env: dev
+
+  # -- Ports ------------------------------------------------------------------
+  # {container_port[/proto]: host_port}
   # ports:
-  #   "8080": "8080"
-  #   "5432": "5432"
+  #   "8080/tcp": "8080"
+  #   "5432/tcp": "5432"
 
-  # ── Bind mounts ───────────────────────────────────────────────────────────
+  # -- Bind mounts ------------------------------------------------------------
+  # create_host_path: true instructs CUTIP to create the host directory before
+  # the workflow runs -- mirrors the podwrap pattern of pre-creating data dirs.
   # mounts:
   #   - type: bind
-  #     source: ./config        # host path (relative to project root)
-  #     target: /app/config     # path inside the container
+  #     source: ./data/sheets          # relative to project root
+  #     target: /app/sheets
+  #     read_only: false
+  #     create_host_path: true         # CUTIP creates ./data/sheets if missing
+  #
+  #   - type: bind
+  #     source: ./config/settings.json
+  #     target: /app/settings.json
   #     read_only: true
 
-  # ── Named volumes ─────────────────────────────────────────────────────────
-  # Volumes are created by CUTIP if they don't exist (via VolumeCard).
+  # -- Named volumes ----------------------------------------------------------
+  # Inline volume definitions: {volume_name: container_path}
+  # The runtime creates the volume on first use.
   # volumes:
-  #   my-data: /app/data        # {volume-name: container-path}
+  #   postgres_data: /var/lib/postgresql/data
+  #   node_modules:  /app/node_modules
+
+  # -- Privileges -------------------------------------------------------------
+  # privileged: false
+  # cap_add:
+  #   - NET_ADMIN
+  # security_opts:
+  #   - label=disable
 """
 
 _EXAMPLE_UNIT_YAML = """\
-# ─────────────────────────────────────────────────────────────────────────────
-# Unit — a named, reusable deployment unit backed by a ContainerCard.
+# -----------------------------------------------------------------------------
+# Unit -- a named, reusable deployment unit backed by a ContainerCard.
 #
 # Groups reference Units (not ContainerCards directly).  This indirection lets
-# you share a ContainerCard definition across multiple groups, or substitute a
-# different container behind the same unit name for different environments.
-# ─────────────────────────────────────────────────────────────────────────────
+# you share a ContainerCard definition across multiple groups or swap
+# implementations behind the same unit name for different environments.
+# -----------------------------------------------------------------------------
 apiVersion: cutip/v1
 kind: Unit
 metadata:
-  # Unit name referenced from GroupCard spec.units[].ref
   name: hello
 
 spec:
-  # The ContainerCard this unit is backed by.
-  # Format: containers/<ContainerCard-name>
+  # The ContainerCard this unit is backed by.  Format: containers/<name>
   containerRef:
     ref: containers/cutip-hello
 """
 
 _EXAMPLE_GROUP_YAML = """\
-# ─────────────────────────────────────────────────────────────────────────────
-# Group — an ordered set of Units and the workflow that orchestrates them.
+# -----------------------------------------------------------------------------
+# Group -- an ordered set of Units and the workflow that orchestrates them.
 #
 # Running `cutip run hello` will:
 #   1. Discover and resolve all cards referenced by the units listed below.
-#   2. Inject everything into a CutipContext.
-#   3. Connect to the container backend (Podman or Docker).
-#   4. Call main(ctx) in workflow.py.
+#   2. Create host directories for mounts with create_host_path: true.
+#   3. Connect to the container runtime (Podman or Docker).
+#   4. Inject the raw client into ctx.runtime and call main(ctx) in workflow.py.
 #
 # Use `cutip plan hello` to preview what CUTIP would do without running it.
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 apiVersion: cutip/v1
 kind: Group
 metadata:
-  # Group name — passed to `cutip run <name>` and `cutip plan <name>`.
   name: hello
 
 spec:
-  # ── Units ──────────────────────────────────────────────────────────────────
   # Ordered list of Units included in this group.
   # CUTIP resolves each Unit's ContainerCard (and its transitive dependencies:
-  # ImageCard, NetworkCard, VolumeCard, …) before workflow.py is invoked.
-  # The resolved objects are available via ctx.resolved_cards.
+  # ImageCard, NetworkCard, ...) before workflow.py is invoked.
   units:
     - ref: units/hello
 
-  # ── Workflow ───────────────────────────────────────────────────────────────
   # Path to the workflow module, relative to this group's directory.
   # The file must export `def main(ctx: CutipContext) -> None`.
   workflow: workflow.py
 """
 
 _EXAMPLE_WORKFLOW_PY = """\
-\"\"\"Hello-world CUTIP workflow.
+\"\"\"Hello-world CUTIP workflow -- uses the native Podman API via ctx.runtime.
 
-Demonstrates the full container lifecycle managed by CUTIP:
-  1. Pull the image        (idempotent — skipped if already cached locally)
-  2. Clean up stale runs   (removes any leftover container from a previous run)
-  3. Create the container  (allocates the container, does not start it)
-  4. Start the container   (kicks off the process)
-  5. Wait for it to exit   (polls status; this command is short-lived)
-  6. Read its logs         (capture stdout / stderr via the backend)
-  7. Remove the container  (clean up after ourselves)
+ctx.runtime is the raw PodmanClient (or DockerClient) injected by CUTIP.
+You have the full podman-py / docker-py API surface available; CUTIP only
+provides the resolved card data and manages the connection lifecycle.
 
 Run with:
-    cutip run hello --backend podman --local   # local Podman socket
-    cutip run hello --backend docker           # local Docker daemon
+    cutip run hello                    # Podman via SSH tunnel (default)
+    cutip run hello --local            # Podman via local socket
+    cutip run hello --backend docker   # Docker daemon
 \"\"\"
 
 from __future__ import annotations
@@ -197,7 +240,6 @@ from __future__ import annotations
 import os
 import time
 
-from cutip.backends.base import CutipBackend
 from cutip.context.workflow import CutipContext
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
@@ -207,18 +249,18 @@ def main(ctx: CutipContext) -> None:
     \"\"\"Entry point called by `cutip run hello`.
 
     Args:
-        ctx: Fully resolved runtime context.  Key attributes:
-             - ctx.runtime        CutipBackend handle (Podman or Docker)
-             - ctx.resolved_cards dict[ref_str, CutipBaseModel] of every card
-                                  transitively resolved for this group
-             - ctx.group          the Group artifact itself
-             - ctx.project_root   absolute Path to the project root
+        ctx: Fully resolved runtime context:
+             ctx.runtime        -- raw PodmanClient or DockerClient
+             ctx.resolved_cards -- dict[ref_str, card] of every resolved card
+             ctx.project_root   -- absolute Path to the project root
     \"\"\"
-    runtime: CutipBackend = ctx.runtime
+    # ctx.runtime is the native client -- import the type for IDE completion.
+    # For Podman:  from podman import PodmanClient; client: PodmanClient = ctx.runtime
+    # For Docker:  import docker; client: docker.DockerClient = ctx.runtime
+    client = ctx.runtime
 
-    # ── 1. Resolve cards ───────────────────────────────────────────────────
+    # -- 1. Resolve cards from context ----------------------------------------
     # ctx.resolved_cards is keyed by ref string (e.g. "images/alpine").
-    # Filter by type to get strongly-typed card objects.
     img_card: ImageCard = next(
         c for c in ctx.resolved_cards.values() if isinstance(c, ImageCard)
     )
@@ -226,71 +268,70 @@ def main(ctx: CutipContext) -> None:
         c for c in ctx.resolved_cards.values() if isinstance(c, ContainerCard)
     )
 
-    # ── 2. Inject runtime values ───────────────────────────────────────────
-    # Cards are immutable Pydantic models — never mutate them in place.
-    # Use model_copy(update=…) to create a modified copy for this run only;
-    # the registry copy is left unchanged for future re-use.
-    backend_name: str = os.environ.get("CUTIP_BACKEND_NAME", "unknown")
-    cc = cc.model_copy(
-        update={
-            "spec": cc.spec.model_copy(
-                update={
-                    "environment": {
-                        **cc.spec.environment,
-                        "CUTIP_BACKEND": backend_name,
-                    }
-                }
-            )
-        }
-    )
+    image_ref  = f"{img_card.metadata.name}:{img_card.spec.tag}"
+    cname      = cc.metadata.name
+    backend    = os.environ.get("CUTIP_BACKEND_NAME", "unknown")
 
-    # image_name must match the local alias that pull_image tags the image
-    # with: {card.metadata.name}:{card.spec.tag}  (e.g. "alpine:3.20")
-    image_name: str = f"{img_card.metadata.name}:{img_card.spec.tag}"
-    container_name: str = cc.metadata.name
+    print(f"[hello] backend={backend}  image={image_ref}")
 
-    print(f"[hello] backend={backend_name}  image={image_name}")
-
-    # ── 3. Pull image ──────────────────────────────────────────────────────
-    # Idempotent: if the image is already present locally this is a no-op.
+    # -- 2. Pull image ---------------------------------------------------------
+    # Using the native API directly -- full podman-py / docker-py interface.
     print("[hello] pulling image ...")
-    runtime.pull_image(img_card)
+    client.images.pull(img_card.spec.image, tag=img_card.spec.tag)
 
-    # ── 4. Remove any stale container from a previous run ──────────────────
-    status: str = runtime.container_status(container_name)
-    if status != "not_found":
-        print(f"[hello] removing stale container (status={status})")
-        runtime.remove_container(container_name)
+    # Tag with the card's canonical alias so we can reference it by name.
+    local_alias, alias_tag = image_ref.rsplit(":", 1)
+    try:
+        img_obj = client.images.get(image_ref)
+    except Exception:
+        img_obj = client.images.get(f"{img_card.spec.image}:{img_card.spec.tag}")
+    if image_ref not in (img_obj.tags or []):
+        img_obj.tag(local_alias, alias_tag)
 
-    # ── 5. Create & start ──────────────────────────────────────────────────
+    # -- 3. Remove stale container from a previous run ------------------------
+    try:
+        old = client.containers.get(cname)
+        print(f"[hello] removing stale container (status={old.status})")
+        old.remove(force=True)
+    except Exception:
+        pass   # not found -- nothing to clean up
+
+    # -- 4. Create container ---------------------------------------------------
     print("[hello] creating container ...")
-    runtime.create_container(cc, image_name=image_name)
+    import shlex
+    kwargs = {
+        "name":        cname,
+        "image":       image_ref,
+        "command":     shlex.split(cc.spec.command) if cc.spec.command else None,
+        "environment": {**cc.spec.environment, "CUTIP_BACKEND": backend},
+        "labels":      cc.spec.labels or {},
+        "detach":      True,
+    }
+    if cc.spec.network_mode:
+        kwargs["network_mode"] = cc.spec.network_mode
+    container = client.containers.create(**{k: v for k, v in kwargs.items() if v is not None})
 
+    # -- 5. Start & wait -------------------------------------------------------
     print("[hello] starting container ...")
-    runtime.start_container(container_name)
+    container.start()
 
-    # ── 6. Wait for the container to exit ─────────────────────────────────
-    # The hello command is short-lived; poll until it exits or we time out.
-    timeout_seconds: int = 30
-    deadline: float = time.monotonic() + timeout_seconds
+    deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
-        status = runtime.container_status(container_name)
-        if status in ("exited", "stopped"):
+        container.reload()
+        if container.status in ("exited", "stopped"):
             break
         time.sleep(0.5)
     else:
-        runtime.remove_container(container_name)
-        raise RuntimeError(
-            f"Container '{container_name}' did not exit within {timeout_seconds}s "
-            f"(last status: {status})"
-        )
+        container.remove(force=True)
+        raise RuntimeError(f"Container did not exit within 30s (status={container.status})")
 
-    # ── 7. Read logs ───────────────────────────────────────────────────────
-    logs: str = runtime.container_logs(container_name)
+    # -- 6. Logs ---------------------------------------------------------------
+    raw_logs = container.logs(stdout=True, stderr=True)
+    logs = raw_logs.decode("utf-8", errors="replace") if isinstance(raw_logs, bytes) else b"".join(raw_logs).decode()
     print(f"[hello] output:\\n{logs}")
 
-    # ── 8. Cleanup ─────────────────────────────────────────────────────────
-    runtime.remove_container(container_name)
+    # -- 7. Cleanup ------------------------------------------------------------
+    container.remove(force=True)
     print("[hello] done - workflow complete")
 """
 
@@ -327,7 +368,7 @@ class WorkspaceScaffold:
         """Create the CUTIP workspace structure and example files. Idempotent."""
         logger.info(f"Initializing CUTIP workspace at {self.project_root}")
 
-        # ── Directories ───────────────────────────────────────────────────
+        # -- Directories -------------------------------------------------------
         for rel in _CUTIP_DIRS + _RUNTIME_DIRS:
             target = self.project_root / rel
             if target.exists():
@@ -336,13 +377,10 @@ class WorkspaceScaffold:
                 target.mkdir(parents=True, exist_ok=True)
                 logger.debug(f"  created: {rel}")
 
-        # ── Project config ────────────────────────────────────────────────
+        # -- Project config ----------------------------------------------------
         self._write_cutip_yaml()
 
-        # ── Example project ───────────────────────────────────────────────
-        # A complete, runnable "hello" group so users can immediately do:
-        #   cutip run hello --backend podman --local
-        #   cutip run hello --backend docker
+        # -- Example project ---------------------------------------------------
         root = self.project_root
         _write_file(
             root / "cutip/cards/images/alpine.yaml",

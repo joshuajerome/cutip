@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 
 from cutip.context.workflow import CutipContext, WorkflowLoader
+from cutip.models.cards.container import ContainerCard
 from cutip.resolver.refs import RefResolver
 from cutip.utils.exceptions import CutipError, CutipWorkflowError
 from cutip.utils.logging import setup_logging
@@ -15,6 +16,7 @@ from cutip.utils.runs import iso_now, run_lock, write_run_record
 from cutip.validation.graph import GraphValidator
 from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
+from loguru import logger
 
 console = Console()
 
@@ -42,7 +44,6 @@ def _build_context(group_name: str, project_root: Path, registry, runtime=None) 
         cc = resolver.resolve(container_ref)
         resolved_cards[container_ref] = cc
 
-        from cutip.models.cards.container import ContainerCard
         if isinstance(cc, ContainerCard):
             img = resolver.resolve(cc.spec.imageRef.ref)
             resolved_cards[cc.spec.imageRef.ref] = img
@@ -60,6 +61,27 @@ def _build_context(group_name: str, project_root: Path, registry, runtime=None) 
         project_root=project_root,
         runtime=runtime,
     )
+
+
+def _prepare_host_dirs(ctx: CutipContext, project_root: Path) -> None:
+    """Create host-side directories for any mount with create_host_path: true.
+
+    This mirrors the podwrap pattern of pre-creating bind-mount source dirs
+    (e.g. data volumes, sheet dirs) before the container starts, but declared
+    in YAML rather than in Python.  Relative paths are resolved against the
+    project root.
+    """
+    for card in ctx.resolved_cards.values():
+        if not isinstance(card, ContainerCard):
+            continue
+        for mount in card.spec.mounts:
+            if not mount.create_host_path:
+                continue
+            host_path = Path(mount.source)
+            if not host_path.is_absolute():
+                host_path = project_root / host_path
+            host_path.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"Prepared host directory: {host_path}")
 
 
 def run(
@@ -95,14 +117,16 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
-    # Connect backend
+    # Connect backend — manages connection lifecycle (SSH tunnel, cleanup).
+    # The raw client it wraps (PodmanClient / DockerClient) is passed into
+    # ctx.runtime so workflow.py can call the native API directly.
     try:
         if backend == BackendChoice.podman:
             from cutip.backends.podman import PodmanBackend
-            runtime = PodmanBackend.connect_local() if is_local else PodmanBackend.connect()
+            _backend = PodmanBackend.connect_local() if is_local else PodmanBackend.connect()
         else:
             from cutip.backends.docker import DockerBackend
-            runtime = DockerBackend.connect()   # Docker always uses local daemon
+            _backend = DockerBackend.connect()
     except CutipError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
@@ -113,7 +137,8 @@ def run(
 
     try:
         with run_lock(cutip_dir / "locks", group_name):
-            ctx = _build_context(group_name, project_root, registry, runtime=runtime)
+            ctx = _build_context(group_name, project_root, registry, runtime=_backend.client)
+            _prepare_host_dirs(ctx, project_root)
             WorkflowLoader(project_root).run(ctx.group, ctx, registry)
             status = "success"
     except CutipError as exc:
@@ -133,5 +158,4 @@ def run(
             status=status,
             error=run_error,
         )
-        if hasattr(runtime, "disconnect"):
-            runtime.disconnect()
+        _backend.disconnect()
