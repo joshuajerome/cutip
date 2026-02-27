@@ -67,6 +67,45 @@ def _resolve_vars_in_str(text: str, vars: dict) -> str:
     return re.sub(r"\{\{\s*vars\.(\w+)\s*\}\}", _replace, text)
 
 
+def _validate_vars(ctx: CutipContext, vars: dict) -> None:
+    """Validate that every ``{{ vars.key }}`` referenced in resolved cards is
+    present *and* non-empty in *vars*.
+
+    Called before any lifecycle step so that missing or unfilled vars.yaml
+    entries surface as a clear error instead of cryptic backend failures
+    (e.g. ``statfs /sheets: no such file or directory`` when a path prefix
+    resolves to an empty string).
+
+    Raises :class:`~cutip.utils.exceptions.CutipError` listing all problems.
+    """
+    pattern = re.compile(r"\{\{\s*vars\.(\w+)\s*\}\}")
+    errors: list[str] = []
+
+    for card in ctx.resolved_cards.values():
+        if not isinstance(card, ContainerCard):
+            continue
+        for mount in card.spec.mounts:
+            for field_name, text in (("source", mount.source), ("target", mount.target)):
+                for key in pattern.findall(text):
+                    if key not in vars:
+                        errors.append(
+                            f"  [{card.metadata.name}] {field_name}: "
+                            f"'{{{{ vars.{key} }}}}' is not defined in cutip/vars.yaml"
+                        )
+                    elif not str(vars[key]).strip():
+                        errors.append(
+                            f"  [{card.metadata.name}] {field_name}: "
+                            f"'{{{{ vars.{key} }}}}' is defined but empty in cutip/vars.yaml"
+                        )
+
+    if errors:
+        raise CutipError(
+            "cutip/vars.yaml has missing or empty values required by your cards:\n"
+            + "\n".join(errors)
+            + "\n\nFill in the values in cutip/vars.yaml and re-run."
+        )
+
+
 def _resolve_vars_in_card(card: ContainerCard, vars: dict) -> ContainerCard:
     """Return a copy of *card* with ``{{ vars.key }}`` resolved in mount paths.
 
@@ -329,6 +368,9 @@ def run(
                 runtime=_backend.client,
                 vars=project_vars,
             )
+
+            # Validate all {{ vars.X }} references are present and non-empty
+            _validate_vars(ctx, project_vars)
 
             # Steps 1–2: host dirs + named volumes
             _prepare_host_dirs(ctx, project_root, vars=project_vars)

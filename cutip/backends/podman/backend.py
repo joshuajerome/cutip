@@ -149,8 +149,20 @@ class PodmanBackend(CutipBackend):
         cmd.append(str(build_ctx))
 
         logger.info(f"Building image {tag} from {build_ctx}/{card.spec.dockerfile}")
-        result = subprocess.run(cmd, cwd=str(context))
-        if result.returncode != 0:
+
+        process = subprocess.Popen(
+            cmd,
+            cwd=str(context),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            bufsize=1,
+        )
+        for raw in process.stdout:
+            logger.bind(subprocess=True).debug(raw.rstrip("\n"))
+        rc = process.wait()
+        if rc != 0:
             raise CutipError(f"Image build failed for '{tag}'")
 
     # ── Network / volume operations ───────────────────────────────────────────

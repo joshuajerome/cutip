@@ -13,14 +13,13 @@ dependencies = [
     "pyyaml>=6.0",
     "loguru>=0.7",
     "rich>=13.0",
+    "podman>=4.0",
 ]
 
 [project.scripts]
 cutip = "cutip.cli.main:app"
 
 [project.optional-dependencies]
-podman = ["podman>=4.0"]
-docker = ["docker>=7.0"]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocs<2.0",              # MkDocs 2.0 is incompatible with mkdocs-material (Feb 2026)
