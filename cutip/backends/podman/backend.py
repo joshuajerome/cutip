@@ -123,14 +123,19 @@ class PodmanBackend(CutipBackend):
             image.tag(name, tag)
             logger.info(f"Tagged {ref} -> {alias}")
 
-    def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
+    def build_image(
+        self,
+        card: ImageCard,
+        project_root: Path | None = None,
+        vars: dict | None = None,
+    ) -> None:
         context = Path(card.spec.context or "")
         if not context.is_absolute() and project_root:
             context = project_root / context
 
         # Stage any extra files into {context}/buildtime (or buildtime_dir) before
         # building -- mirrors the podwrap buildtime_resources pattern.
-        staging = stage_buildtime_resources(card, project_root)
+        staging = stage_buildtime_resources(card, project_root, vars=vars)
         build_ctx = staging if card.spec.buildtime_resources else context
 
         tag = image_alias(card)
@@ -213,7 +218,13 @@ class PodmanBackend(CutipBackend):
         if card.spec.restart_policy:
             kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
         if card.spec.mounts:
-            kwargs["mounts"] = [m.model_dump() for m in card.spec.mounts]
+            # Filter out CUTIP-specific fields (create_host_path) that
+            # podman-py does not accept.
+            _PODMAN_MOUNT_KEYS = {"type", "source", "target", "read_only"}
+            kwargs["mounts"] = [
+                {k: v for k, v in m.model_dump().items() if k in _PODMAN_MOUNT_KEYS}
+                for m in card.spec.mounts
+            ]
         if card.spec.volumes:
             kwargs["volumes"] = {
                 vol: {"bind": path, "mode": "rw"}

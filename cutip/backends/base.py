@@ -34,7 +34,12 @@ class CutipBackend(ABC):
         """Pull an image from a registry."""
 
     @abstractmethod
-    def build_image(self, card: ImageCard, project_root: Path | None = None) -> None:
+    def build_image(
+        self,
+        card: ImageCard,
+        project_root: Path | None = None,
+        vars: dict | None = None,
+    ) -> None:
         """Build an image from a local Dockerfile context."""
 
     # ── Network operations ────────────────────────────────────────────────────

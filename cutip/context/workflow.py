@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from cutip.models.base import CutipBaseModel
@@ -23,7 +24,10 @@ class CutipContext:
         resolved_cards: Mapping of card ref → Card for all transitively resolved cards.
         registry:       The full workspace registry (read-only access).
         project_root:   Absolute path to the project root.
-        runtime:        Backend handle (populated in Phase 3). None in dry-run / plan mode.
+        runtime:        Raw backend client (PodmanClient). None in dry-run / plan mode.
+        vars:           User-specific variables loaded from ``cutip/vars.yaml``.
+                        Replaces the ``.env`` pattern — paths, credentials, and other machine-specific
+                        values that should not be committed.  Empty dict if ``cutip/vars.yaml`` is absent.
     """
 
     group: Group
@@ -32,16 +36,53 @@ class CutipContext:
     registry: CutipRegistry = field(default_factory=CutipRegistry)
     project_root: Path = field(default_factory=Path.cwd)
     runtime: Any = None
+    vars: dict = field(default_factory=dict)
+
+    def container(self, name: str):
+        """Return the live Podman container object for the given container name.
+
+        Use in ``workflow.main()`` to start or inspect a container that CUTIP
+        has already created::
+
+            def main(ctx):
+                ctx.container("my-app").start()
+
+        The name must match the ``metadata.name`` of the ContainerCard.
+
+        Raises :class:`podman.errors.NotFound` if no container with that name
+        exists (i.e. CUTIP has not yet created it).
+        """
+        if self.runtime is None:
+            raise RuntimeError(
+                "ctx.container() requires an active backend connection "
+                "(runtime is None — are you in dry-run / plan mode?)"
+            )
+        return self.runtime.containers.get(name)
 
 
 class WorkflowLoader:
-    """Dynamically imports a group's workflow.py and calls main(ctx)."""
+    """Dynamically imports a group's workflow.py and calls main(ctx).
+
+    ``main(ctx)`` is the group-level orchestration hook — it is responsible
+    for starting containers (via ``ctx.container(name).start()``) and
+    coordinating across units.  It is optional; if absent, CUTIP logs a
+    debug message and continues.
+
+    Unit-specific pre-build and post-start logic belongs in each unit's
+    ``startup.py``, not here.
+    """
 
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
+        self._module_cache: dict[str, tuple[ModuleType, Path]] = {}
 
-    def run(self, group: Group, ctx: CutipContext, registry: CutipRegistry) -> None:
-        """Resolve workflow path, import the module, call main(ctx)."""
+    def _load_module(
+        self, group: Group, registry: CutipRegistry
+    ) -> tuple[ModuleType, Path]:
+        """Import the workflow module (cached per group name)."""
+        if group.name in self._module_cache:
+            return self._module_cache[group.name]
+
         group_source = registry.source_of(f"groups/{group.name}")
         if group_source is not None:
             group_dir = group_source.parent
@@ -71,10 +112,19 @@ class WorkflowLoader:
                 f"Error loading workflow '{workflow_path}': {exc}"
             ) from exc
 
+        self._module_cache[group.name] = (module, workflow_path)
+        return module, workflow_path
+
+    def run(self, group: Group, ctx: CutipContext, registry: CutipRegistry) -> None:
+        """Import the workflow module and call main(ctx)."""
+        module, workflow_path = self._load_module(group, registry)
+
         if not hasattr(module, "main"):
-            raise CutipWorkflowError(
-                f"Workflow '{workflow_path}' must define a 'main(ctx)' function"
+            from loguru import logger as _logger
+            _logger.debug(
+                f"Workflow '{workflow_path}' has no main() — skipping group-level execution."
             )
+            return
 
         try:
             module.main(ctx)

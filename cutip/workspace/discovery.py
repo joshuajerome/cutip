@@ -25,7 +25,11 @@ class WorkspaceDiscovery:
             )
 
         registry = CutipRegistry()
-        yaml_files = sorted(cutip_dir.rglob("*.yaml")) + sorted(cutip_dir.rglob("*.yml"))
+        # Exclude vars.yaml — it holds user-specific values, not CUTIP artifacts.
+        yaml_files = [
+            f for f in sorted(cutip_dir.rglob("*.yaml")) + sorted(cutip_dir.rglob("*.yml"))
+            if f.name != "vars.yaml"
+        ]
 
         for path in yaml_files:
             self._load_file(path, registry)
