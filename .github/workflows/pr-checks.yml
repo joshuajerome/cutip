@@ -99,13 +99,15 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install cutip with Podman extra
+      - name: Install cutip
         run: |
           uv venv .venv
-          uv pip install -e ".[podman]"
+          uv pip install -e .
 
       - name: Install Podman (Windows)
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           $headers = @{ Authorization = "token $env:GITHUB_TOKEN" }
           $release = Invoke-RestMethod "https://api.github.com/repos/containers/podman/releases/latest" -Headers $headers
