@@ -44,3 +44,10 @@ site/
 *.swp
 *.swo
 .DS_Store
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+# settings.json and memory/ are committed for portability across machines.
+# settings.local.json is machine-specific (user overrides) — never commit it.
+.claude/settings.local.json
+# Git worktrees created by Claude Code live here; never commit them.
+.claude/worktrees/

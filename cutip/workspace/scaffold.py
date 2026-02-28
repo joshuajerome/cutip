@@ -14,25 +14,33 @@ _CUTIP_VARS_YAML = """\
 # This file is gitignored and MUST NOT be committed — it contains paths and
 # credentials that are specific to your machine.
 #
-# All paths should be absolute.
+# Two sections are supported:
 #
-# Access these values in workflow.py or startup.py via ctx.vars, or reference
-# them in ContainerCard YAML mount sources using {{ vars.key }} syntax:
+#   required:   Values YOU must supply.  CUTIP fails fast if any are empty.
+#   generated:  Paths that CUTIP creates automatically relative to the project
+#               root.  No manual action needed — just name the directory.
+#
+# Reference values in ContainerCard YAML mount sources using {{ vars.key }}:
 #
 #   mounts:
 #     - type: bind
 #       source: "{{ vars.my_repo }}"
 #       target: /app/repo
 #
-# Example variables (rename / add as needed for your project):
+# Access values in workflow.py / startup.py via ctx.vars["key"].
+#
 # -----------------------------------------------------------------------------
 
-# SSH credentials (mounted read-only into containers for git/remote access)
-# ssh_private_key: "/Users/you/.ssh/id_ed25519"
-# ssh_public_key:  "/Users/you/.ssh/id_ed25519.pub"
+required:
+  # SSH credentials (mounted read-only into containers for git/remote access)
+  # ssh_private_key: ""   # e.g. /Users/you/.ssh/id_ed25519
+  # ssh_public_key: ""    # e.g. /Users/you/.ssh/id_ed25519.pub
 
-# Path to a locally cloned source repository
-# my_repo: "/Users/you/dev/my-project"
+  # Path to a locally cloned source repository
+  # my_repo: ""           # e.g. /Users/you/dev/my-project
+
+generated:
+  # data_dir: ".cutip-data"   # → created at <project_root>/.cutip-data/
 """
 
 # Directories created by `cutip init` (project-specific subdirs are added per unit)

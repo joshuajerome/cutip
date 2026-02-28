@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-from enum import Enum
 from pathlib import Path
 
 import typer
@@ -27,27 +26,94 @@ console = Console()
 
 
 # ---------------------------------------------------------------------------
+# Tab-completion helper
+# ---------------------------------------------------------------------------
+
+def _complete_group_name(incomplete: str) -> list[str]:
+    """Return group names that start with *incomplete* (used by shell completion)."""
+    try:
+        project_root = _find_project_root()
+        registry = WorkspaceDiscovery(project_root).discover()
+        return [name for name in registry.groups if name.startswith(incomplete)]
+    except Exception:
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Vars helpers
 # ---------------------------------------------------------------------------
 
-def _load_vars(project_root: Path) -> dict:
+def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
     """Load ``cutip/vars.yaml`` from the project if it exists.
 
-    ``cutip/vars.yaml`` is the CUTIP replacement for ``.env`` — user-specific
-    paths and credentials that should not be committed to version control.
-    The file is gitignored by default.
+    Supports two formats:
 
-    Returns an empty dict when the file is absent.
+    **Flat (legacy)** — all keys are treated as ``required``::
+
+        ssh_private_key: "/Users/you/.ssh/id_ed25519"
+        my_repo: "/Users/you/dev/my-project"
+
+    **Structured** — explicit ``required`` and ``generated`` sections::
+
+        required:
+          ssh_private_key: ""
+          blueprint_manager: ""
+
+        generated:
+          blueprint_manager_data: ".snf-blueprint-manager"
+
+    *required* keys must be present **and** non-empty at run time.
+
+    *generated* keys are resolved to absolute paths relative to the project
+    root and their directories are created automatically by
+    :func:`_prepare_generated_dirs`.  They never fail validation.
+
+    Returns ``(flat_vars, generated_keys)`` where *flat_vars* is the merged
+    dict of both sections and *generated_keys* is the frozenset of keys whose
+    directories CUTIP manages.
     """
     import yaml as _yaml
     p = project_root / "cutip" / "vars.yaml"
     if not p.exists():
-        return {}
+        return {}, frozenset()
+
     data = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
         raise CutipError("cutip/vars.yaml must be a YAML mapping (key: value pairs)")
-    logger.debug(f"Loaded {len(data)} var(s) from cutip/vars.yaml")
-    return data
+
+    # ── Structured format (has 'required' or 'generated' top-level keys) ──
+    if "required" in data or "generated" in data:
+        req = data.get("required") or {}
+        gen = data.get("generated") or {}
+
+        if not isinstance(req, dict):
+            raise CutipError("cutip/vars.yaml: 'required' must be a mapping")
+        if not isinstance(gen, dict):
+            raise CutipError("cutip/vars.yaml: 'generated' must be a mapping")
+
+        flat: dict = {}
+        flat.update({k: (str(v) if v is not None else "") for k, v in req.items()})
+
+        generated_keys: set[str] = set()
+        for key, rel_path in gen.items():
+            if rel_path is None:
+                raise CutipError(
+                    f"cutip/vars.yaml: generated key '{key}' has no path value"
+                )
+            abs_path = (project_root / str(rel_path)).resolve()
+            flat[key] = str(abs_path)
+            generated_keys.add(key)
+
+        logger.debug(
+            f"Loaded vars: {len(req)} required, {len(gen)} generated "
+            f"(from cutip/vars.yaml)"
+        )
+        return flat, frozenset(generated_keys)
+
+    # ── Flat (legacy) format — every key is required ──────────────────────
+    flat = {k: (str(v) if v is not None else "") for k, v in data.items()}
+    logger.debug(f"Loaded {len(flat)} var(s) from cutip/vars.yaml")
+    return flat, frozenset()
 
 
 def _resolve_vars_in_str(text: str, vars: dict) -> str:
@@ -67,9 +133,16 @@ def _resolve_vars_in_str(text: str, vars: dict) -> str:
     return re.sub(r"\{\{\s*vars\.(\w+)\s*\}\}", _replace, text)
 
 
-def _validate_vars(ctx: CutipContext, vars: dict) -> None:
+def _validate_vars(
+    ctx: CutipContext,
+    vars: dict,
+    generated_keys: frozenset[str] = frozenset(),
+) -> None:
     """Validate that every ``{{ vars.key }}`` referenced in resolved cards is
     present *and* non-empty in *vars*.
+
+    *generated_keys* are skipped — their values are resolved and created
+    automatically by CUTIP, so they are always valid.
 
     Called before any lifecycle step so that missing or unfilled vars.yaml
     entries surface as a clear error instead of cryptic backend failures
@@ -87,6 +160,8 @@ def _validate_vars(ctx: CutipContext, vars: dict) -> None:
         for mount in card.spec.mounts:
             for field_name, text in (("source", mount.source), ("target", mount.target)):
                 for key in pattern.findall(text):
+                    if key in generated_keys:
+                        continue  # auto-managed by CUTIP — always valid
                     if key not in vars:
                         errors.append(
                             f"  [{card.metadata.name}] {field_name}: "
@@ -104,6 +179,23 @@ def _validate_vars(ctx: CutipContext, vars: dict) -> None:
             + "\n".join(errors)
             + "\n\nFill in the values in cutip/vars.yaml and re-run."
         )
+
+
+def _prepare_generated_dirs(
+    vars: dict,
+    generated_keys: frozenset[str],
+) -> None:
+    """Create directories for all ``generated`` vars.
+
+    Generated vars hold paths that CUTIP owns (e.g. data directories relative
+    to the project root).  The directory is created with ``mkdir -p`` before
+    any workflow step runs so that subsequent ``create_host_path: true`` mounts
+    can safely create sub-directories inside it.
+    """
+    for key in generated_keys:
+        path = Path(vars[key])
+        path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Prepared generated directory [{key}]: {path}")
 
 
 def _resolve_vars_in_card(card: ContainerCard, vars: dict) -> ContainerCard:
@@ -303,7 +395,11 @@ def _run_unit_startups(
 # ---------------------------------------------------------------------------
 
 def run(
-    group_name: str = typer.Argument(..., help="Name of the group to run"),
+    group_name: str = typer.Argument(
+        ...,
+        help="Name of the group to run",
+        autocompletion=_complete_group_name,
+    ),
     local: bool = typer.Option(
         False,
         "--local",
@@ -359,7 +455,11 @@ def run(
     status = "failure"
     run_error: str | None = None
 
-    project_vars = _load_vars(project_root)
+    project_vars, generated_keys = _load_vars(project_root)
+
+    # Create generated directories before any lifecycle step so they exist
+    # when create_host_path mounts try to create sub-directories inside them.
+    _prepare_generated_dirs(project_vars, generated_keys)
 
     try:
         with run_lock(cutip_dir / "locks", group_name):
@@ -370,7 +470,8 @@ def run(
             )
 
             # Validate all {{ vars.X }} references are present and non-empty
-            _validate_vars(ctx, project_vars)
+            # (generated keys are auto-managed and always valid — skip them)
+            _validate_vars(ctx, project_vars, generated_keys)
 
             # Steps 1–2: host dirs + named volumes
             _prepare_host_dirs(ctx, project_root, vars=project_vars)
