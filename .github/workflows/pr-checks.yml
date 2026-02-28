@@ -107,7 +107,8 @@ jobs:
       - name: Install Podman (Windows)
         shell: pwsh
         run: |
-          $release = Invoke-RestMethod "https://api.github.com/repos/containers/podman/releases/latest"
+          $headers = @{ Authorization = "token $env:GITHUB_TOKEN" }
+          $release = Invoke-RestMethod "https://api.github.com/repos/containers/podman/releases/latest" -Headers $headers
           $version  = $release.tag_name.TrimStart('v')
           $url      = "https://github.com/containers/podman/releases/download/v${version}/podman-${version}-setup.exe"
           Write-Host "Downloading Podman $version from $url"
