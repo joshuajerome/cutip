@@ -23,8 +23,9 @@ jobs:
           git fetch --prune origin
 
           # Branches fully merged into integration, excluding permanent branches
+          # release/* branches are kept permanently as historical references
           MERGED=$(git branch -r --merged origin/integration \
-            | grep -vE 'origin/(integration|staging|HEAD)' \
+            | grep -vE 'origin/(integration|staging|HEAD|release/.+|gh-pages)' \
             | sed 's|^\s*origin/||' \
             | xargs)
 
