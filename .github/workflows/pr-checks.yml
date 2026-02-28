@@ -63,10 +63,10 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install cutip with Podman extra
+      - name: Install cutip
         run: |
           uv venv .venv
-          uv pip install -e ".[podman]"
+          uv pip install -e .
 
       - name: Install & start Podman (Ubuntu)
         run: |
