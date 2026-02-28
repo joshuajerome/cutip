@@ -144,7 +144,7 @@ cutip validate
 cutip plan dev
 
 # Deploy
-cutip run dev --backend podman
+cutip run dev
 ```
 
 Expected output from `cutip plan dev`:

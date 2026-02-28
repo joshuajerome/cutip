@@ -1,11 +1,11 @@
 # Guide: Podman Runtime
 
-CUTIP's Podman backend (`cutip[podman]`) supports two connection modes:
+Podman is the only supported container backend. CUTIP supports two connection modes:
 
 | Mode | Command | Use case |
 |---|---|---|
-| **SSH tunnel** | `cutip run <group> --backend podman` | Default. Production use over SSH to a remote Podman socket. |
-| **Local socket** | `cutip run <group> --backend podman --local` | CI, local dev. Connects directly to the local Podman socket. |
+| **SSH tunnel** | `cutip run <group>` | Default. Production use over SSH to a remote Podman socket. |
+| **Local socket** | `cutip run <group> --local` | CI, local dev. Connects directly to the local Podman socket. |
 
 ---
 
@@ -63,7 +63,7 @@ Requirements:
 - The Podman socket service is running on the remote host
 
 ```shell
-cutip run dev --backend podman
+cutip run dev
 ```
 
 ---
@@ -79,19 +79,19 @@ Connect directly to the local Podman socket without SSH. The socket URL is resol
    - **Windows**: `npipe:////./pipe/podman-machine-default`
 
 ```shell
-cutip run dev --backend podman --local
+cutip run dev --local
 ```
 
 Or via environment variable:
 
 ```shell
-CUTIP_LOCAL=1 cutip run dev --backend podman
+CUTIP_LOCAL=1 cutip run dev
 ```
 
 Set a custom socket:
 
 ```shell
-CONTAINER_HOST=unix:///custom/path.sock cutip run dev --backend podman --local
+CONTAINER_HOST=unix:///custom/path.sock cutip run dev --local
 ```
 
 ---
@@ -131,7 +131,7 @@ Summary per platform:
 
 Then run with:
 ```yaml
-- run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
+- run: uv run cutip run hello --path tests/e2e/hello-world --local
 ```
 
 ---
