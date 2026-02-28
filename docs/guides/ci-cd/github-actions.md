@@ -1,81 +1,58 @@
 # Guide: GitHub Actions
 
-CUTIP ships three workflows under `.github/workflows/`:
+CUTIP's CI pipeline uses the following workflows under `.github/workflows/`:
 
 | File | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | push / PR (any branch) | Build wheel, smoke-test install, run unit tests |
-| `e2e-podman.yml` | push / PR → `main` | Podman E2E matrix: ubuntu, macos, windows |
-| `e2e-docker.yml` | push / PR → `main` | Docker E2E matrix: ubuntu, macos, windows |
+| `wheel-build.yml` | push to `feat/**`, `bug/**`, `claude/**` | Build wheel and upload as artifact |
+| `pr-checks.yml` | PR to `staging` or `integration` | Unit tests, smoke test, E2E (Ubuntu + Windows), docs build |
+| `docs-check.yml` | push to `docs/**`, `integration`; PR touching docs | Build docs (strict); deploy to GitHub Pages on `integration` push |
+| `release.yml` | push to `release/**` | Run all checks, build wheel + sdist, create GitHub Release |
 
 ---
 
-## CI — Build & Test (`ci.yml`)
+## PR Checks (`pr-checks.yml`)
+
+Every PR to `staging` or `integration` must pass all five jobs before merge:
 
 ```
-checkout → setup uv → build wheel → smoke-test wheel → run unit tests → upload artifact
+unit-tests → smoke-test → e2e-podman-ubuntu → e2e-podman-windows → docs-build
 ```
 
 Key steps:
 
 ```yaml
-- name: Build wheel
-  run: uv build --wheel
+- name: Run unit tests
+  run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
 
 - name: Smoke-test wheel install
   run: |
     uv venv .wheel-test
     uv pip install --python .wheel-test/bin/python dist/cutip-*.whl
     .wheel-test/bin/cutip --help
-
-- name: Run unit tests
-  run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
 ```
 
-Unit tests live in `tests/`. The E2E fixture (`tests/e2e/`) is excluded from this job — it requires a live container runtime.
+Unit tests live in `tests/`. The E2E fixture (`tests/e2e/`) is excluded from the unit test job — it requires a live Podman runtime.
 
 ---
 
-## E2E — Podman (`e2e-podman.yml`)
+## E2E — Podman
 
-Runs `tests/e2e/hello-world` against the Podman backend on all three platforms.
+Runs `tests/e2e/hello-world` against the Podman backend on Ubuntu and Windows.
 
 ### How each platform gets a working Podman socket
 
 | Platform | Approach | `CONTAINER_HOST` value |
 |---|---|---|
 | Ubuntu | `apt install podman` + `systemctl --user start podman.socket` | `unix:///run/user/<uid>/podman/podman.sock` |
-| macOS | `brew install podman` + `podman machine init --now` | Resolved from `podman machine inspect` |
 | Windows | Download MSI, install, `podman machine init --now` | `npipe:////./pipe/podman-machine-default` |
-
-### Windows: why `podman version --client` in the install step
-
-After installing the Podman binary on Windows but before initializing the machine, `podman version` (without `--client`) attempts a socket connection that doesn't exist yet. The install step uses `--client` to print only the binary version. The full daemon check happens in the separate "Start Podman machine" step, after `machine init --now` has started the WSL2 VM.
 
 ### Connection mode
 
-All platforms use `--local` to connect via the socket set in `CONTAINER_HOST`:
+Both platforms use `--local` to connect via the socket set in `CONTAINER_HOST`:
 
 ```yaml
-- run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
-```
-
----
-
-## E2E — Docker (`e2e-docker.yml`)
-
-Runs `tests/e2e/hello-world` against the Docker backend on all three platforms.
-
-| Platform | Approach |
-|---|---|
-| Ubuntu | Docker Engine is pre-installed on `ubuntu-latest` runners |
-| macOS | Colima — `brew install colima docker && colima start` |
-| Windows | Docker Engine is pre-installed on `windows-latest` runners |
-
-Docker always uses the local daemon. No `--local` flag is needed:
-
-```yaml
-- run: uv run cutip run hello --path tests/e2e/hello-world --backend docker
+- run: uv run cutip run hello --path tests/e2e/hello-world --local
 ```
 
 ---
@@ -112,10 +89,10 @@ A failed assertion propagates as a non-zero exit, turning the GitHub Actions ste
 System Python on Ubuntu and macOS is marked as "externally managed" (PEP 668), which blocks `uv pip install --system`. The workflows create a project-local `.venv` first:
 
 ```yaml
-- name: Install cutip with Podman extra
+- name: Install cutip
   run: |
     uv venv .venv
-    uv pip install -e ".[podman]"
+    uv pip install -e .
 ```
 
 `uv run cutip ...` then automatically discovers and activates `.venv` without any PATH manipulation, working identically on all three platforms.

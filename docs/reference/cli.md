@@ -160,42 +160,34 @@ Plan for group: dev
 Validate, connect to the backend, and execute the group's workflow.
 
 ```shell
-cutip run <group> [--backend podman|docker] [--local] [--path PATH]
+cutip run <group> [--local] [--path PATH]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--backend / -b` | `podman` | Which container runtime to use |
-| `--local / -l` | `false` | Connect to local daemon directly (no SSH tunnel). Reads `CONTAINER_HOST` / `DOCKER_HOST` env vars. Required for CI. |
+| `--local / -l` | `false` | Connect to the local Podman socket directly (no SSH tunnel). Required for CI. |
 | `--path / -p` | git root / cwd | Override project root |
 
-### Backend connection modes
+### Connection modes
 
-**Podman — SSH tunnel (default):**
+**SSH tunnel (default):**
 
 ```shell
-cutip run dev --backend podman
+cutip run dev
 ```
 
 Reads the default connection from `podman system connection ls` and opens a TCP-over-SSH tunnel. Requires Podman to be installed and a machine to be running.
 
-**Podman — local socket:**
+**Local socket (`--local`):**
 
 ```shell
-cutip run dev --backend podman --local
+cutip run dev --local
 ```
 
-Connects to the local Podman socket. Socket URL is resolved in priority order:
+Connects directly to the local Podman socket. Socket URL is resolved in priority order:
+
 1. `CONTAINER_HOST` env var
 2. Platform default (Linux: `unix:///run/user/<uid>/podman/podman.sock`, macOS: machine inspect, Windows: `npipe:////./pipe/podman-machine-default`)
-
-**Docker:**
-
-```shell
-cutip run dev --backend docker
-```
-
-Docker always connects to the local daemon (`docker.from_env()`), which respects `DOCKER_HOST`.
 
 ### Environment variables
 
@@ -203,7 +195,6 @@ Docker always connects to the local daemon (`docker.from_env()`), which respects
 |---|---|
 | `CUTIP_LOCAL=1` | Equivalent to passing `--local` |
 | `CONTAINER_HOST` | Podman socket URL (used by `--local`) |
-| `DOCKER_HOST` | Docker daemon socket URL (standard docker-py convention) |
 | `CUTIP_BACKEND_NAME` | Informational — passed to `workflow.py` via `os.environ` |
 
 ---

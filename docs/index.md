@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/downloads/)
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
-[![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-e44c11)](https://podman.io/)
+[![Runtime](https://img.shields.io/badge/runtime-podman-892ca0)](https://podman.io/)
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
 
@@ -35,18 +35,19 @@ Every artifact is a versioned YAML file. Every ref is validated before any backe
 ## Install
 
 ```shell
-git clone <repo-url> cutip && cd cutip
-uv venv && uv pip install -e .
+pip install cutip
+```
 
-# Runtime backend (choose one or both)
-uv pip install -e ".[podman]"
-uv pip install -e ".[docker]"
+Or install from source:
 
+```shell
+git clone https://github.com/joshuajerome/cutip && cd cutip
+uv pip install -e .
 cutip --help
 ```
 
 > [!NOTE]
-> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires a backend.
+> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
 
 ---
 
@@ -71,20 +72,13 @@ spec:
 ```python
 # cutip/groups/dev/workflow.py
 def main(ctx):
-    img = ctx.resolved_cards["images/app"]
-    cc  = ctx.resolved_cards["containers/app"]
-    net = ctx.resolved_cards["networks/dev"]
-
-    ctx.runtime.build_image(img, project_root=ctx.project_root)
-    ctx.runtime.ensure_network(net)
-    ctx.runtime.create_container(cc, image_name=f"{img.name}:{img.spec.tag}")
-    ctx.runtime.start_container(cc.name)
+    ctx.container("app").start()
 ```
 
 ```shell
 cutip validate
 cutip plan dev
-cutip run dev --backend podman
+cutip run dev
 ```
 
 ---
@@ -100,15 +94,6 @@ cutip run dev --backend podman
 | `cutip show unit <name>` | Show a unit's resolved card graph |
 | `cutip show group <name>` | Show a group's units and workflow status |
 | `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
-| `cutip run <group> [--backend podman\|docker] [--local]` | Validate → connect → execute workflow |
+| `cutip run <group> [--local] [--path]` | Validate → connect → execute workflow |
 
 Full reference: [CLI Reference](reference/cli.md)
-
----
-
-## Project Status
-
-| Backend | Status |
-|---|---|
-| Podman | ✅ Fully implemented (SSH tunnel + local socket) |
-| Docker | ✅ Implemented (local daemon via docker-py) |

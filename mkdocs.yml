@@ -99,7 +99,6 @@ nav:
   - Guides:
     - Runtimes:
       - Podman: guides/runtimes/podman.md
-      - Docker: guides/runtimes/docker.md
     - Workflows:
       - Writing Workflows: guides/workflows/writing-workflows.md
       - Plan-Safe Workflows: guides/workflows/plan-safe.md
