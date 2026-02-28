@@ -96,9 +96,10 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
 
         generated_keys: set[str] = set()
         for key, rel_path in gen.items():
-            if rel_path is None:
+            if rel_path is None or not str(rel_path).strip():
                 raise CutipError(
-                    f"cutip/vars.yaml: generated key '{key}' has no path value"
+                    f"cutip/vars.yaml: generated key '{key}' must have a non-empty "
+                    f"path value (e.g. '.my-data'). Got: {rel_path!r}"
                 )
             abs_path = (project_root / str(rel_path)).resolve()
             flat[key] = str(abs_path)
@@ -154,24 +155,30 @@ def _validate_vars(
     pattern = re.compile(r"\{\{\s*vars\.(\w+)\s*\}\}")
     errors: list[str] = []
 
+    def _check_field(card_name: str, field_name: str, text: str) -> None:
+        for key in pattern.findall(text):
+            if key in generated_keys:
+                continue  # auto-managed by CUTIP — always valid
+            if key not in vars:
+                errors.append(
+                    f"  [{card_name}] {field_name}: "
+                    f"'{{{{ vars.{key} }}}}' is not defined in cutip/vars.yaml"
+                )
+            elif not str(vars[key]).strip():
+                errors.append(
+                    f"  [{card_name}] {field_name}: "
+                    f"'{{{{ vars.{key} }}}}' is defined but empty in cutip/vars.yaml"
+                )
+
     for card in ctx.resolved_cards.values():
         if not isinstance(card, ContainerCard):
             continue
+        name = card.metadata.name
         for mount in card.spec.mounts:
-            for field_name, text in (("source", mount.source), ("target", mount.target)):
-                for key in pattern.findall(text):
-                    if key in generated_keys:
-                        continue  # auto-managed by CUTIP — always valid
-                    if key not in vars:
-                        errors.append(
-                            f"  [{card.metadata.name}] {field_name}: "
-                            f"'{{{{ vars.{key} }}}}' is not defined in cutip/vars.yaml"
-                        )
-                    elif not str(vars[key]).strip():
-                        errors.append(
-                            f"  [{card.metadata.name}] {field_name}: "
-                            f"'{{{{ vars.{key} }}}}' is defined but empty in cutip/vars.yaml"
-                        )
+            _check_field(name, "mounts.source", mount.source)
+            _check_field(name, "mounts.target", mount.target)
+        for env_key, env_val in card.spec.environment.items():
+            _check_field(name, f"environment[{env_key!r}]", env_val)
 
     if errors:
         raise CutipError(
