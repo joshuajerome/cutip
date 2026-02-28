@@ -591,17 +591,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#runtime-backend-extras" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Runtime Backend Extras
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#runtime-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -618,17 +607,6 @@
     <span class="md-ellipsis">
       
         Podman
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#docker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker
       
     </span>
   </a>
@@ -1379,34 +1357,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/runtimes/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1943,17 +1893,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#runtime-backend-extras" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Runtime Backend Extras
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#runtime-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1970,17 +1909,6 @@
     <span class="md-ellipsis">
       
         Podman
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#docker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker
       
     </span>
   </a>
@@ -2050,7 +1978,7 @@
 <td>Package manager and virtual environment tool</td>
 </tr>
 <tr>
-<td>Podman or Docker</td>
+<td>Podman</td>
 <td>any recent</td>
 <td>Required only for <code>cutip run</code></td>
 </tr>
@@ -2058,26 +1986,14 @@
 </table>
 <hr />
 <h2 id="install-cutip">Install CUTIP<a class="headerlink" href="#install-cutip" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>&lt;repo-url&gt;<span class="w"> </span>cutip
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>cutip
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>uv<span class="w"> </span>venv
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>cutip
+</span></code></pre></div>
+<p>Or install from source:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/joshuajerome/cutip<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>cutip
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div>
 <p>Verify the CLI is available:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cutip<span class="w"> </span>--help
-</span></code></pre></div>
-<hr />
-<h2 id="runtime-backend-extras">Runtime Backend Extras<a class="headerlink" href="#runtime-backend-extras" title="Permanent link">&para;</a></h2>
-<p>CUTIP's core (<code>cutip init</code>, <code>cutip tree</code>, <code>cutip validate</code>, <code>cutip show</code>, <code>cutip plan</code>) has no runtime dependency. The Podman and Docker SDK clients are optional extras:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Podman backend</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[podman]&quot;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Docker backend</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[docker]&quot;</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Both</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[podman,docker]&quot;</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cutip<span class="w"> </span>--help
 </span></code></pre></div>
 <hr />
 <h2 id="runtime-setup">Runtime Setup<a class="headerlink" href="#runtime-setup" title="Permanent link">&para;</a></h2>
@@ -2087,17 +2003,12 @@
 - <strong>Ubuntu</strong> — <code>sudo apt-get install podman</code>, start the user socket
 - <strong>macOS</strong> — <code>brew install podman &amp;&amp; podman machine init --now</code>
 - <strong>Windows</strong> — Download the MSI from the <a href="https://github.com/containers/podman/releases">Podman releases page</a>, then <code>podman machine init --now</code></p>
-<h3 id="docker">Docker<a class="headerlink" href="#docker" title="Permanent link">&para;</a></h3>
-<p>See: <a href="../../guides/runtimes/docker/">guides/runtimes/docker.md</a></p>
-<p>Summary:
-- <strong>Ubuntu</strong> — Docker Engine is available via <code>apt</code>; Docker Engine ships pre-installed on GitHub-hosted runners
-- <strong>macOS</strong> — Use <a href="https://github.com/abiosoft/colima">Colima</a>: <code>brew install colima docker &amp;&amp; colima start</code>
-- <strong>Windows</strong> — Docker Desktop or the Docker Engine that ships with <code>windows-latest</code> GitHub runners</p>
 <hr />
 <h2 id="development-install-with-test-dependencies">Development Install (with test dependencies)<a class="headerlink" href="#development-install-with-test-dependencies" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>venv
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[podman,docker]&quot;</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>sync<span class="w">   </span><span class="c1"># installs pytest and other dev-group deps from pyproject.toml</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/joshuajerome/cutip<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>cutip
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>venv
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>uv<span class="w"> </span>sync<span class="w">   </span><span class="c1"># installs pytest and other dev-group deps from pyproject.toml</span>
 </span></code></pre></div>
 <p>Run tests:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>--ignore<span class="o">=</span>tests/e2e

@@ -1252,34 +1252,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../runtimes/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1535,10 +1507,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ci-build-test-ciyml" class="md-nav__link">
+  <a href="#pr-checks-pr-checksyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CI — Build &amp; Test (ci.yml)
+        PR Checks (pr-checks.yml)
       
     </span>
   </a>
@@ -1546,15 +1518,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman-e2e-podmanyml" class="md-nav__link">
+  <a href="#e2e-podman" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman (e2e-podman.yml)
+        E2E — Podman
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman (e2e-podman.yml)">
+    <nav class="md-nav" aria-label="E2E — Podman">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1562,17 +1534,6 @@
     <span class="md-ellipsis">
       
         How each platform gets a working Podman socket
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows-why-podman-version-client-in-the-install-step" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows: why podman version --client in the install step
       
     </span>
   </a>
@@ -1592,17 +1553,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#e2e-docker-e2e-dockeryml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        E2E — Docker (e2e-docker.yml)
-      
-    </span>
-  </a>
   
 </li>
       
@@ -1954,10 +1904,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ci-build-test-ciyml" class="md-nav__link">
+  <a href="#pr-checks-pr-checksyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CI — Build &amp; Test (ci.yml)
+        PR Checks (pr-checks.yml)
       
     </span>
   </a>
@@ -1965,15 +1915,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman-e2e-podmanyml" class="md-nav__link">
+  <a href="#e2e-podman" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman (e2e-podman.yml)
+        E2E — Podman
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman (e2e-podman.yml)">
+    <nav class="md-nav" aria-label="E2E — Podman">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1981,17 +1931,6 @@
     <span class="md-ellipsis">
       
         How each platform gets a working Podman socket
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows-why-podman-version-client-in-the-install-step" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows: why podman version --client in the install step
       
     </span>
   </a>
@@ -2011,17 +1950,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#e2e-docker-e2e-dockeryml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        E2E — Docker (e2e-docker.yml)
-      
-    </span>
-  </a>
   
 </li>
       
@@ -2084,7 +2012,7 @@
 
 
 <h1 id="guide-github-actions">Guide: GitHub Actions<a class="headerlink" href="#guide-github-actions" title="Permanent link">&para;</a></h1>
-<p>CUTIP ships three workflows under <code>.github/workflows/</code>:</p>
+<p>CUTIP's CI pipeline uses the following workflows under <code>.github/workflows/</code>:</p>
 <table>
 <thead>
 <tr>
@@ -2095,43 +2023,46 @@
 </thead>
 <tbody>
 <tr>
-<td><code>ci.yml</code></td>
-<td>push / PR (any branch)</td>
-<td>Build wheel, smoke-test install, run unit tests</td>
+<td><code>wheel-build.yml</code></td>
+<td>push to <code>feat/**</code>, <code>bug/**</code>, <code>claude/**</code></td>
+<td>Build wheel and upload as artifact</td>
 </tr>
 <tr>
-<td><code>e2e-podman.yml</code></td>
-<td>push / PR → <code>main</code></td>
-<td>Podman E2E matrix: ubuntu, macos, windows</td>
+<td><code>pr-checks.yml</code></td>
+<td>PR to <code>staging</code> or <code>integration</code></td>
+<td>Unit tests, smoke test, E2E (Ubuntu + Windows), docs build</td>
 </tr>
 <tr>
-<td><code>e2e-docker.yml</code></td>
-<td>push / PR → <code>main</code></td>
-<td>Docker E2E matrix: ubuntu, macos, windows</td>
+<td><code>docs-check.yml</code></td>
+<td>push to <code>docs/**</code>, <code>integration</code>; PR touching docs</td>
+<td>Build docs (strict); deploy to GitHub Pages on <code>integration</code> push</td>
+</tr>
+<tr>
+<td><code>release.yml</code></td>
+<td>push to <code>release/**</code></td>
+<td>Run all checks, build wheel + sdist, create GitHub Release</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="ci-build-test-ciyml">CI — Build &amp; Test (<code>ci.yml</code>)<a class="headerlink" href="#ci-build-test-ciyml" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>checkout → setup uv → build wheel → smoke-test wheel → run unit tests → upload artifact
+<h2 id="pr-checks-pr-checksyml">PR Checks (<code>pr-checks.yml</code>)<a class="headerlink" href="#pr-checks-pr-checksyml" title="Permanent link">&para;</a></h2>
+<p>Every PR to <code>staging</code> or <code>integration</code> must pass all five jobs before merge:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>unit-tests → smoke-test → e2e-podman-ubuntu → e2e-podman-windows → docs-build
 </span></code></pre></div>
 <p>Key steps:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Build wheel</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv build --wheel</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run unit tests</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run pytest tests/ --ignore=tests/e2e -v --tb=short</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Smoke-test wheel install</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="no">uv venv .wheel-test</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="no">uv pip install --python .wheel-test/bin/python dist/cutip-*.whl</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="no">.wheel-test/bin/cutip --help</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run unit tests</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run pytest tests/ --ignore=tests/e2e -v --tb=short</span>
 </span></code></pre></div>
-<p>Unit tests live in <code>tests/</code>. The E2E fixture (<code>tests/e2e/</code>) is excluded from this job — it requires a live container runtime.</p>
+<p>Unit tests live in <code>tests/</code>. The E2E fixture (<code>tests/e2e/</code>) is excluded from the unit test job — it requires a live Podman runtime.</p>
 <hr />
-<h2 id="e2e-podman-e2e-podmanyml">E2E — Podman (<code>e2e-podman.yml</code>)<a class="headerlink" href="#e2e-podman-e2e-podmanyml" title="Permanent link">&para;</a></h2>
-<p>Runs <code>tests/e2e/hello-world</code> against the Podman backend on all three platforms.</p>
+<h2 id="e2e-podman">E2E — Podman<a class="headerlink" href="#e2e-podman" title="Permanent link">&para;</a></h2>
+<p>Runs <code>tests/e2e/hello-world</code> against the Podman backend on Ubuntu and Windows.</p>
 <h3 id="how-each-platform-gets-a-working-podman-socket">How each platform gets a working Podman socket<a class="headerlink" href="#how-each-platform-gets-a-working-podman-socket" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2148,62 +2079,27 @@
 <td><code>unix:///run/user/&lt;uid&gt;/podman/podman.sock</code></td>
 </tr>
 <tr>
-<td>macOS</td>
-<td><code>brew install podman</code> + <code>podman machine init --now</code></td>
-<td>Resolved from <code>podman machine inspect</code></td>
-</tr>
-<tr>
 <td>Windows</td>
 <td>Download MSI, install, <code>podman machine init --now</code></td>
 <td><code>npipe:////./pipe/podman-machine-default</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="windows-why-podman-version-client-in-the-install-step">Windows: why <code>podman version --client</code> in the install step<a class="headerlink" href="#windows-why-podman-version-client-in-the-install-step" title="Permanent link">&para;</a></h3>
-<p>After installing the Podman binary on Windows but before initializing the machine, <code>podman version</code> (without <code>--client</code>) attempts a socket connection that doesn't exist yet. The install step uses <code>--client</code> to print only the binary version. The full daemon check happens in the separate "Start Podman machine" step, after <code>machine init --now</code> has started the WSL2 VM.</p>
 <h3 id="connection-mode">Connection mode<a class="headerlink" href="#connection-mode" title="Permanent link">&para;</a></h3>
-<p>All platforms use <code>--local</code> to connect via the socket set in <code>CONTAINER_HOST</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --backend podman --local</span>
-</span></code></pre></div>
-<hr />
-<h2 id="e2e-docker-e2e-dockeryml">E2E — Docker (<code>e2e-docker.yml</code>)<a class="headerlink" href="#e2e-docker-e2e-dockeryml" title="Permanent link">&para;</a></h2>
-<p>Runs <code>tests/e2e/hello-world</code> against the Docker backend on all three platforms.</p>
-<table>
-<thead>
-<tr>
-<th>Platform</th>
-<th>Approach</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Ubuntu</td>
-<td>Docker Engine is pre-installed on <code>ubuntu-latest</code> runners</td>
-</tr>
-<tr>
-<td>macOS</td>
-<td>Colima — <code>brew install colima docker &amp;&amp; colima start</code></td>
-</tr>
-<tr>
-<td>Windows</td>
-<td>Docker Engine is pre-installed on <code>windows-latest</code> runners</td>
-</tr>
-</tbody>
-</table>
-<p>Docker always uses the local daemon. No <code>--local</code> flag is needed:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --backend docker</span>
+<p>Both platforms use <code>--local</code> to connect via the socket set in <code>CONTAINER_HOST</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --local</span>
 </span></code></pre></div>
 <hr />
 <h2 id="the-e2e-fixture-testse2ehello-world">The E2E fixture (<code>tests/e2e/hello-world/</code>)<a class="headerlink" href="#the-e2e-fixture-testse2ehello-world" title="Permanent link">&para;</a></h2>
 <p>A minimal CUTIP workspace:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cutip.yaml
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>cutip/
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  cards/images/hello.yaml         # pull alpine:3.20
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  cards/containers/hello.yaml     # network_mode: bridge, command: echo CUTIP_OK
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  units/hello.yaml
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  groups/hello/
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    group.yaml
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    workflow.py
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cutip.yaml
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cutip/
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  cards/images/hello.yaml         # pull alpine:3.20
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  cards/containers/hello.yaml     # network_mode: bridge, command: echo CUTIP_OK
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  units/hello.yaml
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  groups/hello/
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    group.yaml
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    workflow.py
 </span></code></pre></div>
 <p>The workflow:
 1. Pulls <code>alpine:3.20</code>
@@ -2216,10 +2112,10 @@
 <hr />
 <h2 id="why-uv-venv-venv-instead-of-system">Why <code>uv venv .venv</code> instead of <code>--system</code><a class="headerlink" href="#why-uv-venv-venv-instead-of-system" title="Permanent link">&para;</a></h2>
 <p>System Python on Ubuntu and macOS is marked as "externally managed" (PEP 668), which blocks <code>uv pip install --system</code>. The workflows create a project-local <code>.venv</code> first:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install cutip with Podman extra</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="no">uv venv .venv</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="no">uv pip install -e &quot;.[podman]&quot;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install cutip</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="no">uv venv .venv</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="no">uv pip install -e .</span>
 </span></code></pre></div>
 <p><code>uv run cutip ...</code> then automatically discovers and activates <code>.venv</code> without any PATH manipulation, working identically on all three platforms.</p>
 <hr />

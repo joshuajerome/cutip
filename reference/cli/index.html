@@ -1004,10 +1004,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#backend-connection-modes" class="md-nav__link">
+  <a href="#connection-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Backend connection modes
+        Connection modes
       
     </span>
   </a>
@@ -1413,34 +1413,6 @@
     
   
     Podman
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/runtimes/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
   
 
     
@@ -2057,10 +2029,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#backend-connection-modes" class="md-nav__link">
+  <a href="#connection-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Backend connection modes
+        Connection modes
       
     </span>
   </a>
@@ -2215,7 +2187,7 @@
 <hr />
 <h2 id="cutip-run"><code>cutip run</code><a class="headerlink" href="#cutip-run" title="Permanent link">&para;</a></h2>
 <p>Validate, connect to the backend, and execute the group's workflow.</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>&lt;group&gt;<span class="w"> </span><span class="o">[</span>--backend<span class="w"> </span>podman<span class="p">|</span>docker<span class="o">]</span><span class="w"> </span><span class="o">[</span>--local<span class="o">]</span><span class="w"> </span><span class="o">[</span>--path<span class="w"> </span>PATH<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>&lt;group&gt;<span class="w"> </span><span class="o">[</span>--local<span class="o">]</span><span class="w"> </span><span class="o">[</span>--path<span class="w"> </span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -2227,14 +2199,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>--backend / -b</code></td>
-<td><code>podman</code></td>
-<td>Which container runtime to use</td>
-</tr>
-<tr>
 <td><code>--local / -l</code></td>
 <td><code>false</code></td>
-<td>Connect to local daemon directly (no SSH tunnel). Reads <code>CONTAINER_HOST</code> / <code>DOCKER_HOST</code> env vars. Required for CI.</td>
+<td>Connect to the local Podman socket directly (no SSH tunnel). Required for CI.</td>
 </tr>
 <tr>
 <td><code>--path / -p</code></td>
@@ -2243,21 +2210,19 @@
 </tr>
 </tbody>
 </table>
-<h3 id="backend-connection-modes">Backend connection modes<a class="headerlink" href="#backend-connection-modes" title="Permanent link">&para;</a></h3>
-<p><strong>Podman — SSH tunnel (default):</strong></p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman
+<h3 id="connection-modes">Connection modes<a class="headerlink" href="#connection-modes" title="Permanent link">&para;</a></h3>
+<p><strong>SSH tunnel (default):</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev
 </span></code></pre></div>
 <p>Reads the default connection from <code>podman system connection ls</code> and opens a TCP-over-SSH tunnel. Requires Podman to be installed and a machine to be running.</p>
-<p><strong>Podman — local socket:</strong></p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman<span class="w"> </span>--local
+<p><strong>Local socket (<code>--local</code>):</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--local
 </span></code></pre></div>
-<p>Connects to the local Podman socket. Socket URL is resolved in priority order:
-1. <code>CONTAINER_HOST</code> env var
-2. Platform default (Linux: <code>unix:///run/user/&lt;uid&gt;/podman/podman.sock</code>, macOS: machine inspect, Windows: <code>npipe:////./pipe/podman-machine-default</code>)</p>
-<p><strong>Docker:</strong></p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>docker
-</span></code></pre></div>
-<p>Docker always connects to the local daemon (<code>docker.from_env()</code>), which respects <code>DOCKER_HOST</code>.</p>
+<p>Connects directly to the local Podman socket. Socket URL is resolved in priority order:</p>
+<ol>
+<li><code>CONTAINER_HOST</code> env var</li>
+<li>Platform default (Linux: <code>unix:///run/user/&lt;uid&gt;/podman/podman.sock</code>, macOS: machine inspect, Windows: <code>npipe:////./pipe/podman-machine-default</code>)</li>
+</ol>
 <h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2274,10 +2239,6 @@
 <tr>
 <td><code>CONTAINER_HOST</code></td>
 <td>Podman socket URL (used by <code>--local</code>)</td>
-</tr>
-<tr>
-<td><code>DOCKER_HOST</code></td>
-<td>Docker daemon socket URL (standard docker-py convention)</td>
 </tr>
 <tr>
 <td><code>CUTIP_BACKEND_NAME</code></td>

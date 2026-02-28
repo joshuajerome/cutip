@@ -17,7 +17,7 @@
         <link rel="prev" href="../../../reference/cards/volume-card/">
       
       
-        <link rel="next" href="../docker/">
+        <link rel="next" href="../../workflows/writing-workflows/">
       
       
         
@@ -1395,34 +1395,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -2062,7 +2034,7 @@
 
 
 <h1 id="guide-podman-runtime">Guide: Podman Runtime<a class="headerlink" href="#guide-podman-runtime" title="Permanent link">&para;</a></h1>
-<p>CUTIP's Podman backend (<code>cutip[podman]</code>) supports two connection modes:</p>
+<p>Podman is the only supported container backend. CUTIP supports two connection modes:</p>
 <table>
 <thead>
 <tr>
@@ -2074,12 +2046,12 @@
 <tbody>
 <tr>
 <td><strong>SSH tunnel</strong></td>
-<td><code>cutip run &lt;group&gt; --backend podman</code></td>
+<td><code>cutip run &lt;group&gt;</code></td>
 <td>Default. Production use over SSH to a remote Podman socket.</td>
 </tr>
 <tr>
 <td><strong>Local socket</strong></td>
-<td><code>cutip run &lt;group&gt; --backend podman --local</code></td>
+<td><code>cutip run &lt;group&gt; --local</code></td>
 <td>CI, local dev. Connects directly to the local Podman socket.</td>
 </tr>
 </tbody>
@@ -2126,7 +2098,7 @@
 - <code>podman system connection ls</code> returns a default connection
 - SSH access to the Podman host
 - The Podman socket service is running on the remote host</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev
 </span></code></pre></div>
 <hr />
 <h2 id="local-socket-mode-local">Local socket mode (<code>--local</code>)<a class="headerlink" href="#local-socket-mode-local" title="Permanent link">&para;</a></h2>
@@ -2138,13 +2110,13 @@
 <li><strong>macOS</strong>: resolved via <code>podman machine inspect</code></li>
 <li><strong>Windows</strong>: <code>npipe:////./pipe/podman-machine-default</code></li>
 </ol>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman<span class="w"> </span>--local
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--local
 </span></code></pre></div>
 <p>Or via environment variable:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">CUTIP_LOCAL</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">CUTIP_LOCAL</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>cutip<span class="w"> </span>run<span class="w"> </span>dev
 </span></code></pre></div>
 <p>Set a custom socket:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CONTAINER_HOST</span><span class="o">=</span>unix:///custom/path.sock<span class="w"> </span>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>podman<span class="w"> </span>--local
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CONTAINER_HOST</span><span class="o">=</span>unix:///custom/path.sock<span class="w"> </span>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--local
 </span></code></pre></div>
 <hr />
 <h2 id="ci-usage-github-actions">CI usage (GitHub Actions)<a class="headerlink" href="#ci-usage-github-actions" title="Permanent link">&para;</a></h2>
@@ -2172,7 +2144,7 @@
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="no">Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append</span>
 </span></code></pre></div></p>
 <p>Then run with:
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --backend podman --local</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --local</span>
 </span></code></pre></div></p>
 <hr />
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
