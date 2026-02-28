@@ -138,6 +138,57 @@ Both are at `~/dev/cutip-projects/`:
 - `vars.yaml` generated: `blueprint_manager_data: ".snf-blueprint-manager-data"`
   - Mounts: `{{ vars.blueprint_manager_data }}/sheets` and `.../infrastructures` with `create_host_path: true`
 
+## Branch Conventions
+
+```
+integration  (permanent protected — stable trunk)
+    └── ← staging merges here after all checks pass
+    └── release/v{major}.{minor}.{patch}
+
+staging  (permanent protected — integration gate)
+    ← feat/cap{N}-<desc>    (feature branches)
+    ← bug/cap{N}-<desc>     (bug fix branches)
+    ← docs/cap{N}-<desc>    (auto-generated docs)
+    ← gh/<desc>             (GitHub Actions changes)
+    ← claude/<desc>         (.claude/, skills, memory)
+```
+
+## Capability ID System
+
+Every feature or bug is assigned a **capability ID** (`cap001`, `cap002`, ...).
+
+### Assigning a New Cap ID
+
+1. Read `docs/capabilities.md` to find the highest existing ID
+2. State: "Assigning **cap{N}**: {title}. Branch: `feat/cap{N}-<desc>`."
+3. Create the branch locally: `git checkout -b feat/cap{N}-<desc>`
+4. Use `[cap{N}]` prefix on all commits
+
+### Commit Message Format
+
+```
+[cap{N}] short imperative description
+```
+
+Examples:
+- `[cap002] add vars validation for required keys`
+- `[cap003] fix startup hook loading on Windows`
+
+### PR Title Format
+
+```
+[cap{N}] Description of capability
+```
+
+## Workflow Stages
+
+```
+local dev → feat/cap{N} branch → PR to staging → (all checks pass) → merge
+                                                → docs-generate auto-creates docs PR
+staging → PR to integration → (all checks pass) → merge
+integration → release/v{X}.{Y}.{Z} → GitHub Release
+```
+
 ## Recent Work (this development cycle)
 
 - Renamed `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`

@@ -5,7 +5,7 @@ site_description: >
 site_url: https://joshuajerome.github.io/cutip
 repo_url: https://github.com/joshuajerome/cutip
 repo_name: joshuajerome/cutip
-edit_uri: edit/main/docs/
+edit_uri: edit/integration/docs/
 
 docs_dir: docs
 
@@ -109,3 +109,8 @@ nav:
   - Architecture:
     - Design Decisions: architecture/design-decisions.md
     - Backend Interface: architecture/backend-interface.md
+
+  - Development:
+    - Branching Guide: development/branching.md
+    - Capabilities: capabilities.md
+    - Patch Notes: patch-notes.md

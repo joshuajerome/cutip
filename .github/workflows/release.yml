@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - "release/**"
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dev dependencies
+        run: uv sync
+
+      - name: Run unit tests
+        run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Smoke-test wheel install
+        run: |
+          uv venv .wheel-test
+          uv pip install --python .wheel-test/bin/python dist/cutip-*.whl
+          .wheel-test/bin/python -c "import cutip; print('cutip import OK')"
+          .wheel-test/bin/cutip --help
+
+  e2e-podman-ubuntu:
+    name: E2E Podman · Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install cutip with Podman extra
+        run: |
+          uv venv .venv
+          uv pip install -e ".[podman]"
+
+      - name: Install & start Podman (Ubuntu)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends podman
+          systemctl --user start podman.socket
+          echo "CONTAINER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
+          echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
+          podman version
+
+      - name: Validate hello-world workspace
+        run: uv run cutip validate --path tests/e2e/hello-world
+
+      - name: Run E2E group (Podman · Ubuntu)
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
+
+  build-and-release:
+    name: Build & GitHub Release
+    runs-on: ubuntu-latest
+    needs: [unit-tests, smoke-test, e2e-podman-ubuntu]
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Extract version from branch name
+        id: version
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/release/}"
+          VERSION="${BRANCH#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: List dist/
+        run: ls -lh dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: cutip ${{ steps.version.outputs.tag }}
+          files: dist/*
+          generate_release_notes: true
+
+      # Publish to PyPI — gated by PUBLISH_TO_PYPI secret (set to "true" to enable)
+      - name: Publish to PyPI
+        if: vars.PUBLISH_TO_PYPI == 'true'
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish

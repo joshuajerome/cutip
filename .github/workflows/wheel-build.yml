@@ -1,0 +1,34 @@
+name: Wheel Build
+
+on:
+  push:
+    branches:
+      - "feat/**"
+      - "bug/**"
+      - "claude/**"
+
+jobs:
+  build:
+    name: Build wheel
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: List dist/
+        run: ls -lh dist/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cutip-wheel
+          path: dist/*.whl
+          retention-days: 7
