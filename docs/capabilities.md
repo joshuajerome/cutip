@@ -6,9 +6,13 @@ commit messages, and PR titles.
 
 ## Registry
 
-| ID     | Title                     | Type | Status | Branch | PR | Date       |
-|--------|---------------------------|------|--------|--------|----|------------|
-| cap001 | Initial scaffold          | feat | merged | —      | —  | 2024-01-01 |
+| ID     | Title                                                  | Type | Status | Branch                              | PR  | Date       |
+|--------|--------------------------------------------------------|------|--------|-------------------------------------|-----|------------|
+| cap001 | Initial scaffold                                       | feat | merged | —                                   | —   | 2024-01-01 |
+| cap002 | Validate generated vars + extend _validate_vars to env | bug  | merged | bug/cap002-validate-vars-coverage   | #7  | 2026-02-28 |
+| cap003 | Remove non-existent [podman] extra from CI             | bug  | merged | bug/cap003-fix-podman-extra         | #8  | 2026-02-28 |
+| cap004 | Add MIT license                                        | feat | merged | feat/cap004-mit-license             | #9  | 2026-02-28 |
+| cap005 | Remove deprecated --backend flag from e2e steps        | bug  | merged | bug/cap005-fix-e2e-backend-flag     | #10 | 2026-02-28 |
 
 ## ID Assignment
 
