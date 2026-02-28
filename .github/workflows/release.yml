@@ -80,7 +80,7 @@ jobs:
         run: uv run cutip validate --path tests/e2e/hello-world
 
       - name: Run E2E group (Podman · Ubuntu)
-        run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
+        run: uv run cutip run hello --path tests/e2e/hello-world --local
 
   build-and-release:
     name: Build & GitHub Release
