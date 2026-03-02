@@ -38,15 +38,10 @@ Every artifact is a versioned YAML file. Every ref is validated before any backe
 
 ```shell
 pip install cutip
-```
-
-Or install from source with [uv](https://github.com/astral-sh/uv):
-
-```shell
-git clone https://github.com/joshuajerome/cutip && cd cutip
-uv pip install -e .
 cutip --help
 ```
+
+> **Contributing?** Clone the repo and use `uv pip install -e .` for an editable install — see the [installation guide](https://joshuajerome.github.io/cutip/getting-started/installation/).
 
 > [!NOTE]
 > `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
