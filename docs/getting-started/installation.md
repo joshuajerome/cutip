@@ -14,18 +14,6 @@
 
 ```shell
 pip install cutip
-```
-
-Or install from source:
-
-```shell
-git clone https://github.com/joshuajerome/cutip && cd cutip
-uv pip install -e .
-```
-
-Verify the CLI is available:
-
-```shell
 cutip --help
 ```
 
@@ -44,7 +32,9 @@ Summary:
 
 ---
 
-## Development Install (with test dependencies)
+## Contributing to CUTIP
+
+To work on CUTIP itself, clone the repo and install in editable mode with test dependencies:
 
 ```shell
 git clone https://github.com/joshuajerome/cutip && cd cutip
