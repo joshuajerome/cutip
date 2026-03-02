@@ -13,6 +13,7 @@ commit messages, and PR titles.
 | cap003 | Remove non-existent [podman] extra from CI             | bug  | merged | bug/cap003-fix-podman-extra         | #8  | 2026-02-28 |
 | cap004 | Add MIT license                                        | feat | merged | feat/cap004-mit-license             | #9  | 2026-02-28 |
 | cap005 | Remove deprecated --backend flag from e2e steps        | bug  | merged | bug/cap005-fix-e2e-backend-flag     | #10 | 2026-02-28 |
+| cap006 | Translate Windows bind-mount paths to WSL2 format      | bug  | open   | bug/cap006-win-path-wsl-translation | —   | 2026-03-02 |
 
 ## ID Assignment
 
