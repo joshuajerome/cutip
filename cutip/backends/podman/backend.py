@@ -29,6 +29,23 @@ from cutip.models.cards.network import NetworkCard
 from cutip.utils.exceptions import CutipError
 
 
+def _win_to_wsl(path: str) -> str:
+    """Translate a Windows-style path to its WSL2 bind-mount equivalent.
+
+    Podman on Windows runs inside a Linux VM; the daemon has no knowledge of
+    Windows drive letters.  Paths like ``C:/Users/foo`` or ``C:Users/foo``
+    must become ``/mnt/c/Users/foo`` before being sent to the API.
+
+    Non-Windows paths are returned unchanged.
+    """
+    path = path.replace("\\", "/")
+    if len(path) >= 2 and path[1] == ":" and path[0].isalpha():
+        drive = path[0].lower()
+        rest = path[2:].lstrip("/")
+        return f"/mnt/{drive}/{rest}"
+    return path
+
+
 class PodmanBackend(CutipBackend):
     """Podman backend — communicates via PodmanClient (SSH tunnel or local socket)."""
 
@@ -231,12 +248,17 @@ class PodmanBackend(CutipBackend):
             kwargs["restart_policy"] = {"Name": card.spec.restart_policy}
         if card.spec.mounts:
             # Filter out CUTIP-specific fields (create_host_path) that
-            # podman-py does not accept.
+            # podman-py does not accept.  Also translate Windows-style host
+            # paths (C:/…) to their WSL2 equivalents (/mnt/c/…) so the
+            # Podman daemon running inside the Linux VM can resolve them.
             _PODMAN_MOUNT_KEYS = {"type", "source", "target", "read_only"}
-            kwargs["mounts"] = [
-                {k: v for k, v in m.model_dump().items() if k in _PODMAN_MOUNT_KEYS}
-                for m in card.spec.mounts
-            ]
+            mounts = []
+            for m in card.spec.mounts:
+                d = {k: v for k, v in m.model_dump().items() if k in _PODMAN_MOUNT_KEYS}
+                if d.get("type") == "bind" and "source" in d:
+                    d["source"] = _win_to_wsl(d["source"])
+                mounts.append(d)
+            kwargs["mounts"] = mounts
         if card.spec.volumes:
             kwargs["volumes"] = {
                 vol: {"bind": path, "mode": "rw"}
