@@ -20,7 +20,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 
 - You are deploying a standard stack (postgres + redis + your app) with no custom startup logic
 - You want maximum ecosystem compatibility (`docker compose`, Portainer, VS Code Dev Containers)
-- Your team is already fluent in compose and the overhead of a new tool isn't worth it
+- Your stack needs no programmatic startup logic and a declarative definition is sufficient
 
 **Use CUTIP when:**
 
@@ -306,6 +306,6 @@ Subsequent runs are idempotent — CUTIP removes stale containers and recreates 
 
 ## Summary
 
-CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is a program, not a declaration — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.
+CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is imperative, not declarative — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.
 
 If your workflow is "bring up 3 services and let them find each other", use compose. If your workflow is "generate a config file, start the database, wait until it can answer queries, then start the app that depends on it", CUTIP gives you the right primitives.
