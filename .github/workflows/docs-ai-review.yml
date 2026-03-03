@@ -1,0 +1,111 @@
+name: Docs AI Review
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  ai-review:
+    name: Docs AI Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docs]"
+          uv pip install anthropic
+
+      - name: Analyze doc coverage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          git diff HEAD~1 --name-only -- "*.py" > /tmp/changed_files.txt
+          mkdir -p claude-reports
+          uv run python .github/scripts/analyze-doc-coverage.py
+
+      - name: Scan outdated docs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/scan-outdated-docs.py
+
+      - name: Scan doc vulnerabilities
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/scan-doc-vulnerabilities.py
+
+      - name: Update README if needed
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/update-readme.py
+
+      - name: Post Claude summary as PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          RUN_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')
+          {
+            echo "## Claude Documentation Summary"
+            echo ""
+            echo "Branch: \`${BRANCH}\` | Run: ${RUN_DATE}"
+            echo ""
+            for report in \
+              claude-reports/analyze-doc-coverage.md \
+              claude-reports/scan-outdated-docs.md \
+              claude-reports/scan-doc-vulnerabilities.md \
+              claude-reports/update-readme.md; do
+              if [ -f "$report" ]; then
+                echo "---"
+                echo "### $(basename $report .md)"
+                echo ""
+                cat "$report"
+                echo ""
+              fi
+            done
+          } > claude-reports/summary.md
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            gh pr comment "$PR_NUMBER" --body "$(cat claude-reports/summary.md)"
+            echo "Posted Claude summary to PR #${PR_NUMBER}"
+          else
+            echo "No open PR for branch '${BRANCH}' — summary saved as artifact only"
+          fi
+
+      - name: Deploy GitHub Pages
+        run: uv run mkdocs gh-deploy --force
+
+      - name: Build and verify docs
+        run: |
+          uv run mkdocs build --strict
+          uv run python -m http.server 8000 --directory site &
+          sleep 2
+          curl -f http://localhost:8000/
+          curl -f http://localhost:8000/getting-started/installation/
+
+      - name: Upload Claude reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-reports
+          path: claude-reports/
+          if-no-files-found: ignore

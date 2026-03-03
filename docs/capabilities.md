@@ -20,7 +20,8 @@ commit messages, and PR titles.
 | cap010 | cutip from-compose — convert compose.yaml to CUTIP artifacts  | feat | planned | —                                       | —   | —          |
 | cap011 | cutip push/pull — git-based artifact registry                 | feat | planned | —                                       | —   | —          |
 | cap012 | Docker backend support                                        | feat | planned | —                                       | —   | —          |
-| cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | open   | feat/cap013-mac-podman-ci-docs          | —   | 2026-03-03 |
+| cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | merged | feat/cap013-mac-podman-ci-docs          | #40 | 2026-03-03 |
+| cap014 | Remove Jenkins, migrate AI doc scripts to GHA               | feat | open   | feat/cap014-remove-jenkins-migrate-gha  | —   | 2026-03-03 |
 
 ## ID Assignment
 

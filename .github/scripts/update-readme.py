@@ -4,7 +4,7 @@ update-readme.py
 
 Uses Claude to detect drift between README.md and the live CLI / pyproject.toml
 version, then write corrected sections.
-Prompt is loaded from .jenkins/prompts/update-readme.md.
+Prompt is loaded from .github/prompts/update-readme.md.
 
 Environment variables:
   ANTHROPIC_API_KEY  - Anthropic API key
@@ -26,7 +26,7 @@ import anthropic
 REPO_ROOT = Path(
     subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
 )
-PROMPT_FILE = REPO_ROOT / ".jenkins" / "prompts" / "update-readme.md"
+PROMPT_FILE = REPO_ROOT / ".github" / "prompts" / "update-readme.md"
 README_PATH = REPO_ROOT / "README.md"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 
