@@ -2054,10 +2054,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-4-if-retries-fail-consistently" class="md-nav__link">
+  <a href="#step-4-trivial-pre-existing-failures" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 4 — If retries fail consistently
+        Step 4 — Trivial / pre-existing failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-if-retries-fail-consistently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — If retries fail consistently
       
     </span>
   </a>
@@ -2304,10 +2315,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-4-if-retries-fail-consistently" class="md-nav__link">
+  <a href="#step-4-trivial-pre-existing-failures" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 4 — If retries fail consistently
+        Step 4 — Trivial / pre-existing failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-if-retries-fail-consistently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — If retries fail consistently
       
     </span>
   </a>
@@ -2449,7 +2471,16 @@
 <p>Or from a PR:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>checks<span class="w"> </span>&lt;PR_NUMBER&gt;
 </span></code></pre></div>
-<h3 id="step-4-if-retries-fail-consistently">Step 4 — If retries fail consistently<a class="headerlink" href="#step-4-if-retries-fail-consistently" title="Permanent link">&para;</a></h3>
+<h3 id="step-4-trivial-pre-existing-failures">Step 4 — Trivial / pre-existing failures<a class="headerlink" href="#step-4-trivial-pre-existing-failures" title="Permanent link">&para;</a></h3>
+<p>If retries confirm a failure is pre-existing, unrelated to the PR's changes, and cannot affect any user-facing behavior, post a PR comment before merging:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>comment<span class="w"> </span>&lt;PR_NUMBER&gt;<span class="w"> </span>--body<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="s2">&quot;CI failure on &lt;job-name&gt;: &lt;one-sentence root cause&gt;.</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="s2">This failure is pre-existing / unrelated to this PR and does not affect</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="s2">production: &lt;explain why no user-facing behavior is impacted&gt;.</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="s2">Proceeding with merge.&quot;</span>
+</span></code></pre></div>
+<p>This creates an auditable record. The underlying issue should be tracked as a separate bug/cap and fixed in a follow-up PR.</p>
+<h3 id="step-5-if-retries-fail-consistently">Step 5 — If retries fail consistently<a class="headerlink" href="#step-5-if-retries-fail-consistently" title="Permanent link">&para;</a></h3>
 <p>If the same job fails three times with the same transient error and the failure is clearly not a code issue, <code>--admin</code> force merge may be used as a last resort.</p>
 <p><strong><code>--admin</code> is not a convenience tool.</strong> It bypasses all branch protections, including required status checks. It must only be used when:</p>
 <ul>
@@ -2457,7 +2488,7 @@
 <li>At least two retry attempts (<code>gh run rerun --failed</code>) have been made</li>
 <li>The PR has been reviewed and the code is correct</li>
 </ul>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>merge<span class="w"> </span>&lt;PR_NUMBER&gt;<span class="w"> </span>--merge<span class="w"> </span>--admin<span class="w"> </span>--delete-branch
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>merge<span class="w"> </span>&lt;PR_NUMBER&gt;<span class="w"> </span>--merge<span class="w"> </span>--admin<span class="w"> </span>--delete-branch
 </span></code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
