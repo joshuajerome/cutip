@@ -1,6 +1,7 @@
-// docs.Jenkinsfile
+// .jenkins/docs.Jenkinsfile
 // Triggered on push to staging (after feat/bug merge) or push to docs/**.
-// Full documentation verification and deployment pipeline.
+// Full AI-driven docs verification and deployment pipeline.
+// Requires ANTHROPIC_API_KEY credential configured in Jenkins.
 // Agent must have git configured with push access to the repo.
 
 pipeline {
@@ -13,13 +14,15 @@ pipeline {
 
     environment {
         PYTHONUTF8 = '1'
+        // Bind the Jenkins credential named 'anthropic-api-key' to the env var
+        ANTHROPIC_API_KEY = credentials('anthropic-api-key')
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-                // Full history required for mkdocs gh-deploy
+                // Full history required for mkdocs gh-deploy and git diff
                 sh 'git fetch --unshallow 2>/dev/null || true'
             }
         }
@@ -29,6 +32,7 @@ pipeline {
                 sh '''
                     uv venv .venv
                     uv pip install -e ".[docs]"
+                    uv pip install anthropic
                 '''
             }
         }
@@ -39,26 +43,26 @@ pipeline {
                     git diff HEAD~1 --name-only -- "*.py" > /tmp/changed_files.txt
                     echo "Changed Python files:"
                     cat /tmp/changed_files.txt
-                    python3 jenkins/scripts/analyze-doc-coverage.py
+                    uv run python .jenkins/scripts/analyze-doc-coverage.py
                 '''
             }
         }
 
         stage('Scan Documentation for Outdated Content') {
             steps {
-                sh 'python3 jenkins/scripts/scan-outdated-docs.py'
+                sh 'uv run python .jenkins/scripts/scan-outdated-docs.py'
             }
         }
 
         stage('Scan for Vulnerabilities in Documentation') {
             steps {
-                sh 'python3 jenkins/scripts/scan-doc-vulnerabilities.py'
+                sh 'uv run python .jenkins/scripts/scan-doc-vulnerabilities.py'
             }
         }
 
         stage('Update README.md if Needed') {
             steps {
-                sh 'python3 jenkins/scripts/update-readme.py'
+                sh 'uv run python .jenkins/scripts/update-readme.py'
             }
         }
 
@@ -72,7 +76,7 @@ pipeline {
             steps {
                 sh 'uv run mkdocs build --strict'
                 sh '''
-                    python3 -m http.server 8000 --directory site &
+                    uv run python -m http.server 8000 --directory site &
                     SERVER_PID=$!
                     sleep 2
                     curl -f http://localhost:8000/ > /dev/null
@@ -90,7 +94,7 @@ pipeline {
 
     post {
         always {
-            sh 'rm -rf .venv site/ 2>/dev/null || true'
+            sh 'rm -rf .venv site/ /tmp/changed_files.txt 2>/dev/null || true'
         }
         failure {
             echo "Docs pipeline failed — check console output above for details."
