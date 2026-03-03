@@ -19,6 +19,7 @@ CUTIP is not a replacement for `docker-compose`. It is designed for a different 
 | **Config variables** | `.env` flat substitution | `vars.yaml` with required/generated sections + fail-fast validation |
 | **Validation** | Runtime only | Static graph validation — no backend required |
 | **Orchestration logic** | Shell scripts outside compose | First-class Python in `workflow.py` |
+| **Migration from compose** | — | `cutip from-compose` — convert any compose file to a CUTIP workspace |
 
 > **[When to use each →](https://joshuajerome.github.io/cutip/getting-started/why-cutip/)**
 
@@ -54,7 +55,7 @@ cutip --help
 > **Contributing?** Clone the repo and use `uv pip install -e .` for an editable install — see the [installation guide](https://joshuajerome.github.io/cutip/getting-started/installation/).
 
 > [!NOTE]
-> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
+> `cutip init`, `cutip from-compose`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
 
 ---
 
@@ -108,6 +109,7 @@ cutip run dev
 | Command | Description |
 |---|---|
 | `cutip init [--path]` | Scaffold workspace directories and `cutip.yaml` |
+| `cutip from-compose <file> [--output-dir]` | Convert a `docker-compose.yaml` into a CUTIP workspace |
 | `cutip tree [--path]` | Print discovered cards, units, and groups |
 | `cutip validate [--path]` | Full schema + graph validation (no backend required) |
 | `cutip show card <ref>` | Dump a resolved card as YAML |
