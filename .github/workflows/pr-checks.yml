@@ -180,10 +180,12 @@ jobs:
 
       - name: Install & start Podman (macOS)
         run: |
-          # vfkit (default Apple HV backend) is unreliable on GitHub Actions runners;
-          # QEMU provider is more stable in shared-VM environments.
-          brew install podman qemu
-          podman machine init --provider qemu --cpus 2 --memory 2048
+          brew install podman
+          # Podman 5.7+ adds virtio-gpu by default, which requires IOSurface sandbox
+          # extensions unavailable on GitHub Actions runners (causes vfkit exit code 1).
+          # Passing -v '' disables the default device mounts and avoids the crash.
+          # See: https://github.com/containers/podman/issues/25046#issuecomment-3825667144
+          podman machine init --cpus 2 --memory 2048 -v ''
           podman machine start
           SOCKET=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
           echo "CONTAINER_HOST=unix://${SOCKET}" >> "$GITHUB_ENV"
