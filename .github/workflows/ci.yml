@@ -40,7 +40,7 @@ jobs:
             COLOR="0075ca"
             DESC="New feature or capability"
           elif echo "$BRANCH" | grep -qE '^bug/'; then
-            LABEL="bug fix"
+            LABEL="bugfix"
             COLOR="d73a4a"
             DESC="Bug fix"
           elif echo "$BRANCH" | grep -qE '^docs/'; then

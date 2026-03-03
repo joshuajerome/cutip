@@ -399,7 +399,7 @@ jobs:
             --head "$BRANCH" \
             --title "[${CAP_ID}] Automated fix for issue #${{ github.event.issue.number }}" \
             --body-file /tmp/pr-body.md \
-            --label "bug fix" \
+            --label "bugfix" \
             --assignee "${{ github.event.comment.user.login }}")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "PR opened: $PR_URL"
