@@ -1,0 +1,256 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - staging
+      - integration
+      - "docs/**"
+  pull_request:
+    branches:
+      - staging
+      - integration
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+
+jobs:
+  # ── Build (all triggers) ────────────────────────────────────────────────────
+  build:
+    name: MkDocs · Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install docs dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docs]"
+
+      - name: Build docs (strict — fails on any warning)
+        run: uv run mkdocs build --strict
+
+  # ── Deploy to GitHub Pages (integration push only) ──────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/integration' &&
+      !github.event.repository.private
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install docs dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docs]"
+
+      - name: Deploy GitHub Pages
+        run: uv run mkdocs gh-deploy --force
+
+  # ── Generate docs via Claude (staging push, feat/bug merge only) ─────────────
+  generate:
+    name: Generate Docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect source branch type
+        id: detect
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP '(?<=from )\S+' || true)
+          echo "Source branch: $SOURCE_BRANCH"
+
+          if echo "$SOURCE_BRANCH" | grep -qE '^(feat|bug)/'; then
+            echo "is_feat_or_bug=true" >> "$GITHUB_OUTPUT"
+            CAP_ID=$(echo "$SOURCE_BRANCH" | grep -oP 'cap\d+' || echo "")
+            echo "cap_id=$CAP_ID" >> "$GITHUB_OUTPUT"
+            echo "source_branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_feat_or_bug=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv
+        if: steps.detect.outputs.is_feat_or_bug == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install script dependencies
+        if: steps.detect.outputs.is_feat_or_bug == 'true'
+        run: |
+          uv venv .venv
+          uv pip install anthropic
+
+      - name: Generate docs via Claude API
+        if: steps.detect.outputs.is_feat_or_bug == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CAP_ID: ${{ steps.detect.outputs.cap_id }}
+          SOURCE_BRANCH: ${{ steps.detect.outputs.source_branch }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: uv run python .github/scripts/generate-docs.py
+
+      - name: Create docs branch and open PR
+        if: steps.detect.outputs.is_feat_or_bug == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CAP_ID: ${{ steps.detect.outputs.cap_id }}
+          SOURCE_BRANCH: ${{ steps.detect.outputs.source_branch }}
+        run: |
+          CAP_SLUG=$(echo "$SOURCE_BRANCH" | sed 's|.*/||')
+          DOCS_BRANCH="docs/${CAP_SLUG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$DOCS_BRANCH"
+          git add docs/capabilities.md docs/patch-notes.md
+          git diff --staged --quiet || git commit -m "[${CAP_ID}] Auto-generate docs for ${SOURCE_BRANCH}"
+          git push origin "$DOCS_BRANCH"
+
+          gh pr create \
+            --base staging \
+            --head "$DOCS_BRANCH" \
+            --title "[${CAP_ID}] Auto-generated docs" \
+            --body "Auto-generated patch notes and capability registry entry for \`${SOURCE_BRANCH}\`." \
+            --label "documentation" \
+            --assignee "${{ github.actor }}" || true
+
+  # ── AI Review (staging push only) ───────────────────────────────────────────
+  ai-review:
+    name: AI Review & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e ".[docs]"
+          uv pip install anthropic
+
+      - name: Analyze doc coverage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          git diff HEAD~1 --name-only -- "*.py" > /tmp/changed_files.txt
+          mkdir -p claude-reports
+          uv run python .github/scripts/analyze-doc-coverage.py
+
+      - name: Scan outdated docs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/scan-outdated-docs.py
+
+      - name: Scan doc vulnerabilities
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/scan-doc-vulnerabilities.py
+
+      - name: Update README if needed
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python .github/scripts/update-readme.py
+
+      - name: Post Claude summary as PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          RUN_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')
+          {
+            echo "## Claude Documentation Summary"
+            echo ""
+            echo "Branch: \`${BRANCH}\` | Run: ${RUN_DATE}"
+            echo ""
+            for report in \
+              claude-reports/analyze-doc-coverage.md \
+              claude-reports/scan-outdated-docs.md \
+              claude-reports/scan-doc-vulnerabilities.md \
+              claude-reports/update-readme.md; do
+              if [ -f "$report" ]; then
+                echo "---"
+                echo "### $(basename $report .md)"
+                echo ""
+                cat "$report"
+                echo ""
+              fi
+            done
+          } > claude-reports/summary.md
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            gh pr comment "$PR_NUMBER" --body "$(cat claude-reports/summary.md)"
+            echo "Posted Claude summary to PR #${PR_NUMBER}"
+          else
+            echo "No open PR for branch '${BRANCH}' — summary saved as artifact only"
+          fi
+
+      - name: Deploy GitHub Pages
+        run: uv run mkdocs gh-deploy --force
+
+      - name: Build and verify docs
+        run: |
+          uv run mkdocs build --strict
+          uv run python -m http.server 8000 --directory site &
+          sleep 2
+          curl -f http://localhost:8000/
+          curl -f http://localhost:8000/getting-started/installation/
+
+      - name: Upload Claude reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-reports
+          path: claude-reports/
+          if-no-files-found: ignore

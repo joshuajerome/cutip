@@ -1,4 +1,4 @@
-name: Publish Dev Build
+name: Integration
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - integration
 
 jobs:
+  # ── Publish dev build to Test PyPI ──────────────────────────────────────────
   publish-dev:
     name: Publish dev build to Test PyPI
     runs-on: ubuntu-latest
@@ -40,3 +41,37 @@ jobs:
           echo "  pip install --index-url https://test.pypi.org/simple/ \\"
           echo "    --extra-index-url https://pypi.org/simple/ \\"
           echo "    \"cutip>=${DEV_VERSION}\""
+
+  # ── Prune branches merged into integration ───────────────────────────────────
+  prune:
+    name: Delete merged branches
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prune merged remote branches
+        run: |
+          git fetch --prune origin
+
+          # Branches fully merged into integration, excluding permanent branches
+          # release/* branches are kept permanently as historical references
+          MERGED=$(git branch -r --merged origin/integration \
+            | grep -vE 'origin/(integration|staging|HEAD|release/.+|gh-pages)' \
+            | sed 's|^\s*origin/||' \
+            | xargs)
+
+          if [ -z "$MERGED" ]; then
+            echo "Nothing to prune."
+            exit 0
+          fi
+
+          echo "Pruning: $MERGED"
+          for branch in $MERGED; do
+            git push origin --delete "$branch" && echo "  Deleted: $branch"
+          done
