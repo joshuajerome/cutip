@@ -197,7 +197,6 @@ class PodmanBackend(CutipBackend):
         network = ipaddress.IPv4Network(card.spec.subnet, strict=False)
         gateway = card.spec.gateway or str(next(network.hosts()))
         ipam = {
-            "Driver": "default",
             "Config": [{"Subnet": str(network), "Gateway": gateway}],
         }
         self._client.networks.create(name, driver=card.spec.driver, ipam=ipam)
