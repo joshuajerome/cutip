@@ -1,0 +1,8 @@
+apiVersion: cutip/v1
+kind: NetworkCard
+metadata:
+  name: app-net
+spec:
+  driver: bridge
+  subnet: "172.20.0.0/24"
+  gateway: "172.20.0.1"

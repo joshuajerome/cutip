@@ -1,0 +1,4 @@
+apiVersion: cutip/v1
+project:
+  name: simple-e2e
+  version: 0.1.0
