@@ -22,6 +22,7 @@ commit messages, and PR titles.
 | cap012 | Docker backend support                                        | feat | planned | —                                       | —   | —          |
 | cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | merged | feat/cap013-mac-podman-ci-docs          | #40 | 2026-03-03 |
 | cap014 | Remove Jenkins, migrate AI doc scripts to GHA               | feat | merged | feat/cap014-remove-jenkins-migrate-gha  | #41 | 2026-03-03 |
+| cap015 | Consolidate GHA workflows + PR auto-label/assign            | feat | merged | feat/cap015-consolidate-workflows       | #42 | 2026-03-03 |
 
 ## ID Assignment
 
