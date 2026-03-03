@@ -26,15 +26,63 @@ console = Console()
 
 
 # ---------------------------------------------------------------------------
-# Tab-completion helper
+# Group name helpers — partial matching + tab completion
 # ---------------------------------------------------------------------------
 
+def _match_group_name(incomplete: str, group_names: list[str]) -> list[str]:
+    """Return group names that match *incomplete* by full prefix or segment prefix.
+
+    Matching rules (in priority order — first match type wins):
+      1. Full prefix:    ``snf-bl``      matches ``snf-blueprint-manager``
+      2. Segment prefix: ``bl``          matches ``snf-blueprint-manager``
+                         ``blueprint``   matches ``snf-blueprint-manager``
+
+    A "segment" is any hyphen-delimited part of the group name.
+    """
+    # 1. Full prefix matches
+    full_prefix = [n for n in group_names if n.startswith(incomplete)]
+    if full_prefix:
+        return full_prefix
+
+    # 2. Segment prefix matches
+    return [
+        n for n in group_names
+        if any(seg.startswith(incomplete) for seg in n.split("-"))
+    ]
+
+
+def _resolve_group_name(name: str, registry) -> str:
+    """Resolve a full or partial group name to an exact registry key.
+
+    Accepts an exact name, a unique full-name prefix, or a unique segment prefix.
+    Raises :class:`~cutip.utils.exceptions.CutipError` when the name is
+    missing or ambiguous.
+    """
+    if name in registry.groups:
+        return name
+
+    candidates = _match_group_name(name, list(registry.groups))
+
+    if len(candidates) == 1:
+        resolved = candidates[0]
+        logger.debug(f"Resolved group '{name}' → '{resolved}'")
+        return resolved
+
+    if len(candidates) > 1:
+        raise CutipError(
+            f"Ambiguous group name '{name}': matches {candidates}. "
+            f"Be more specific."
+        )
+
+    raise CutipError(f"Group '{name}' not found in registry")
+
+
 def _complete_group_name(incomplete: str) -> list[str]:
-    """Return group names that start with *incomplete* (used by shell completion)."""
+    """Return group names that match *incomplete* (used by shell completion)."""
     try:
         project_root = _find_project_root()
         registry = WorkspaceDiscovery(project_root).discover()
-        return [name for name in registry.groups if name.startswith(incomplete)]
+        return _match_group_name(incomplete, list(registry.groups))
     except Exception:
         return []
 
@@ -438,6 +486,12 @@ def run(
     setup_logging(log_dir=cutip_dir / "logs")
 
     registry = WorkspaceDiscovery(project_root).discover()
+
+    try:
+        group_name = _resolve_group_name(group_name, registry)
+    except CutipError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
 
     # Validate first
     result = GraphValidator(registry, project_root=project_root).validate()

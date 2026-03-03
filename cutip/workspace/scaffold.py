@@ -116,7 +116,10 @@ spec:
   # Use the default bridge network
   network_mode: bridge
 
-  command: 'sh -c "echo Hello from CUTIP!"'
+  # tail -f /dev/null keeps the container alive indefinitely so you can
+  # `podman exec -it cutip-hello /bin/sh` into it at any time.
+  # workflow.py execs a one-shot echo on every `cutip run hello`.
+  command: "tail -f /dev/null"
 
   environment:
     LANG: "C.UTF-8"
@@ -228,8 +231,9 @@ def startup(ctx: CutipContext) -> None:
     cc = next(c for c in ctx.resolved_cards.values() if isinstance(c, ContainerCard))
     cname = cc.metadata.name
 
-    logger.success(f\"Container '{cname}' is running.\")
+    logger.success(f\"Container '{cname}' is running (tail -f /dev/null).\")
     logger.info(f\"  Connect:  podman exec -it {cname} /bin/sh\")
+    logger.info(f\"  Stop:     podman stop {cname}\")
 """
 
 _EXAMPLE_WORKFLOW_PY = """\
@@ -245,17 +249,23 @@ each unit's startup.py, not here.
 
 from __future__ import annotations
 
+from loguru import logger
+
 from cutip.context.workflow import CutipContext
 
 
 def main(ctx: CutipContext) -> None:
-    \"\"\"Start the hello container.
+    \"\"\"Start the hello container and exec a greeting.
 
-    CUTIP has already built the image, created the container, and ensured
-    the network.  Call .start() here to bring it up, then startup.py
-    handles any post-start logic.
+    The container runs ``tail -f /dev/null`` so it stays alive — you can
+    ``podman exec -it cutip-hello /bin/sh`` into it at any time.  Here we
+    exec a one-shot echo on every ``cutip run hello`` to show the exec API.
     \"\"\"
-    ctx.container(\"cutip-hello\").start()
+    container = ctx.container(\"cutip-hello\")
+    container.start()
+
+    _, output = container.exec_run([\"sh\", \"-c\", \"echo 'hello from container'\"])
+    logger.info(output.decode(\"utf-8\", errors=\"replace\").strip())
 """
 
 
