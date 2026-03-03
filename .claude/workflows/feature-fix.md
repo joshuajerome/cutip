@@ -10,11 +10,14 @@ Do not stop at PR creation. Do not stop at push. Finish when all completion crit
 All of the following must be true before reporting done:
 
 - [ ] Tests pass locally
-- [ ] Branch pushed, PR opened with correct body (from `.claude/templates/pr-body.md`)
-- [ ] All CI checks green (`gh pr checks --watch`)
-- [ ] PR merged to staging (`gh pr merge --merge --delete-branch`)
-- [ ] `docs-generate.yml` run confirmed (or reported as queued)
-- [ ] Final summary printed to user
+- [ ] PR opened with correct body, assignee, and label
+- [ ] All CI checks green
+- [ ] PR merged to staging
+- [ ] docs-generate fired (confirmed or N/A for non-feat/bug branches)
+- [ ] docs PR merged (if one was created)
+- [ ] staging forwarded to integration
+- [ ] Merged branch pruned locally
+- [ ] Final summary printed
 
 ---
 
@@ -122,24 +125,53 @@ gh pr merge <PR_NUMBER> --merge --delete-branch
 
 ---
 
-## Step 10 — Confirm docs-generate fired
+## Step 10 — Wait for docs-generate and merge docs PR
 
 ```bash
+# Wait for docs-generate run (fires within ~30s of merge for feat/* and bug/*)
 gh run list --workflow docs-generate.yml --limit 3
 ```
 
-A run should appear within ~30 seconds of the merge. If a `docs/cap{N}-*` PR was opened, note its URL.
+If a `docs/cap{N}-*` PR was opened, watch its CI and merge it:
+
+```bash
+gh pr checks <DOCS_PR_NUMBER> --watch
+gh pr merge <DOCS_PR_NUMBER> --merge --delete-branch
+```
+
+Note: docs-generate only fires for `feat/*` and `bug/*` merges. If no docs PR is created, mark this step N/A.
 
 ---
 
-## Step 11 — Final report
+## Step 11 — Forward staging → integration
+
+```bash
+git checkout integration && git pull origin integration
+git merge origin/staging --no-edit
+git push origin integration
+```
+
+---
+
+## Step 12 — Prune merged branches
+
+```bash
+git fetch --prune
+git branch -d {feat|bug}/cap{N}-{slug} 2>/dev/null || true
+```
+
+---
+
+## Step 13 — Final report
 
 ```
 ✓ cap{N} — {title}
 ✓ Branch: {feat|bug}/cap{N}-{slug}
 ✓ PR #{N} merged to staging
-✓ docs-generate: {run URL or "queued — run ID {N}"}
-  docs PR: {URL or "not yet opened"}
+✓ docs-generate: {run URL or "N/A"}
+  docs PR: {URL and merged, or "N/A"}
+✓ staging forwarded to integration
+✓ Branch pruned locally
 ```
 
 ---
@@ -151,3 +183,4 @@ A run should appear within ~30 seconds of the merge. If a `docs/cap{N}-*` PR was
 - Always use `[cap{N}]` prefix on commits and PR titles
 - Stage specific files — never `git add -A`
 - Never skip Step 3 (read before editing)
+- When asked to raise a PR, complete the entire e2e: PR → GHA → staging → integration → branch prune
