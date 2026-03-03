@@ -4,6 +4,7 @@ from importlib.metadata import version as _pkg_version
 
 import typer
 
+from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import plan
@@ -46,6 +47,7 @@ app.add_typer(unit_app, name="unit")
 app.add_typer(card_app, name="card")
 app.command("plan")(plan)
 app.command("run")(run)
+app.command("from-compose")(from_compose)
 
 
 if __name__ == "__main__":
