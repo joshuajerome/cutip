@@ -146,14 +146,16 @@ gh release view v{X.Y.Z}
 
 ---
 
-## Step 9 — Clean up local branches
+## Step 9 — Clean up branches
 
 ```bash
 git checkout integration
 git branch -d feat/bump-v{X.Y.Z} 2>/dev/null || true
+git push origin --delete release/v{X.Y.Z} 2>/dev/null || true
+git branch -d release/v{X.Y.Z} 2>/dev/null || true
 ```
 
-`release/*` branches are **permanent** — never delete them locally or remotely.
+The git tag (`v{X.Y.Z}`) is the durable version marker — the release branch is deleted after the tag is confirmed.
 
 ---
 
@@ -175,6 +177,6 @@ git branch -d feat/bump-v{X.Y.Z} 2>/dev/null || true
 
 - Never push directly to `integration` — always merge staging in
 - The release branch is created from `integration`, not staging
-- `release/*` branches are permanent — never delete them
+- Delete release branches after the GitHub Release is confirmed — git tags preserve versioned code
 - Do not tag manually — `release.yml` creates the git tag via `softprops/action-gh-release`
 - If `release.yml` fails, investigate logs before retrying

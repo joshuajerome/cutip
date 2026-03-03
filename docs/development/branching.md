@@ -5,14 +5,16 @@
 ```
 integration  (permanent protected — the stable trunk)
     └── ← staging merges here after all checks pass
-    └── release/v{major}.{minor}.{patch}  ← targeted releases
 
 staging  (permanent protected — integration gate)
-    ← feat/cap{N}-<desc>    (code feature branches)
-    ← bug/cap{N}-<desc>     (bug fix branches)
-    ← docs/cap{N}-<desc>    (auto-generated after feat/bug merge)
+    ← feat/cap{N}-<desc>    (code feature branches — deleted after merge)
+    ← bug/cap{N}-<desc>     (bug fix branches — deleted after merge)
+    ← docs/cap{N}-<desc>    (auto-generated after feat/bug merge — deleted after merge)
     ← gh/<desc>             (GitHub Actions workflow changes)
     ← claude/<desc>         (.claude/, skills, memory changes)
+
+release/v{major}.{minor}.{patch}  (short-lived — deleted after release)
+    └── release.yml creates git tag v{X.Y.Z} — the tag is the durable version marker
 ```
 
 Local development happens directly — no shared sandbox branch.
@@ -27,7 +29,7 @@ New work starts from a fresh branch off `staging` (or `integration` for hotfixes
 | `docs/cap{N}-<desc>` | Auto-generated or manual docs | `docs-check.yml` on push |
 | `gh/<desc>` | CI/GitHub Actions changes | `wheel-build.yml` on push |
 | `claude/<desc>` | Claude Code config changes | `wheel-build.yml` on push |
-| `release/v{ver}` | Release pipeline | `release.yml` on push |
+| `release/v{ver}` | Release pipeline (short-lived) | `release.yml` on push |
 
 ## Capability ID System
 
@@ -52,7 +54,6 @@ Every feature or bug fix is assigned a **capability ID** (`cap001`, `cap002`, ..
 |--------|-------------|---------------|------------|
 | `integration` | Yes | all `pr-checks` jobs | Blocked |
 | `staging` | Yes | all `pr-checks` jobs | Blocked |
-| `release/*` | Yes | all `pr-checks` jobs | Blocked |
 
 **Required status checks** (must all pass before merge):
 - `pr-checks / unit-tests`
@@ -80,8 +81,11 @@ Every feature or bug fix is assigned a **capability ID** (`cap001`, `cap002`, ..
 1. git checkout integration && git pull
 2. git checkout -b release/v{X}.{Y}.{Z}
 3. git push -u origin release/v{X}.{Y}.{Z}
-4. release.yml runs all checks, builds wheel, creates GitHub Release
+4. release.yml runs, builds wheel, creates GitHub Release, and tags v{X.Y.Z}
+5. git push origin --delete release/v{X}.{Y}.{Z}  (tag persists — branch deleted)
 ```
+
+Git tags (`v{X.Y.Z}`) are the durable version markers. Release branches are deleted after the GitHub Release is confirmed.
 
 ## Automated Docs Generation
 

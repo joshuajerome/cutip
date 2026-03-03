@@ -10,8 +10,7 @@ cutip/                       ← version-controlled artifacts (commit this)
 ├── cards/
 │   ├── images/              ← ImageCard YAMLs
 │   ├── containers/          ← ContainerCard YAMLs
-│   ├── networks/            ← NetworkCard YAMLs
-│   └── volumes/             ← VolumeCard YAMLs
+│   └── networks/            ← NetworkCard YAMLs
 │
 ├── units/                   ← Unit YAMLs
 │
@@ -38,7 +37,6 @@ CUTIP's workspace discovery (`WorkspaceDiscovery`) walks the `cutip/` directory 
 | `cutip/cards/images/app.yaml` | `images/app` |
 | `cutip/cards/containers/db.yaml` | `containers/db` |
 | `cutip/cards/networks/prod.yaml` | `networks/prod` |
-| `cutip/cards/volumes/data.yaml` | `volumes/data` |
 | `cutip/units/app.yaml` | `units/app` (unit registry) |
 | `cutip/groups/infra/group.yaml` | `groups/infra` (group registry) |
 

@@ -27,7 +27,6 @@ CutipRegistry       RefResolver              GraphValidator
 | `ImageCard` | `ImageCard` | `images/` |
 | `ContainerCard` | `ContainerCard` | `containers/` |
 | `NetworkCard` | `NetworkCard` | `networks/` |
-| `VolumeCard` | `VolumeCard` | `volumes/` |
 | `Unit` | `Unit` | unit registry |
 | `Group` | `Group` | group registry |
 

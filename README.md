@@ -19,13 +19,12 @@ Container infrastructure is organized into four composable layers:
 
 ```
 ImageCard   ─┐
-NetworkCard ─┤──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
-VolumeCard  ─┘
+NetworkCard ─┘──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
 ```
 
 | Layer | What it represents |
 |---|---|
-| **Card** | One atomic container resource (image, network, volume, or container config) |
+| **Card** | One atomic container resource (image, network, or container configuration) |
 | **Unit** | One running container instance — a ContainerCard reference |
 | **Group** | A collection of Units + a Python `workflow.py` — the executable artifact |
 | **Workflow** | A plain Python function `main(ctx: CutipContext)` — full control, no magic |

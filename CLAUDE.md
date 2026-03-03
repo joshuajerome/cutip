@@ -161,14 +161,16 @@ Both are at `~/dev/cutip-projects/`:
 ```
 integration  (permanent protected — stable trunk)
     └── ← staging merges here after all checks pass
-    └── release/v{major}.{minor}.{patch}
 
 staging  (permanent protected — integration gate)
-    ← feat/cap{N}-<desc>    (feature branches)
-    ← bug/cap{N}-<desc>     (bug fix branches)
-    ← docs/cap{N}-<desc>    (auto-generated docs)
+    ← feat/cap{N}-<desc>    (feature branches — deleted after merge)
+    ← bug/cap{N}-<desc>     (bug fix branches — deleted after merge)
+    ← docs/cap{N}-<desc>    (auto-generated docs — deleted after merge)
     ← gh/<desc>             (GitHub Actions changes)
     ← claude/<desc>         (.claude/, skills, memory)
+
+release/v{major}.{minor}.{patch}  (short-lived — deleted after tag is confirmed)
+    └── release.yml creates git tag v{X.Y.Z} — the tag is the durable version marker
 ```
 
 ## Capability ID System

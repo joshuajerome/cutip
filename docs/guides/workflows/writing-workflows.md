@@ -20,7 +20,6 @@ def main(ctx):
     img = ctx.resolved_cards["images/my-app"]        # ImageCard
     cc  = ctx.resolved_cards["containers/my-app"]    # ContainerCard
     net = ctx.resolved_cards["networks/dev"]          # NetworkCard
-    vol = ctx.resolved_cards["volumes/data"]          # VolumeCard
 ```
 
 If you don't want to hardcode ref strings, iterate by type:

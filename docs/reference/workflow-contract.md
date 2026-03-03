@@ -44,9 +44,8 @@ The backend handle (`ctx.runtime`) exposes the following interface:
 runtime.pull_image(card: ImageCard) -> None
 runtime.build_image(card: ImageCard, project_root: Path | None = None) -> None
 
-# Networks and volumes
+# Networks
 runtime.ensure_network(card: NetworkCard) -> None
-runtime.ensure_volume(card: VolumeCard) -> None
 
 # Containers
 runtime.create_container(card: ContainerCard, image_name: str | None = None) -> str

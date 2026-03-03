@@ -44,10 +44,6 @@ spec:
       target: /container/path
       mode: rw            # "rw" or "ro"
 
-  # ── Named volumes ─────────────────────────────────────────────────────
-  volumes:
-    my_volume: /container/path    # VolumeCard name → container mount path
-
   # ── Capabilities and security ─────────────────────────────────────────
   cap_add:
     - SYS_ADMIN

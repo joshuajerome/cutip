@@ -10,7 +10,7 @@ Every card shares the same envelope:
 
 ```yaml
 apiVersion: cutip/v1      # must be exactly "cutip/v1"
-kind: <CardKind>          # ImageCard | ContainerCard | NetworkCard | VolumeCard
+kind: <CardKind>          # ImageCard | ContainerCard | NetworkCard
 metadata:
   name: <string>          # unique within its kind — used as the registry key
   labels: {}              # optional key-value metadata
@@ -82,18 +82,6 @@ spec:
 
 Full reference: [reference/cards/network-card.md](../reference/cards/network-card.md)
 
-### VolumeCard
-
-Defines a named container volume.
-
-```yaml
-kind: VolumeCard
-spec:
-  driver: local
-```
-
-Full reference: [reference/cards/volume-card.md](../reference/cards/volume-card.md)
-
 ---
 
 ## Registry keys
@@ -105,6 +93,5 @@ When CUTIP discovers cards during workspace loading, each card is registered und
 | `ImageCard` | `images/` | `images/my-app` |
 | `ContainerCard` | `containers/` | `containers/my-app` |
 | `NetworkCard` | `networks/` | `networks/dev` |
-| `VolumeCard` | `volumes/` | `volumes/data` |
 
 These keys are the ref strings used in `imageRef`, `networkRef`, `containerRef`, etc.
