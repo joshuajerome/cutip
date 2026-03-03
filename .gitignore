@@ -51,3 +51,8 @@ site/
 .claude/settings.local.json
 # Git worktrees created by Claude Code live here; never commit them.
 .claude/worktrees/
+
+# ── Jenkins AI Reports ────────────────────────────────────────────────────────
+# claude-reports/ is written at runtime by .jenkins/scripts/* and archived as
+# Jenkins build artifacts. Never commit it.
+claude-reports/

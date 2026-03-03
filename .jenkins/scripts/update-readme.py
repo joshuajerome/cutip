@@ -82,17 +82,23 @@ def main() -> int:
     drift_report = parts[0].strip()
     updated_sections = parts[1].strip() if len(parts) == 2 else ""
 
+    has_changes = bool(updated_sections) and "No updates required" not in updated_sections
+
     print("\n## Drift Report\n")
     print(drift_report)
 
-    if updated_sections and "No updates required" not in updated_sections:
-        out = Path("/tmp/readme-updated-sections.md")
-        out.write_text(updated_sections)
+    report_lines = [drift_report]
+    if has_changes:
         print(f"\n## Updated Sections\n\n{updated_sections}")
-        print(f"\n[update-readme] Updated sections saved to {out}")
-        print("[update-readme] Apply them manually or via a docs/readme-update branch.")
+        print("\n[update-readme] Apply via a docs/readme-update branch.")
+        report_lines += ["\n## Updated Sections\n", updated_sections]
     else:
         print("\n[update-readme] README is up to date — no changes needed.")
+
+    out = REPO_ROOT / "claude-reports" / "update-readme.md"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text("\n".join(report_lines))
+    print(f"\n[update-readme] Report saved to {out.relative_to(REPO_ROOT)}")
 
     return 0
 

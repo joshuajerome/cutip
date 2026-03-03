@@ -101,9 +101,10 @@ def main() -> None:
     report = message.content[0].text
     print("\n" + report)
 
-    out = Path("/tmp/doc-coverage-report.md")
+    out = REPO_ROOT / "claude-reports" / "analyze-doc-coverage.md"
+    out.parent.mkdir(exist_ok=True)
     out.write_text(report)
-    print(f"\n[analyze-doc-coverage] Full report saved to {out}")
+    print(f"\n[analyze-doc-coverage] Report saved to {out.relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":

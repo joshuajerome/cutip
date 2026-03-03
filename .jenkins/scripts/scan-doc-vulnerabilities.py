@@ -66,6 +66,10 @@ def main() -> int:
     response = message.content[0].text
     print("\n" + response)
 
+    out = REPO_ROOT / "claude-reports" / "scan-doc-vulnerabilities.md"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(response)
+
     if "VERDICT: FAIL" in response:
         print("\n[scan-doc-vulnerabilities] HIGH-severity findings — resolve before merging.")
         return 1

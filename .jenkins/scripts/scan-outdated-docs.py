@@ -97,6 +97,10 @@ def main() -> int:
     response = message.content[0].text
     print("\n" + response)
 
+    out = REPO_ROOT / "claude-reports" / "scan-outdated-docs.md"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(response)
+
     if "VERDICT: FAIL" in response:
         print("\n[scan-outdated-docs] HIGH-severity stale references found — resolve before merging.")
         return 1
