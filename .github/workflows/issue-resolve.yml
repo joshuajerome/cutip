@@ -125,18 +125,6 @@ jobs:
           git commit -m "[${CAP_ID}] fix: automated fix for issue #${{ github.event.issue.number }}"
           git push origin "$BRANCH"
 
-      - name: Build wheel
-        if: steps.check.outputs.valid == 'true'
-        run: uv build --wheel
-
-      - name: Upload wheel artifact
-        if: steps.check.outputs.valid == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: "cutip-fix-${{ steps.cap.outputs.cap_id }}"
-          path: dist/*.whl
-          retention-days: 14
-
       - name: Apply claude-fixed label
         if: steps.check.outputs.valid == 'true'
         env:
@@ -155,7 +143,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CAP_ID: ${{ steps.cap.outputs.cap_id }}
           BRANCH: ${{ steps.cap.outputs.branch }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
             echo "## Claude Fix — ${CAP_ID}"
@@ -166,12 +153,13 @@ jobs:
             echo ""
             echo "**Branch:** \`${BRANCH}\`"
             echo ""
-            echo "**Download wheel:** [Workflow run artifacts](${RUN_URL})"
-            echo ""
-            echo "**Install the patched wheel:**"
+            echo "**Try the fix:** Once this PR merges to staging → integration, install the dev build from Test PyPI:"
             echo '```bash'
-            echo "pip install cutip-*.whl"
+            echo "pip install --index-url https://test.pypi.org/simple/ \\"
+            echo "  --extra-index-url https://pypi.org/simple/ \\"
+            echo "  \"cutip>=0.1.5.dev0\""
             echo '```'
+            echo "(The \`--extra-index-url\` flag lets pip resolve dependencies from the main PyPI registry.)"
             echo ""
             echo "Reply \`/acknowledge\` to open a PR from \`${BRANCH}\` to \`staging\` for release."
           } > /tmp/fix-comment.md

@@ -83,6 +83,28 @@ pip install cutip=={X.Y.Z}
 
 ---
 
+## Dev Release Track (Test PyPI)
+
+Every merge to `integration` automatically publishes a dev build to Test PyPI. Issue fixes accumulate in a single installable pre-release version.
+
+**Workflow:** `.github/workflows/publish-dev.yml`
+
+**Version format:** `{major}.{minor}.{patch+1}.dev{RUN_NUMBER}` — e.g. `0.1.5.dev42`
+
+**Install:**
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  "cutip>=0.1.5.dev0"
+```
+
+The `--extra-index-url` flag lets pip resolve dependencies from the main PyPI registry.
+
+**Requires secret:** `TEST_PYPI_TOKEN` — add once in repo settings → Secrets → Actions.
+
+---
+
 ## Patch notes
 
 `docs/patch-notes.md` is updated as part of every release. Each entry follows the same structure:
