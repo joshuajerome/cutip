@@ -75,6 +75,12 @@ Every feature or bug fix is assigned a **capability ID** (`cap001`, `cap002`, ..
 8. When staging is stable: open PR → integration
 ```
 
+> [!TIP]
+> If a PR check fails with a transient GitHub error, use `gh run rerun <run-id> --failed`
+> to retry only the failed jobs. Use `--admin` force merge only as a last resort after
+> multiple retries confirm a persistent infrastructure failure — never to bypass real failures.
+> See [CI/CD Workflows Reference](workflows.md#ci-failure-retry-before-force-merging) for the full retry procedure.
+
 ## Workflow: Release
 
 ```
@@ -86,6 +92,10 @@ Every feature or bug fix is assigned a **capability ID** (`cap001`, `cap002`, ..
 ```
 
 Git tags (`v{X.Y.Z}`) are the durable version markers. Release branches are deleted after the GitHub Release is confirmed.
+
+## CI/CD Workflows
+
+For the full workflow trigger matrix, Test PyPI dev artifact flow, and CI retry procedure, see the [CI/CD Workflows Reference](workflows.md).
 
 ## Automated Docs Generation
 

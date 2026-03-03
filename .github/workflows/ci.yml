@@ -108,6 +108,7 @@ jobs:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -151,6 +152,7 @@ jobs:
     name: E2E Podman · Windows
     runs-on: windows-latest
     timeout-minutes: 35
+    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -213,6 +215,7 @@ jobs:
     name: Install & Validate · macOS
     runs-on: macos-14
     timeout-minutes: 15
+    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
