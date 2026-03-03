@@ -107,7 +107,7 @@ jobs:
   e2e-podman-ubuntu:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     if: github.event_name == 'pull_request'
 
     env:
@@ -147,11 +147,52 @@ jobs:
       - name: Run E2E group complex (Podman · Ubuntu)
         run: uv run cutip run complex --path tests/e2e/complex --local
 
+      # ── from-compose: awesome-compose validation suite ──────────────────────
+      - name: "from-compose · react-nginx"
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/react-nginx/compose.yaml \
+            -o /tmp/react-nginx.yaml
+          mkdir -p /tmp/fc-react-nginx
+          uv run cutip from-compose /tmp/react-nginx.yaml --output-dir /tmp/fc-react-nginx
+          uv run cutip validate --path /tmp/fc-react-nginx
+
+      - name: "from-compose · fastapi"
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/fastapi/compose.yaml \
+            -o /tmp/fastapi.yaml
+          mkdir -p /tmp/fc-fastapi
+          uv run cutip from-compose /tmp/fastapi.yaml --output-dir /tmp/fc-fastapi
+          uv run cutip validate --path /tmp/fc-fastapi
+
+      - name: "from-compose · nginx-flask-mongo"
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/nginx-flask-mongo/compose.yaml \
+            -o /tmp/nginx-flask-mongo.yaml
+          mkdir -p /tmp/fc-nginx-flask-mongo
+          uv run cutip from-compose /tmp/nginx-flask-mongo.yaml --output-dir /tmp/fc-nginx-flask-mongo
+          uv run cutip validate --path /tmp/fc-nginx-flask-mongo
+
+      - name: "from-compose · prometheus-grafana"
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/prometheus-grafana/compose.yaml \
+            -o /tmp/prometheus-grafana.yaml
+          mkdir -p /tmp/fc-prometheus-grafana
+          uv run cutip from-compose /tmp/prometheus-grafana.yaml --output-dir /tmp/fc-prometheus-grafana
+          uv run cutip validate --path /tmp/fc-prometheus-grafana
+
+      - name: "from-compose · angular"
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/angular/compose.yaml \
+            -o /tmp/angular.yaml
+          mkdir -p /tmp/fc-angular
+          uv run cutip from-compose /tmp/angular.yaml --output-dir /tmp/fc-angular
+          uv run cutip validate --path /tmp/fc-angular
+
   # ── E2E · Windows ───────────────────────────────────────────────────────────
   e2e-podman-windows:
     name: E2E Podman · Windows
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     if: github.event_name == 'pull_request'
 
     env:
@@ -204,6 +245,52 @@ jobs:
 
       - name: Run E2E group complex (Podman · Windows)
         run: uv run cutip run complex --path tests/e2e/complex
+
+      # ── from-compose: awesome-compose validation suite ──────────────────────
+      - name: "from-compose · react-nginx (Windows)"
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/docker/awesome-compose/master/react-nginx/compose.yaml" `
+            -OutFile "$env:TEMP\react-nginx.yaml"
+          New-Item -ItemType Directory -Force "$env:TEMP\fc-react-nginx" | Out-Null
+          uv run cutip from-compose "$env:TEMP\react-nginx.yaml" --output-dir "$env:TEMP\fc-react-nginx"
+          uv run cutip validate --path "$env:TEMP\fc-react-nginx"
+
+      - name: "from-compose · fastapi (Windows)"
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/docker/awesome-compose/master/fastapi/compose.yaml" `
+            -OutFile "$env:TEMP\fastapi.yaml"
+          New-Item -ItemType Directory -Force "$env:TEMP\fc-fastapi" | Out-Null
+          uv run cutip from-compose "$env:TEMP\fastapi.yaml" --output-dir "$env:TEMP\fc-fastapi"
+          uv run cutip validate --path "$env:TEMP\fc-fastapi"
+
+      - name: "from-compose · nginx-flask-mongo (Windows)"
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/docker/awesome-compose/master/nginx-flask-mongo/compose.yaml" `
+            -OutFile "$env:TEMP\nginx-flask-mongo.yaml"
+          New-Item -ItemType Directory -Force "$env:TEMP\fc-nginx-flask-mongo" | Out-Null
+          uv run cutip from-compose "$env:TEMP\nginx-flask-mongo.yaml" --output-dir "$env:TEMP\fc-nginx-flask-mongo"
+          uv run cutip validate --path "$env:TEMP\fc-nginx-flask-mongo"
+
+      - name: "from-compose · prometheus-grafana (Windows)"
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/docker/awesome-compose/master/prometheus-grafana/compose.yaml" `
+            -OutFile "$env:TEMP\prometheus-grafana.yaml"
+          New-Item -ItemType Directory -Force "$env:TEMP\fc-prometheus-grafana" | Out-Null
+          uv run cutip from-compose "$env:TEMP\prometheus-grafana.yaml" --output-dir "$env:TEMP\fc-prometheus-grafana"
+          uv run cutip validate --path "$env:TEMP\fc-prometheus-grafana"
+
+      - name: "from-compose · angular (Windows)"
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/docker/awesome-compose/master/angular/compose.yaml" `
+            -OutFile "$env:TEMP\angular.yaml"
+          New-Item -ItemType Directory -Force "$env:TEMP\fc-angular" | Out-Null
+          uv run cutip from-compose "$env:TEMP\angular.yaml" --output-dir "$env:TEMP\fc-angular"
+          uv run cutip validate --path "$env:TEMP\fc-angular"
 
   # ── Install & Validate · macOS ──────────────────────────────────────────────
   install-validate-macos:
