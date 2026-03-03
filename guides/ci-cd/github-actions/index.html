@@ -1527,10 +1527,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#pr-checks-pr-checksyml" class="md-nav__link">
+  <a href="#workflow-trigger-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PR Checks (pr-checks.yml)
+        Workflow trigger matrix
       
     </span>
   </a>
@@ -1538,15 +1538,26 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman" class="md-nav__link">
+  <a href="#unit-tests-and-smoke-test" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman
+        Unit tests and smoke test
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#e2e-podman-pr-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E — Podman (PR-only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="E2E — Podman (PR-only)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1561,10 +1572,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#connection-mode" class="md-nav__link">
+  <a href="#e2e-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection mode
+        E2E workspaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-compose-validation-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from-compose validation suite
       
     </span>
   </a>
@@ -1577,10 +1599,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-e2e-fixture-testse2ehello-world" class="md-nav__link">
+  <a href="#install-validate-macos-pr-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The E2E fixture (tests/e2e/hello-world/)
+        Install &amp; Validate — macOS (PR-only)
       
     </span>
   </a>
@@ -1599,10 +1621,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-more-e2e-groups" class="md-nav__link">
+  <a href="#adding-more-e2e-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding more E2E groups
+        Adding more E2E workspaces
       
     </span>
   </a>
@@ -2125,10 +2147,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#pr-checks-pr-checksyml" class="md-nav__link">
+  <a href="#workflow-trigger-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PR Checks (pr-checks.yml)
+        Workflow trigger matrix
       
     </span>
   </a>
@@ -2136,15 +2158,26 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman" class="md-nav__link">
+  <a href="#unit-tests-and-smoke-test" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman
+        Unit tests and smoke test
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#e2e-podman-pr-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E — Podman (PR-only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="E2E — Podman (PR-only)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2159,10 +2192,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#connection-mode" class="md-nav__link">
+  <a href="#e2e-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection mode
+        E2E workspaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-compose-validation-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from-compose validation suite
       
     </span>
   </a>
@@ -2175,10 +2219,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-e2e-fixture-testse2ehello-world" class="md-nav__link">
+  <a href="#install-validate-macos-pr-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The E2E fixture (tests/e2e/hello-world/)
+        Install &amp; Validate — macOS (PR-only)
       
     </span>
   </a>
@@ -2197,10 +2241,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-more-e2e-groups" class="md-nav__link">
+  <a href="#adding-more-e2e-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding more E2E groups
+        Adding more E2E workspaces
       
     </span>
   </a>
@@ -2233,7 +2277,7 @@
 
 
 <h1 id="guide-github-actions">Guide: GitHub Actions<a class="headerlink" href="#guide-github-actions" title="Permanent link">&para;</a></h1>
-<p>CUTIP's CI pipeline uses the following workflows under <code>.github/workflows/</code>:</p>
+<p>CUTIP's CI pipeline lives entirely in <code>.github/workflows/ci.yml</code>. A single file handles every stage: unit tests, smoke test, E2E, docs build, and wheel archive.</p>
 <table>
 <thead>
 <tr>
@@ -2244,46 +2288,65 @@
 </thead>
 <tbody>
 <tr>
-<td><code>wheel-build.yml</code></td>
-<td>push to <code>feat/**</code>, <code>bug/**</code>, <code>claude/**</code></td>
-<td>Build wheel and upload as artifact</td>
+<td><code>ci.yml</code></td>
+<td>Push to <code>feat/**</code>, <code>bug/**</code>, <code>claude/**</code>; PR → <code>staging</code> or <code>integration</code></td>
+<td>Unit tests, smoke test, E2E (PR-only), docs build, wheel archive</td>
 </tr>
 <tr>
-<td><code>pr-checks.yml</code></td>
-<td>PR to <code>staging</code> or <code>integration</code></td>
-<td>Unit tests, smoke test, E2E (Ubuntu + Windows), docs build</td>
+<td><code>docs.yml</code></td>
+<td>Push to <code>staging</code> or <code>docs/**</code>; PR touching docs</td>
+<td>Docs build check, AI audit, GitHub Pages deploy</td>
 </tr>
 <tr>
-<td><code>docs-check.yml</code></td>
-<td>push to <code>docs/**</code>, <code>integration</code>; PR touching docs</td>
-<td>Build docs (strict); deploy to GitHub Pages on <code>integration</code> push</td>
+<td><code>integration.yml</code></td>
+<td>Push to <code>integration</code></td>
+<td>Test PyPI dev publish, merged-branch pruning</td>
 </tr>
 <tr>
 <td><code>release.yml</code></td>
-<td>push to <code>release/**</code></td>
-<td>Run all checks, build wheel + sdist, create GitHub Release</td>
+<td>Push to <code>release/**</code></td>
+<td>Full test matrix + GitHub Release creation</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="pr-checks-pr-checksyml">PR Checks (<code>pr-checks.yml</code>)<a class="headerlink" href="#pr-checks-pr-checksyml" title="Permanent link">&para;</a></h2>
-<p>Every PR to <code>staging</code> or <code>integration</code> must pass all five jobs before merge:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>unit-tests → smoke-test → e2e-podman-ubuntu → e2e-podman-windows → docs-build
-</span></code></pre></div>
-<p>Key steps:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run unit tests</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run pytest tests/ --ignore=tests/e2e -v --tb=short</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Smoke-test wheel install</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="no">uv venv .wheel-test</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="no">uv pip install --python .wheel-test/bin/python dist/cutip-*.whl</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="no">.wheel-test/bin/cutip --help</span>
-</span></code></pre></div>
-<p>Unit tests live in <code>tests/</code>. The E2E fixture (<code>tests/e2e/</code>) is excluded from the unit test job — it requires a live Podman runtime.</p>
+<h2 id="workflow-trigger-matrix">Workflow trigger matrix<a class="headerlink" href="#workflow-trigger-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Jobs that run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Push to <code>feat/**</code>, <code>bug/**</code>, <code>claude/**</code></td>
+<td>unit-tests, smoke-test, docs-build, build-wheel</td>
+</tr>
+<tr>
+<td>PR → <code>staging</code> or <code>integration</code></td>
+<td>auto-label, unit-tests, smoke-test, <strong>e2e-ubuntu</strong>, <strong>e2e-windows</strong>, <strong>install-macos</strong>, docs-build</td>
+</tr>
+</tbody>
+</table>
+<p>E2E jobs carry <code>if: github.event_name == 'pull_request'</code> — they only run on PRs, not on every iterative push to a feature branch. This keeps per-push CI fast while still requiring E2E to pass before any merge.</p>
 <hr />
-<h2 id="e2e-podman">E2E — Podman<a class="headerlink" href="#e2e-podman" title="Permanent link">&para;</a></h2>
-<p>Runs <code>tests/e2e/hello-world</code> against the Podman backend on Ubuntu and Windows.</p>
+<h2 id="unit-tests-and-smoke-test">Unit tests and smoke test<a class="headerlink" href="#unit-tests-and-smoke-test" title="Permanent link">&para;</a></h2>
+<p>These run on every push and every PR:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run unit tests</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run pytest tests/ --ignore=tests/e2e -v --tb=short</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Smoke-test wheel install</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="no">uv venv .wheel-test</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="no">uv pip install --python .wheel-test/bin/python dist/cutip-*.whl</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="no">.wheel-test/bin/python -c &quot;import cutip; print(&#39;cutip import OK&#39;)&quot;</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="no">.wheel-test/bin/cutip --help</span>
+</span></code></pre></div>
+<p>Unit tests live in <code>tests/</code>. The E2E directory (<code>tests/e2e/</code>) is excluded from the unit test job — it requires a live Podman runtime.</p>
+<hr />
+<h2 id="e2e-podman-pr-only">E2E — Podman (PR-only)<a class="headerlink" href="#e2e-podman-pr-only" title="Permanent link">&para;</a></h2>
+<p>E2E runs against two workspaces plus a from-compose validation suite, on Ubuntu and Windows.</p>
 <h3 id="how-each-platform-gets-a-working-podman-socket">How each platform gets a working Podman socket<a class="headerlink" href="#how-each-platform-gets-a-working-podman-socket" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2306,30 +2369,105 @@
 </tr>
 </tbody>
 </table>
-<h3 id="connection-mode">Connection mode<a class="headerlink" href="#connection-mode" title="Permanent link">&para;</a></h3>
-<p>Both platforms use <code>--local</code> to connect via the socket set in <code>CONTAINER_HOST</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run hello --path tests/e2e/hello-world --local</span>
+<h3 id="e2e-workspaces">E2E workspaces<a class="headerlink" href="#e2e-workspaces" title="Permanent link">&para;</a></h3>
+<p>Two permanent workspaces live under <code>tests/e2e/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Workspace</th>
+<th>Group</th>
+<th>What it tests</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/e2e/simple/</code></td>
+<td><code>simple</code></td>
+<td>Single container (alpine), basic lifecycle</td>
+</tr>
+<tr>
+<td><code>tests/e2e/complex/</code></td>
+<td><code>complex</code></td>
+<td>Multi-container (postgres + Python app), health-check loop, pre-build hooks</td>
+</tr>
+</tbody>
+</table>
+<p>Both are validated (schema + ref check) before being run:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Validate simple workspace</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip validate --path tests/e2e/simple</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run E2E group simple (Podman · Ubuntu)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run simple --path tests/e2e/simple --local</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Validate complex workspace</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip validate --path tests/e2e/complex</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run E2E group complex (Podman · Ubuntu)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip run complex --path tests/e2e/complex --local</span>
 </span></code></pre></div>
+<h3 id="from-compose-validation-suite">from-compose validation suite<a class="headerlink" href="#from-compose-validation-suite" title="Permanent link">&para;</a></h3>
+<p>Five projects from <a href="https://github.com/docker/awesome-compose">docker/awesome-compose</a> are fetched and converted via <code>cutip from-compose</code>, then validated with <code>cutip validate</code>. This confirms the converter produces valid CUTIP artifacts across a range of real-world compose files:</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Services</th>
+<th>What it exercises</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>react-nginx</code></td>
+<td>frontend, proxy</td>
+<td>multi-stage build, nginx proxy</td>
+</tr>
+<tr>
+<td><code>fastapi</code></td>
+<td>api</td>
+<td>single-service with restart policy</td>
+</tr>
+<tr>
+<td><code>nginx-flask-mongo</code></td>
+<td>nginx, flask, mongo</td>
+<td>3-service stack, depends_on</td>
+</tr>
+<tr>
+<td><code>prometheus-grafana</code></td>
+<td>prometheus, grafana</td>
+<td>named volumes, env vars, port bindings</td>
+</tr>
+<tr>
+<td><code>angular</code></td>
+<td>frontend</td>
+<td>Angular SPA build</td>
+</tr>
+</tbody>
+</table>
+<p>Each step fetches the compose file, converts it, and validates the output (schema + ref check). Container runtime is not invoked — <code>cutip validate</code> only checks the artifact graph.</p>
+<p>Ubuntu example:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;from-compose</span><span class="nv"> </span><span class="s">·</span><span class="nv"> </span><span class="s">react-nginx&quot;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="no">curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/react-nginx/compose.yaml \</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="no">-o /tmp/react-nginx.yaml</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="no">mkdir -p /tmp/fc-react-nginx</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="no">uv run cutip from-compose /tmp/react-nginx.yaml --output-dir /tmp/fc-react-nginx</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="no">uv run cutip validate --path /tmp/fc-react-nginx</span>
+</span></code></pre></div>
+<p>Windows uses <code>Invoke-WebRequest</code> and <code>$env:TEMP</code> paths via PowerShell.</p>
 <hr />
-<h2 id="the-e2e-fixture-testse2ehello-world">The E2E fixture (<code>tests/e2e/hello-world/</code>)<a class="headerlink" href="#the-e2e-fixture-testse2ehello-world" title="Permanent link">&para;</a></h2>
-<p>A minimal CUTIP workspace:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cutip.yaml
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cutip/
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  cards/images/hello.yaml         # pull alpine:3.20
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  cards/containers/hello.yaml     # network_mode: bridge, command: echo CUTIP_OK
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  units/hello.yaml
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  groups/hello/
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    group.yaml
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    workflow.py
+<h2 id="install-validate-macos-pr-only">Install &amp; Validate — macOS (PR-only)<a class="headerlink" href="#install-validate-macos-pr-only" title="Permanent link">&para;</a></h2>
+<p>Free macOS runners (<code>macos-14</code>) do not expose the Apple Hypervisor Framework, so <code>podman machine</code> cannot start. The macOS job validates install and schema only — no containers:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Smoke-test CLI (no runtime needed)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="no">uv run cutip --help</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="no">uv run cutip --version</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Validate simple workspace (schema only, no containers)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip validate --path tests/e2e/simple</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Validate complex workspace (schema only, no containers)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run cutip validate --path tests/e2e/complex</span>
 </span></code></pre></div>
-<p>The workflow:
-1. Pulls <code>alpine:3.20</code>
-2. Creates and starts <code>cutip-hello</code> container
-3. Waits up to 15 s for the container to exit
-4. Reads container logs
-5. Asserts <code>"CUTIP_OK"</code> is present in the output
-6. Removes the container</p>
-<p>A failed assertion propagates as a non-zero exit, turning the GitHub Actions step red.</p>
 <hr />
 <h2 id="why-uv-venv-venv-instead-of-system">Why <code>uv venv .venv</code> instead of <code>--system</code><a class="headerlink" href="#why-uv-venv-venv-instead-of-system" title="Permanent link">&para;</a></h2>
 <p>System Python on Ubuntu and macOS is marked as "externally managed" (PEP 668), which blocks <code>uv pip install --system</code>. The workflows create a project-local <code>.venv</code> first:</p>
@@ -2340,8 +2478,9 @@
 </span></code></pre></div>
 <p><code>uv run cutip ...</code> then automatically discovers and activates <code>.venv</code> without any PATH manipulation, working identically on all three platforms.</p>
 <hr />
-<h2 id="adding-more-e2e-groups">Adding more E2E groups<a class="headerlink" href="#adding-more-e2e-groups" title="Permanent link">&para;</a></h2>
-<p>To test additional CUTIP workspaces in CI, add steps that run <code>uv run cutip run &lt;group&gt; --path &lt;path&gt;</code>. The fixtures live under <code>tests/e2e/</code>.</p>
+<h2 id="adding-more-e2e-workspaces">Adding more E2E workspaces<a class="headerlink" href="#adding-more-e2e-workspaces" title="Permanent link">&para;</a></h2>
+<p>To test additional CUTIP workspaces in CI, add steps that run <code>uv run cutip validate --path &lt;path&gt;</code> and <code>uv run cutip run &lt;group&gt; --path &lt;path&gt;</code>. The workspaces live under <code>tests/e2e/</code>.</p>
+<p>For <code>from-compose</code> tests, add steps that fetch a compose file, run <code>cutip from-compose</code>, and then <code>cutip validate</code> — no container runtime needed.</p>
 
 
 

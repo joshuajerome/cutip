@@ -1769,22 +1769,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#github-actions-stages" class="md-nav__link">
+  <a href="#github-actions-ciyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        GitHub Actions stages
+        GitHub Actions: ci.yml
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="GitHub Actions stages">
+    <nav class="md-nav" aria-label="GitHub Actions: ci.yml">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#pr-checksyml" class="md-nav__link">
+  <a href="#on-push-to-feature-branch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        pr-checks.yml
+        On push to feature branch
       
     </span>
   </a>
@@ -1792,10 +1792,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wheel-buildyml" class="md-nav__link">
+  <a href="#on-pr-to-staging-or-integration-adds-e2e" class="md-nav__link">
     <span class="md-ellipsis">
       
-        wheel-build.yml
+        On PR to staging or integration (adds E2E)
       
     </span>
   </a>
@@ -1804,17 +1804,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#jenkins-stages-buildjenkinsfile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Jenkins stages (build.Jenkinsfile)
-      
-    </span>
-  </a>
   
 </li>
       
@@ -2136,22 +2125,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#github-actions-stages" class="md-nav__link">
+  <a href="#github-actions-ciyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        GitHub Actions stages
+        GitHub Actions: ci.yml
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="GitHub Actions stages">
+    <nav class="md-nav" aria-label="GitHub Actions: ci.yml">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#pr-checksyml" class="md-nav__link">
+  <a href="#on-push-to-feature-branch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        pr-checks.yml
+        On push to feature branch
       
     </span>
   </a>
@@ -2159,10 +2148,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wheel-buildyml" class="md-nav__link">
+  <a href="#on-pr-to-staging-or-integration-adds-e2e" class="md-nav__link">
     <span class="md-ellipsis">
       
-        wheel-build.yml
+        On PR to staging or integration (adds E2E)
       
     </span>
   </a>
@@ -2171,17 +2160,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#jenkins-stages-buildjenkinsfile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Jenkins stages (build.Jenkinsfile)
-      
-    </span>
-  </a>
   
 </li>
       
@@ -2248,16 +2226,17 @@
 <hr />
 <h2 id="trigger">Trigger<a class="headerlink" href="#trigger" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Push to <code>feat/**</code> or <code>bug/**</code> — triggers GHA <code>pr-checks.yml</code> and <code>wheel-build.yml</code></li>
-<li>PR opened targeting <code>staging</code> — triggers the same checks</li>
+<li>Push to <code>feat/**</code> or <code>bug/**</code> — triggers <code>ci.yml</code> (unit-tests, smoke-test, docs-build, build-wheel)</li>
+<li>PR opened targeting <code>staging</code> — triggers all of the above plus E2E (Ubuntu, Windows, macOS validate)</li>
 </ul>
 <hr />
-<h2 id="github-actions-stages">GitHub Actions stages<a class="headerlink" href="#github-actions-stages" title="Permanent link">&para;</a></h2>
-<h3 id="pr-checksyml"><code>pr-checks.yml</code><a class="headerlink" href="#pr-checksyml" title="Permanent link">&para;</a></h3>
+<h2 id="github-actions-ciyml">GitHub Actions: <code>ci.yml</code><a class="headerlink" href="#github-actions-ciyml" title="Permanent link">&para;</a></h2>
+<p>All CI runs through a single consolidated workflow file.</p>
+<h3 id="on-push-to-feature-branch">On push to feature branch<a class="headerlink" href="#on-push-to-feature-branch" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Step</th>
+<th>Job</th>
 <th>Command</th>
 </tr>
 </thead>
@@ -2268,61 +2247,56 @@
 </tr>
 <tr>
 <td>Smoke test</td>
-<td>Build wheel → install in isolated venv → <code>import cutip</code></td>
+<td>Build wheel → install in isolated venv → <code>import cutip</code> + <code>cutip --help</code></td>
 </tr>
 <tr>
-<td>E2E</td>
-<td><code>cutip validate</code> + <code>cutip run hello --local</code></td>
+<td>Docs build</td>
+<td><code>uv run mkdocs build --strict</code></td>
+</tr>
+<tr>
+<td>Build wheel</td>
+<td><code>uv build --wheel</code> → archived as workflow artifact</td>
 </tr>
 </tbody>
 </table>
-<p>All checks must pass before merge is allowed.</p>
-<h3 id="wheel-buildyml"><code>wheel-build.yml</code><a class="headerlink" href="#wheel-buildyml" title="Permanent link">&para;</a></h3>
-<p>Builds the distributable <code>.whl</code> and archives it as a workflow artifact. Runs on every push to <code>feat/**</code>, <code>bug/**</code>, and <code>claude/**</code>.</p>
-<hr />
-<h2 id="jenkins-stages-buildjenkinsfile">Jenkins stages (<code>build.Jenkinsfile</code>)<a class="headerlink" href="#jenkins-stages-buildjenkinsfile" title="Permanent link">&para;</a></h2>
-<p>The Jenkins build pipeline mirrors GHA but runs on the Jenkins agent (which has Podman available unconditionally):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Checkout → Install Dependencies → Unit Tests → Smoke Test → E2E → Build Wheel
-</span></code></pre></div>
+<h3 id="on-pr-to-staging-or-integration-adds-e2e">On PR to staging or integration (adds E2E)<a class="headerlink" href="#on-pr-to-staging-or-integration-adds-e2e" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Stage</th>
-<th>Notes</th>
+<th>Job</th>
+<th>What it runs</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Unit Tests</td>
-<td>JUnit XML archived</td>
+<td>E2E · Ubuntu</td>
+<td><code>cutip validate</code> + <code>cutip run simple</code> + <code>cutip run complex</code> + from-compose suite</td>
 </tr>
 <tr>
-<td>Smoke Test</td>
-<td>Wheel installed in isolated <code>.wheel-test</code> venv</td>
+<td>E2E · Windows</td>
+<td>Same, using PowerShell and Podman Machine</td>
 </tr>
 <tr>
-<td>E2E</td>
-<td><code>cutip run hello --local</code> — Podman always available</td>
-</tr>
-<tr>
-<td>Build Wheel</td>
-<td><code>.whl</code> archived as Jenkins artifact</td>
+<td>Install &amp; Validate · macOS</td>
+<td>Install check + schema-only validate (no container runtime)</td>
 </tr>
 </tbody>
 </table>
+<p>E2E jobs carry <code>if: github.event_name == 'pull_request'</code> — they skip on push to feature branches and only gate PRs. GitHub treats skipped jobs as passing for branch-protection purposes.</p>
+<p>All checks must pass before merge is allowed.</p>
 <hr />
 <h2 id="post-merge-docs-generate">Post-merge: docs-generate<a class="headerlink" href="#post-merge-docs-generate" title="Permanent link">&para;</a></h2>
 <p>After merge to <code>staging</code>, <code>docs-generate.yml</code> fires automatically for <code>feat/*</code> and <code>bug/*</code> merges. If documentation changes are detected, it opens a <code>docs/cap{N}-*</code> PR. That PR must also be merged before the task is complete.</p>
 <hr />
 <h2 id="full-e2e-sequence">Full e2e sequence<a class="headerlink" href="#full-e2e-sequence" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>1. Branch from staging: feat/cap{N}-slug
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2. Implement + run tests locally
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>3. Push → GHA pr-checks.yml runs
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>4. Open PR to staging (with assignee + label)
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>5. All checks pass → merge --merge --delete-branch
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>6. docs-generate fires → merge docs PR if created
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>7. Forward staging → integration
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>8. Prune local branch
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>1. Branch from staging: feat/cap{N}-slug
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>2. Implement + run tests locally
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>3. Push → ci.yml runs unit-tests, smoke-test, docs-build, build-wheel
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>4. Open PR to staging (auto-labeled + assigned by CI)
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>5. All checks pass (including E2E on PR) → merge --merge --delete-branch
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>6. docs-generate fires → merge docs PR if created
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>7. Forward staging → integration
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>8. Prune local branch
 </span></code></pre></div>
 <p>See the complete playbook: <a href="https://github.com/joshuajerome/cutip/blob/integration/.claude/workflows/feature-fix.md"><code>.claude/workflows/feature-fix.md</code></a></p>
 <hr />
