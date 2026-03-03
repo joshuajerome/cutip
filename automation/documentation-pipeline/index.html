@@ -1819,15 +1819,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jenkins-docsjenkinsfile" class="md-nav__link">
+  <a href="#github-actions-docs-ai-reviewyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Jenkins: docs.Jenkinsfile
+        GitHub Actions: docs-ai-review.yml
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Jenkins: docs.Jenkinsfile">
+    <nav class="md-nav" aria-label="GitHub Actions: docs-ai-review.yml">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1887,10 +1887,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#claude-ai-summary" class="md-nav__link">
+  <a href="#post-claude-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Claude AI Summary
+        Post Claude Summary
       
     </span>
   </a>
@@ -1898,10 +1898,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#update-github-pages" class="md-nav__link">
+  <a href="#deploy-github-pages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Update GitHub Pages
+        Deploy GitHub Pages
       
     </span>
   </a>
@@ -1930,10 +1930,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#credentials-required-jenkins" class="md-nav__link">
+  <a href="#secrets-required" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Credentials required (Jenkins)
+        Secrets required
       
     </span>
   </a>
@@ -2202,15 +2202,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jenkins-docsjenkinsfile" class="md-nav__link">
+  <a href="#github-actions-docs-ai-reviewyml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Jenkins: docs.Jenkinsfile
+        GitHub Actions: docs-ai-review.yml
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Jenkins: docs.Jenkinsfile">
+    <nav class="md-nav" aria-label="GitHub Actions: docs-ai-review.yml">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2270,10 +2270,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#claude-ai-summary" class="md-nav__link">
+  <a href="#post-claude-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Claude AI Summary
+        Post Claude Summary
       
     </span>
   </a>
@@ -2281,10 +2281,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#update-github-pages" class="md-nav__link">
+  <a href="#deploy-github-pages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Update GitHub Pages
+        Deploy GitHub Pages
       
     </span>
   </a>
@@ -2313,10 +2313,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#credentials-required-jenkins" class="md-nav__link">
+  <a href="#secrets-required" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Credentials required (Jenkins)
+        Secrets required
       
     </span>
   </a>
@@ -2372,53 +2372,52 @@
 <p>Runs on every push to <code>docs/**</code> and every PR touching <code>docs/</code>. Validates that <code>mkdocs build --strict</code> passes with no warnings.</p>
 <h2 id="github-actions-docs-generateyml">GitHub Actions: <code>docs-generate.yml</code><a class="headerlink" href="#github-actions-docs-generateyml" title="Permanent link">&para;</a></h2>
 <p>Fires after a <code>feat/*</code> or <code>bug/*</code> branch merges to <code>staging</code>. Uses Claude to generate documentation for changed Python modules and opens a <code>docs/cap{N}-*</code> PR.</p>
-<hr />
-<h2 id="jenkins-docsjenkinsfile">Jenkins: <code>docs.Jenkinsfile</code><a class="headerlink" href="#jenkins-docsjenkinsfile" title="Permanent link">&para;</a></h2>
-<p>The Jenkins docs pipeline performs a deeper AI-driven audit and deploys to GitHub Pages:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Checkout
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  └── Install Dependencies (uv + anthropic SDK)
+<h2 id="github-actions-docs-ai-reviewyml">GitHub Actions: <code>docs-ai-review.yml</code><a class="headerlink" href="#github-actions-docs-ai-reviewyml" title="Permanent link">&para;</a></h2>
+<p>Fires on every push to <code>staging</code>. Performs a deeper AI-driven audit and deploys to GitHub Pages:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Checkout (full history)
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  └── Install Dependencies (uv + anthropic SDK + docs extras)
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        └── Analyze Code Changes       ← Claude: coverage gaps
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>              └── Scan Outdated Docs   ← Claude: stale references
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                    └── Scan for Vulnerabilities  ← Claude: credentials, broken links
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                          └── Update README        ← Claude: CLI/version drift
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                                └── Claude AI Summary  ← posts PR comment
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                                      └── Update GitHub Pages (mkdocs gh-deploy)
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                                            └── Build &amp; Verify MkDocs
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                                └── Post Claude Summary as PR comment
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                                      └── Deploy GitHub Pages (mkdocs gh-deploy)
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                                            └── Build &amp; Verify MkDocs (strict)
 </span></code></pre></div>
 <h3 id="stage-details">Stage details<a class="headerlink" href="#stage-details" title="Permanent link">&para;</a></h3>
 <h4 id="analyze-code-changes">Analyze Code Changes<a class="headerlink" href="#analyze-code-changes" title="Permanent link">&para;</a></h4>
 <p>Diffs changed <code>.py</code> files since the last commit and calls Claude to identify documentation coverage gaps for changed modules.</p>
 <ul>
-<li>Script: <code>.jenkins/scripts/analyze-doc-coverage.py</code></li>
-<li>Prompt: <code>.jenkins/prompts/analyze-doc-coverage.md</code></li>
+<li>Script: <code>.github/scripts/analyze-doc-coverage.py</code></li>
+<li>Prompt: <code>.github/prompts/analyze-doc-coverage.md</code></li>
 <li>Output: <code>claude-reports/analyze-doc-coverage.md</code></li>
 </ul>
 <h4 id="scan-documentation-for-outdated-content">Scan Documentation for Outdated Content<a class="headerlink" href="#scan-documentation-for-outdated-content" title="Permanent link">&para;</a></h4>
 <p>Claude audits <code>docs/</code> against key source files to find stale references — removed CLI flags, renamed classes, deleted backends.</p>
 <ul>
-<li>Script: <code>.jenkins/scripts/scan-outdated-docs.py</code></li>
-<li>Prompt: <code>.jenkins/prompts/scan-outdated-docs.md</code></li>
+<li>Script: <code>.github/scripts/scan-outdated-docs.py</code></li>
+<li>Prompt: <code>.github/prompts/scan-outdated-docs.md</code></li>
 <li>Output: <code>claude-reports/scan-outdated-docs.md</code></li>
 <li>Exit: <code>1</code> if <code>VERDICT: FAIL</code> (HIGH severity stale refs)</li>
 </ul>
 <h4 id="scan-for-vulnerabilities">Scan for Vulnerabilities<a class="headerlink" href="#scan-for-vulnerabilities" title="Permanent link">&para;</a></h4>
 <p>Claude scans <code>docs/</code> for accidentally included credentials, private paths, and broken external links.</p>
 <ul>
-<li>Script: <code>.jenkins/scripts/scan-doc-vulnerabilities.py</code></li>
-<li>Prompt: <code>.jenkins/prompts/scan-doc-vulnerabilities.md</code></li>
+<li>Script: <code>.github/scripts/scan-doc-vulnerabilities.py</code></li>
+<li>Prompt: <code>.github/prompts/scan-doc-vulnerabilities.md</code></li>
 <li>Output: <code>claude-reports/scan-doc-vulnerabilities.md</code></li>
 <li>Exit: <code>1</code> if <code>VERDICT: FAIL</code> (HIGH severity findings)</li>
 </ul>
 <h4 id="update-readme">Update README<a class="headerlink" href="#update-readme" title="Permanent link">&para;</a></h4>
 <p>Claude checks whether <code>cutip --help</code> output or the version in <code>pyproject.toml</code> has drifted from what's documented in <code>README.md</code>. If drift is detected, updated sections are written for human review.</p>
 <ul>
-<li>Script: <code>.jenkins/scripts/update-readme.py</code></li>
-<li>Prompt: <code>.jenkins/prompts/update-readme.md</code></li>
+<li>Script: <code>.github/scripts/update-readme.py</code></li>
+<li>Prompt: <code>.github/prompts/update-readme.md</code></li>
 <li>Output: <code>claude-reports/update-readme.md</code></li>
 </ul>
-<h4 id="claude-ai-summary">Claude AI Summary<a class="headerlink" href="#claude-ai-summary" title="Permanent link">&para;</a></h4>
-<p>All per-script reports are compiled into <code>claude-reports/summary.md</code>. If an open PR exists for the triggering branch, the summary is posted as a PR comment via <code>gh pr comment</code>. Reports are always archived as Jenkins build artifacts.</p>
-<h4 id="update-github-pages">Update GitHub Pages<a class="headerlink" href="#update-github-pages" title="Permanent link">&para;</a></h4>
+<h4 id="post-claude-summary">Post Claude Summary<a class="headerlink" href="#post-claude-summary" title="Permanent link">&para;</a></h4>
+<p>All per-script reports are compiled into <code>claude-reports/summary.md</code>. If an open PR exists for the triggering branch, the summary is posted as a PR comment via <code>gh pr comment</code>. Reports are archived as workflow artifacts.</p>
+<h4 id="deploy-github-pages">Deploy GitHub Pages<a class="headerlink" href="#deploy-github-pages" title="Permanent link">&para;</a></h4>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>mkdocs<span class="w"> </span>gh-deploy<span class="w"> </span>--force
 </span></code></pre></div>
 <p>Deploys the current <code>docs/</code> to the <code>gh-pages</code> branch → live at <a href="https://joshuajerome.github.io/cutip">joshuajerome.github.io/cutip</a>.</p>
@@ -2427,11 +2426,11 @@
 </span></code></pre></div>
 <p>Builds the static site and spins up a local server to verify key pages return HTTP 200.</p>
 <hr />
-<h2 id="credentials-required-jenkins">Credentials required (Jenkins)<a class="headerlink" href="#credentials-required-jenkins" title="Permanent link">&para;</a></h2>
+<h2 id="secrets-required">Secrets required<a class="headerlink" href="#secrets-required" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Credential ID</th>
+<th>Secret</th>
 <th>Purpose</th>
 </tr>
 </thead>
@@ -2442,7 +2441,7 @@
 </tr>
 <tr>
 <td><code>GITHUB_TOKEN</code></td>
-<td>Posting PR comments via <code>gh</code></td>
+<td>Posting PR comments and deploying GitHub Pages (automatic)</td>
 </tr>
 </tbody>
 </table>
@@ -2459,19 +2458,19 @@
 <tbody>
 <tr>
 <td>Coverage analysis</td>
-<td><code>.jenkins/prompts/analyze-doc-coverage.md</code></td>
+<td><code>.github/prompts/analyze-doc-coverage.md</code></td>
 </tr>
 <tr>
 <td>Outdated docs scan</td>
-<td><code>.jenkins/prompts/scan-outdated-docs.md</code></td>
+<td><code>.github/prompts/scan-outdated-docs.md</code></td>
 </tr>
 <tr>
 <td>Vulnerability scan</td>
-<td><code>.jenkins/prompts/scan-doc-vulnerabilities.md</code></td>
+<td><code>.github/prompts/scan-doc-vulnerabilities.md</code></td>
 </tr>
 <tr>
 <td>README update</td>
-<td><code>.jenkins/prompts/update-readme.md</code></td>
+<td><code>.github/prompts/update-readme.md</code></td>
 </tr>
 </tbody>
 </table>
