@@ -1,4 +1,4 @@
-// build.Jenkinsfile
+// .jenkins/build.Jenkinsfile
 // Triggered on push to feat/** or bug/** branches (or PR targeting staging).
 // Mirrors GHA pr-checks.yml + wheel-build.yml.
 
@@ -8,12 +8,6 @@ pipeline {
     options {
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-    }
-
-    triggers {
-        // Trigger on push to feat/** or bug/** via SCM webhook
-        // Configure branch filter in Jenkins SCM plugin or Multibranch Pipeline
-        pollSCM('')
     }
 
     environment {
@@ -40,7 +34,6 @@ pipeline {
             }
             post {
                 always {
-                    // Archive JUnit XML if pytest-junit is configured
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
                 }
             }
@@ -84,7 +77,6 @@ pipeline {
 
     post {
         always {
-            // Clean up ephemeral venvs
             sh 'rm -rf .wheel-test .venv dist/ 2>/dev/null || true'
         }
         failure {
