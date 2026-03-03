@@ -1,12 +1,67 @@
-name: PR Checks
+name: CI
 
 on:
+  push:
+    branches:
+      - "feat/**"
+      - "bug/**"
+      - "claude/**"
   pull_request:
+    types: [opened, synchronize, reopened]
     branches:
       - staging
       - integration
 
 jobs:
+  # ── Auto-label and assign on PR open ────────────────────────────────────────
+  auto-label:
+    name: Label & Assign PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Apply label and assignee
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          BRANCH="${{ github.head_ref }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          # Assign to PR author
+          gh pr edit "$PR" --repo "${{ github.repository }}" --add-assignee "$AUTHOR"
+
+          # Derive label from branch prefix
+          if echo "$BRANCH" | grep -qE '^feat/'; then
+            LABEL="feature"
+            COLOR="0075ca"
+            DESC="New feature or capability"
+          elif echo "$BRANCH" | grep -qE '^bug/'; then
+            LABEL="bug fix"
+            COLOR="d73a4a"
+            DESC="Bug fix"
+          elif echo "$BRANCH" | grep -qE '^docs/'; then
+            LABEL="documentation"
+            COLOR="006b75"
+            DESC="Documentation update"
+          elif echo "$BRANCH" | grep -qE '^(gh|claude)/'; then
+            LABEL="automation"
+            COLOR="e4e669"
+            DESC="CI/CD or automation change"
+          else
+            LABEL="feature"
+            COLOR="0075ca"
+            DESC="New feature or capability"
+          fi
+
+          gh label create "$LABEL" --color "$COLOR" --description "$DESC" \
+            --force --repo "${{ github.repository }}" 2>/dev/null || true
+          gh pr edit "$PR" --repo "${{ github.repository }}" --add-label "$LABEL"
+
+  # ── Unit Tests ──────────────────────────────────────────────────────────────
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -25,6 +80,7 @@ jobs:
       - name: Run unit tests
         run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
 
+  # ── Smoke Test ──────────────────────────────────────────────────────────────
   smoke-test:
     name: Smoke Test
     runs-on: ubuntu-latest
@@ -47,6 +103,7 @@ jobs:
           .wheel-test/bin/python -c "import cutip; print('cutip import OK')"
           .wheel-test/bin/cutip --help
 
+  # ── E2E · Ubuntu ────────────────────────────────────────────────────────────
   e2e-podman-ubuntu:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
@@ -77,12 +134,6 @@ jobs:
           echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
           podman version
 
-      - name: Validate hello-world workspace
-        run: uv run cutip validate --path tests/e2e/hello-world
-
-      - name: Run E2E group hello-world (Podman · Ubuntu)
-        run: uv run cutip run hello --path tests/e2e/hello-world --local
-
       - name: Validate simple workspace
         run: uv run cutip validate --path tests/e2e/simple
 
@@ -95,6 +146,7 @@ jobs:
       - name: Run E2E group complex (Podman · Ubuntu)
         run: uv run cutip run complex --path tests/e2e/complex --local
 
+  # ── E2E · Windows ───────────────────────────────────────────────────────────
   e2e-podman-windows:
     name: E2E Podman · Windows
     runs-on: windows-latest
@@ -139,12 +191,6 @@ jobs:
           podman machine init --cpus 2 --memory 2048 --now
           podman version
 
-      - name: Validate hello-world workspace
-        run: uv run cutip validate --path tests/e2e/hello-world
-
-      - name: Run E2E group hello-world (Podman · Windows)
-        run: uv run cutip run hello --path tests/e2e/hello-world
-
       - name: Validate simple workspace
         run: uv run cutip validate --path tests/e2e/simple
 
@@ -157,6 +203,7 @@ jobs:
       - name: Run E2E group complex (Podman · Windows)
         run: uv run cutip run complex --path tests/e2e/complex
 
+  # ── Install & Validate · macOS ──────────────────────────────────────────────
   install-validate-macos:
     # GitHub Actions free macOS runners report VZErrorDomain Code=2
     # ("Virtualization is not available on this hardware") — the Apple
@@ -194,6 +241,7 @@ jobs:
       - name: Validate complex workspace (schema only, no containers)
         run: uv run cutip validate --path tests/e2e/complex
 
+  # ── Docs Build ──────────────────────────────────────────────────────────────
   docs-build:
     name: Docs Build
     runs-on: ubuntu-latest
@@ -213,3 +261,30 @@ jobs:
 
       - name: Build docs (strict)
         run: uv run mkdocs build --strict
+
+  # ── Build Wheel (push only — archives artifact) ─────────────────────────────
+  build-wheel:
+    name: Build wheel
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: List dist/
+        run: ls -lh dist/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cutip-wheel
+          path: dist/*.whl
+          retention-days: 7

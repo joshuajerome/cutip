@@ -1,17 +1,113 @@
-name: Issue Resolve
+name: Issues
 
 on:
+  issues:
+    types: [labeled]
   issue_comment:
     types: [created]
 
 jobs:
-  # ──────────────────────────────────────────────────────────
-  # /approve  →  generate fix, build wheel, post results
-  # ──────────────────────────────────────────────────────────
+  # ── Diagnose on claude-review label ─────────────────────────────────────────
+  diagnose:
+    name: Diagnose issue with Claude
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.label.name == 'claude-review'
+
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Ensure required labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "claude-review"      --color "0075ca" --description "Needs Claude diagnosis"   --force --repo ${{ github.repository }}
+          gh label create "claude-diagnosing"  --color "e4e669" --description "Claude is diagnosing"     --force --repo ${{ github.repository }}
+          gh label create "claude-diagnosed"   --color "cfd3d7" --description "Claude diagnosis posted"  --force --repo ${{ github.repository }}
+          gh label create "claude-fixing"      --color "e4e669" --description "Claude is generating fix" --force --repo ${{ github.repository }}
+          gh label create "claude-fixed"       --color "0e8a16" --description "Claude fix ready"         --force --repo ${{ github.repository }}
+          gh label create "claude-staging"     --color "1d76db" --description "Fix PR opened to staging" --force --repo ${{ github.repository }}
+
+      - name: Apply claude-diagnosing label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-diagnosing"
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-review" 2>/dev/null || true
+
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install script dependencies
+        run: |
+          uv venv .venv
+          uv pip install anthropic
+
+      - name: Run Claude diagnosis
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: uv run python .github/scripts/diagnose-issue.py > /tmp/diagnosis.md
+
+      - name: Post diagnosis comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body-file /tmp/diagnosis.md
+
+      - name: Update labels to claude-diagnosed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-diagnosed"
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-diagnosing" 2>/dev/null || true
+
+      - name: Post follow-up prompt comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "Reply \`/approve\` to proceed with the automated fix, or add more detail and re-apply \`claude-review\` for a fresh diagnosis."
+
+      - name: Revert labels on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-review" 2>/dev/null || true
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-diagnosing" 2>/dev/null || true
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "Diagnosis failed (check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details). Re-applying \`claude-review\` to retry."
+
+  # ── /approve → generate fix, push branch ────────────────────────────────────
   handle-approve:
     name: Handle /approve
     runs-on: ubuntu-latest
     if: |
+      github.event_name == 'issue_comment' &&
       !github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/approve')
 
@@ -105,8 +201,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           DIAGNOSIS_FILE: /tmp/diagnosis.md
           CAP_ID: ${{ steps.cap.outputs.cap_id }}
-        run: |
-          uv run python .github/scripts/fix-issue.py > /tmp/fix-summary.md
+        run: uv run python .github/scripts/fix-issue.py > /tmp/fix-summary.md
 
       - name: Commit and push fix branch
         if: steps.check.outputs.valid == 'true'
@@ -182,13 +277,12 @@ jobs:
             --repo ${{ github.repository }} \
             --body "Fix generation failed. Issue reset to \`claude-diagnosed\`. Check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Reply \`/approve\` to retry."
 
-  # ──────────────────────────────────────────────────────────
-  # /reject  →  ask for more detail, keep claude-diagnosed
-  # ──────────────────────────────────────────────────────────
+  # ── /reject → keep claude-diagnosed, ask for more detail ────────────────────
   handle-reject:
     name: Handle /reject
     runs-on: ubuntu-latest
     if: |
+      github.event_name == 'issue_comment' &&
       !github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/reject')
 
@@ -219,13 +313,12 @@ jobs:
             --repo ${{ github.repository }} \
             --body "Diagnosis rejected. Please add more detail to the issue description, then re-apply the \`claude-review\` label to trigger a fresh diagnosis."
 
-  # ──────────────────────────────────────────────────────────
-  # /acknowledge  →  open PR from fix branch to staging
-  # ──────────────────────────────────────────────────────────
+  # ── /acknowledge → open PR from fix branch to staging ───────────────────────
   handle-acknowledge:
     name: Handle /acknowledge
     runs-on: ubuntu-latest
     if: |
+      github.event_name == 'issue_comment' &&
       !github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/acknowledge')
 
@@ -305,7 +398,9 @@ jobs:
             --base staging \
             --head "$BRANCH" \
             --title "[${CAP_ID}] Automated fix for issue #${{ github.event.issue.number }}" \
-            --body-file /tmp/pr-body.md)
+            --body-file /tmp/pr-body.md \
+            --label "bug fix" \
+            --assignee "${{ github.event.comment.user.login }}")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "PR opened: $PR_URL"
 
