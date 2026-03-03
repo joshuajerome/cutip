@@ -197,7 +197,6 @@ class PodmanBackend(CutipBackend):
         network = ipaddress.IPv4Network(card.spec.subnet, strict=False)
         gateway = card.spec.gateway or str(next(network.hosts()))
         ipam = {
-            "Driver": "default",
             "Config": [{"Subnet": str(network), "Gateway": gateway}],
         }
         self._client.networks.create(name, driver=card.spec.driver, ipam=ipam)
@@ -236,7 +235,7 @@ class PodmanBackend(CutipBackend):
         if card.spec.network_mode:
             kwargs["network_mode"] = card.spec.network_mode
         elif card.spec.networkRef:
-            kwargs["network"] = [card.spec.networkRef.ref.split("/")[-1]]
+            kwargs["network"] = card.spec.networkRef.ref.split("/")[-1]
 
         if card.spec.command:
             kwargs["command"] = shlex.split(card.spec.command)

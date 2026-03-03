@@ -1,0 +1,8 @@
+apiVersion: cutip/v1
+kind: ImageCard
+metadata:
+  name: simple
+spec:
+  source: pull
+  image: docker.io/library/alpine
+  tag: "3.20"

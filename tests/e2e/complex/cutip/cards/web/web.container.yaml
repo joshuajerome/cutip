@@ -1,0 +1,14 @@
+apiVersion: cutip/v1
+kind: ContainerCard
+metadata:
+  name: cutip-web
+spec:
+  imageRef:
+    ref: images/web
+  networkRef:
+    ref: networks/app-net
+  # Print sentinel and exit — startup.py verifies the output
+  command: 'sh -c "echo CUTIP_WEB_OK && echo backend=podman"'
+  labels:
+    app: cutip-complex-e2e
+    role: web
