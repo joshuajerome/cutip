@@ -17,6 +17,10 @@ commit messages, and PR titles.
 | cap007 | Improve init scaffold, validate logs, group name match | feat | merged | feat/cap007-scaffold-validate-completion | #36 | 2026-03-03 |
 | cap008 | Add docker-compose vs CUTIP comparison to docs and README | feat | merged | feat/cap008-compose-comparison-docs      | #37 | 2026-03-03 |
 | cap009 | Rename scaffold hello→simple, add complex project, e2e tests | feat | merged | feat/cap009-scaffold-simple-complex      | #38 | 2026-03-03 |
+| cap010 | cutip from-compose — convert compose.yaml to CUTIP artifacts  | feat | planned | —                                       | —   | —          |
+| cap011 | cutip push/pull — git-based artifact registry                 | feat | planned | —                                       | —   | —          |
+| cap012 | Docker backend support                                        | feat | planned | —                                       | —   | —          |
+| cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | open   | feat/cap013-mac-podman-ci-docs          | —   | 2026-03-03 |
 
 ## ID Assignment
 

@@ -76,16 +76,56 @@ jobs:
           echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
           podman version
 
-      - name: Validate hello-world workspace
-        run: uv run cutip validate --path tests/e2e/hello-world
+      - name: Validate simple workspace
+        run: uv run cutip validate --path tests/e2e/simple
 
       - name: Run E2E group (Podman · Ubuntu)
-        run: uv run cutip run hello --path tests/e2e/hello-world --local
+        run: uv run cutip run simple --path tests/e2e/simple --local
+
+  e2e-podman-macos:
+    name: E2E Podman · macOS
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install cutip
+        run: |
+          uv venv .venv
+          uv pip install -e .
+
+      - name: Install & start Podman (macOS)
+        run: |
+          brew install podman
+          podman machine init --cpus 2 --memory 2048
+          podman machine start
+          SOCKET=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
+          echo "CONTAINER_HOST=unix://${SOCKET}" >> "$GITHUB_ENV"
+          echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
+          podman version
+
+      - name: Wait for Podman socket
+        run: timeout 60 sh -c 'until podman info >/dev/null 2>&1; do sleep 2; done'
+
+      - name: Validate simple workspace
+        run: uv run cutip validate --path tests/e2e/simple
+
+      - name: Run E2E group simple (Podman · macOS)
+        run: uv run cutip run simple --path tests/e2e/simple --local
 
   build-and-release:
     name: Build & GitHub Release
     runs-on: ubuntu-latest
-    needs: [unit-tests, smoke-test, e2e-podman-ubuntu]
+    needs: [unit-tests, smoke-test, e2e-podman-ubuntu, e2e-podman-macos]
 
     permissions:
       contents: write
