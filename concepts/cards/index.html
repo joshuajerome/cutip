@@ -359,6 +359,26 @@
     
     
       <li class="md-tabs__item">
+        <a href="../../automation/" class="md-tabs__link">
+          
+  
+  
+  Automation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../../development/branching/" class="md-tabs__link">
           
   
@@ -797,17 +817,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#volumecard" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        VolumeCard
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1187,34 +1196,6 @@
     
   
     NetworkCard
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/cards/volume-card/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    VolumeCard
   
 
     
@@ -1751,7 +1732,7 @@
   <span class="md-ellipsis">
     
   
-    Development
+    Automation
   
 
     
@@ -1764,6 +1745,179 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Automation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../automation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../automation/feature-fix-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature / Fix Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../automation/documentation-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../automation/release-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1948,17 +2102,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#volumecard" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        VolumeCard
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2006,7 +2149,7 @@
 <h2 id="what-makes-a-card">What makes a card<a class="headerlink" href="#what-makes-a-card" title="Permanent link">&para;</a></h2>
 <p>Every card shares the same envelope:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cutip/v1</span><span class="w">      </span><span class="c1"># must be exactly &quot;cutip/v1&quot;</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;CardKind&gt;</span><span class="w">          </span><span class="c1"># ImageCard | ContainerCard | NetworkCard | VolumeCard</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;CardKind&gt;</span><span class="w">          </span><span class="c1"># ImageCard | ContainerCard | NetworkCard</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;string&gt;</span><span class="w">          </span><span class="c1"># unique within its kind — used as the registry key</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">              </span><span class="c1"># optional key-value metadata</span>
@@ -2060,13 +2203,6 @@
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">gateway</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;10.89.0.1&quot;</span>
 </span></code></pre></div>
 <p>Full reference: <a href="../../reference/cards/network-card/">reference/cards/network-card.md</a></p>
-<h3 id="volumecard">VolumeCard<a class="headerlink" href="#volumecard" title="Permanent link">&para;</a></h3>
-<p>Defines a named container volume.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">VolumeCard</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">spec</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">driver</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span>
-</span></code></pre></div>
-<p>Full reference: <a href="../../reference/cards/volume-card/">reference/cards/volume-card.md</a></p>
 <hr />
 <h2 id="registry-keys">Registry keys<a class="headerlink" href="#registry-keys" title="Permanent link">&para;</a></h2>
 <p>When CUTIP discovers cards during workspace loading, each card is registered under a key of the form <code>&lt;prefix&gt;/&lt;name&gt;</code>:</p>
@@ -2093,11 +2229,6 @@
 <td><code>NetworkCard</code></td>
 <td><code>networks/</code></td>
 <td><code>networks/dev</code></td>
-</tr>
-<tr>
-<td><code>VolumeCard</code></td>
-<td><code>volumes/</code></td>
-<td><code>volumes/data</code></td>
 </tr>
 </tbody>
 </table>

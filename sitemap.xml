@@ -21,6 +21,22 @@
          <lastmod>2026-03-03</lastmod>
     </url>
     <url>
+         <loc>https://joshuajerome.github.io/cutip/automation/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://joshuajerome.github.io/cutip/automation/documentation-pipeline/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://joshuajerome.github.io/cutip/automation/feature-fix-pipeline/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://joshuajerome.github.io/cutip/automation/release-pipeline/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
          <loc>https://joshuajerome.github.io/cutip/concepts/cards/</loc>
          <lastmod>2026-03-03</lastmod>
     </url>
@@ -94,10 +110,6 @@
     </url>
     <url>
          <loc>https://joshuajerome.github.io/cutip/reference/cards/network-card/</loc>
-         <lastmod>2026-03-03</lastmod>
-    </url>
-    <url>
-         <loc>https://joshuajerome.github.io/cutip/reference/cards/volume-card/</loc>
          <lastmod>2026-03-03</lastmod>
     </url>
 </urlset>
