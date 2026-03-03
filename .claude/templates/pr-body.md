@@ -3,6 +3,10 @@
 Copy the section matching your branch type. Fill every `{placeholder}`.
 Write the filled body to `/tmp/pr-body.md` and pass `--body-file /tmp/pr-body.md` to `gh pr create`.
 
+**Every PR must include:**
+- `--assignee joshuajerome` — always
+- `--label {feat|bug|docs|gh|claude}` — always, matching the branch type
+
 ---
 
 ## feat/cap{N} — New Feature
