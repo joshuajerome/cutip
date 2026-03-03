@@ -2335,7 +2335,7 @@
 <ul>
 <li>You are deploying a standard stack (postgres + redis + your app) with no custom startup logic</li>
 <li>You want maximum ecosystem compatibility (<code>docker compose</code>, Portainer, VS Code Dev Containers)</li>
-<li>Your team is already fluent in compose and the overhead of a new tool isn't worth it</li>
+<li>Your stack needs no programmatic startup logic and a declarative definition is sufficient</li>
 </ul>
 <p><strong>Use CUTIP when:</strong></p>
 <ul>
@@ -2563,7 +2563,7 @@
 <p>Subsequent runs are idempotent — CUTIP removes stale containers and recreates them.</p>
 <hr />
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
-<p>CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is a program, not a declaration — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.</p>
+<p>CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is imperative, not declarative — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.</p>
 <p>If your workflow is "bring up 3 services and let them find each other", use compose. If your workflow is "generate a config file, start the database, wait until it can answer queries, then start the app that depends on it", CUTIP gives you the right primitives.</p>
 
 
