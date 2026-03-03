@@ -82,10 +82,15 @@ jobs:
       - name: Run E2E group (Podman · Ubuntu)
         run: uv run cutip run simple --path tests/e2e/simple --local
 
-  e2e-podman-macos:
-    name: E2E Podman · macOS
+  install-validate-macos:
+    # GitHub Actions free macOS runners report VZErrorDomain Code=2
+    # ("Virtualization is not available on this hardware") — the Apple
+    # Hypervisor Framework is not exposed to runner processes, so podman machine
+    # cannot start. Container runtime E2E is tested locally on a developer Mac
+    # or via a self-hosted runner. This job validates install + schema only.
+    name: Install & Validate · macOS
     runs-on: macos-14
-    timeout-minutes: 45
+    timeout-minutes: 15
 
     env:
       PYTHONUTF8: "1"
@@ -103,33 +108,21 @@ jobs:
           uv venv .venv
           uv pip install -e .
 
-      - name: Install & start Podman (macOS)
+      - name: Smoke-test CLI (no runtime needed)
         run: |
-          brew install podman
-          # Podman 5.7+ adds virtio-gpu by default, which requires IOSurface sandbox
-          # extensions unavailable on GitHub Actions runners (causes vfkit exit code 1).
-          # Passing -v '' disables the default device mounts and avoids the crash.
-          # See: https://github.com/containers/podman/issues/25046#issuecomment-3825667144
-          podman machine init --cpus 2 --memory 2048 -v ''
-          podman machine start
-          SOCKET=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
-          echo "CONTAINER_HOST=unix://${SOCKET}" >> "$GITHUB_ENV"
-          echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
-          podman version
+          uv run cutip --help
+          uv run cutip --version
 
-      - name: Wait for Podman socket
-        run: timeout 120 sh -c 'until podman info >/dev/null 2>&1; do sleep 3; done'
-
-      - name: Validate simple workspace
+      - name: Validate simple workspace (schema only, no containers)
         run: uv run cutip validate --path tests/e2e/simple
 
-      - name: Run E2E group simple (Podman · macOS)
-        run: uv run cutip run simple --path tests/e2e/simple --local
+      - name: Validate complex workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/complex
 
   build-and-release:
     name: Build & GitHub Release
     runs-on: ubuntu-latest
-    needs: [unit-tests, smoke-test, e2e-podman-ubuntu, e2e-podman-macos]
+    needs: [unit-tests, smoke-test, e2e-podman-ubuntu, install-validate-macos]
 
     permissions:
       contents: write
