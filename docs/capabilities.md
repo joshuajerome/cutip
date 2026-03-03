@@ -16,7 +16,7 @@ commit messages, and PR titles.
 | cap006 | Translate Windows bind-mount paths to WSL2 format      | bug  | open   | bug/cap006-win-path-wsl-translation | —   | 2026-03-02 |
 | cap007 | Improve init scaffold, validate logs, group name match | feat | merged | feat/cap007-scaffold-validate-completion | #36 | 2026-03-03 |
 | cap008 | Add docker-compose vs CUTIP comparison to docs and README | feat | merged | feat/cap008-compose-comparison-docs      | #37 | 2026-03-03 |
-| cap009 | Rename scaffold hello→simple, add complex project, e2e tests | feat | open   | feat/cap009-scaffold-simple-complex      | #38 | 2026-03-03 |
+| cap009 | Rename scaffold hello→simple, add complex project, e2e tests | feat | merged | feat/cap009-scaffold-simple-complex      | #38 | 2026-03-03 |
 
 ## ID Assignment
 
@@ -31,4 +31,3 @@ commit messages, and PR titles.
 | Branch   | `feat/cap001-short-desc` or `bug/cap001-short-desc` |
 | Commits  | `[cap001] short message` |
 | PR title | `[cap001] Description of capability` |
-# cap009
