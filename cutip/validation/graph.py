@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from loguru import logger
+
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
@@ -31,7 +33,15 @@ class GraphValidator:
 
     def validate(self) -> ValidationResult:
         result = ValidationResult(ok=True)
+        n_cards = len(self.registry.cards)
+        n_units = len(self.registry.units)
+        n_groups = len(self.registry.groups)
+        logger.info(
+            f"Discovered {n_cards} card(s), {n_units} unit(s), {n_groups} group(s)"
+        )
+        logger.info(f"Validating {n_cards} card(s) ...")
         self._validate_units(result)
+        logger.info(f"Validating {n_groups} group(s) ...")
         self._validate_groups(result)
         return result
 
@@ -44,28 +54,35 @@ class GraphValidator:
                 container_card = self._resolver.resolve_card(container_ref, ContainerCard)
             except CutipRefError as exc:
                 result.add(f"[UnitResolve] {unit_name}: {exc.reason} (ref: '{container_ref}')")
+                logger.warning(f"  ✗ {container_ref} — {exc.reason}")
                 continue
+
+            logger.info(f"  ✓ {container_ref}")
 
             # Resolve imageRef from ContainerCard
             image_ref = container_card.spec.imageRef.ref
             try:
                 self._resolver.resolve_card(image_ref, ImageCard)
+                logger.info(f"  ✓ {image_ref}")
             except CutipRefError as exc:
                 result.add(
                     f"[CardResolve] {unit_name} → {container_card.name}: "
                     f"{exc.reason} (imageRef: '{image_ref}')"
                 )
+                logger.warning(f"  ✗ {image_ref} — {exc.reason}")
 
             # Resolve networkRef from ContainerCard (skipped when network_mode is used)
             if container_card.spec.networkRef is not None:
                 network_ref = container_card.spec.networkRef.ref
                 try:
                     self._resolver.resolve_card(network_ref, NetworkCard)
+                    logger.info(f"  ✓ {network_ref}")
                 except CutipRefError as exc:
                     result.add(
                         f"[CardResolve] {unit_name} → {container_card.name}: "
                         f"{exc.reason} (networkRef: '{network_ref}')"
                     )
+                    logger.warning(f"  ✗ {network_ref} — {exc.reason}")
 
     def _validate_groups(self, result: ValidationResult) -> None:
         for group_name, group in self.registry.groups.items():
@@ -74,8 +91,10 @@ class GraphValidator:
                 ref = unit_ref.ref
                 try:
                     self._resolver.resolve_unit(ref)
+                    logger.info(f"  ✓ {group_name} → {ref}")
                 except CutipRefError as exc:
                     result.add(f"[GroupResolve] {group_name}: {exc.reason} (ref: '{ref}')")
+                    logger.warning(f"  ✗ {group_name} → {ref} — {exc.reason}")
 
             # Verify workflow path exists
             group_source = self.registry.source_of(f"groups/{group_name}")
@@ -93,3 +112,6 @@ class GraphValidator:
                         f"[WorkflowPath] {group_name}: workflow file not found: "
                         f"'{workflow_path}'"
                     )
+                    logger.warning(f"  ✗ {group_name}: workflow not found: '{workflow_path}'")
+                else:
+                    logger.info(f"  ✓ {group_name}: {group.spec.workflow}")

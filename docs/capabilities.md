@@ -14,6 +14,7 @@ commit messages, and PR titles.
 | cap004 | Add MIT license                                        | feat | merged | feat/cap004-mit-license             | #9  | 2026-02-28 |
 | cap005 | Remove deprecated --backend flag from e2e steps        | bug  | merged | bug/cap005-fix-e2e-backend-flag     | #10 | 2026-02-28 |
 | cap006 | Translate Windows bind-mount paths to WSL2 format      | bug  | open   | bug/cap006-win-path-wsl-translation | —   | 2026-03-02 |
+| cap007 | Improve init scaffold, validate logs, group name match | feat | open   | feat/cap007-scaffold-validate-completion | —   | 2026-03-03 |
 
 ## ID Assignment
 
