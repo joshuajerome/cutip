@@ -9,7 +9,7 @@
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
 
-CUTIP is not a replacement for `docker-compose`. It is designed for a different use case: environments where the startup sequence is a program, not a declaration.
+CUTIP is not a replacement for `docker-compose`. It is designed for a different use case: environments where the startup sequence is imperative, not declarative.
 
 | | docker-compose | CUTIP |
 |---|---|---|
