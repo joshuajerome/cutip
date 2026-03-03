@@ -96,6 +96,8 @@ gh pr create \
   --assignee joshuajerome
 ```
 
+`--assignee` and `--label` are **required on every PR** — never omit them.
+
 ---
 
 ## Step 8 — Watch CI

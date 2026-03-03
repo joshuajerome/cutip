@@ -5,6 +5,11 @@ Use this when running `gh release edit vX.Y.Z --notes "..."`.
 Fill every `{placeholder}`. Write only user-facing changes.
 Omit: CI fixes, doc cleanups, internal refactors, test changes.
 
+**Format rules:**
+- List capabilities added/fixed — one bullet per cap ID
+- Do not list individual PRs, authors, or "What's Changed" auto-generated content
+- Replace any GitHub-generated release notes entirely with this template
+
 ---
 
 ## GitHub Release page body
