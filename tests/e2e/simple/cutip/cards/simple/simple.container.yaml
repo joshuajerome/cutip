@@ -1,0 +1,12 @@
+apiVersion: cutip/v1
+kind: ContainerCard
+metadata:
+  name: cutip-simple
+spec:
+  imageRef:
+    ref: images/simple
+  network_mode: bridge
+  # Print a sentinel string then exit cleanly
+  command: 'sh -c "echo CUTIP_OK && echo backend=podman"'
+  environment:
+    CUTIP_BACKEND: "podman"

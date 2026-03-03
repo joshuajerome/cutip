@@ -1,0 +1,8 @@
+apiVersion: cutip/v1
+kind: Group
+metadata:
+  name: simple
+spec:
+  units:
+    - ref: units/simple
+  workflow: workflow.py

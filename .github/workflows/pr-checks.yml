@@ -50,7 +50,7 @@ jobs:
   e2e-podman-ubuntu:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     env:
       PYTHONUTF8: "1"
@@ -80,13 +80,25 @@ jobs:
       - name: Validate hello-world workspace
         run: uv run cutip validate --path tests/e2e/hello-world
 
-      - name: Run E2E group (Podman · Ubuntu)
+      - name: Run E2E group hello-world (Podman · Ubuntu)
         run: uv run cutip run hello --path tests/e2e/hello-world --local
+
+      - name: Validate simple workspace
+        run: uv run cutip validate --path tests/e2e/simple
+
+      - name: Run E2E group simple (Podman · Ubuntu)
+        run: uv run cutip run simple --path tests/e2e/simple --local
+
+      - name: Validate complex workspace
+        run: uv run cutip validate --path tests/e2e/complex
+
+      - name: Run E2E group complex (Podman · Ubuntu)
+        run: uv run cutip run complex --path tests/e2e/complex --local
 
   e2e-podman-windows:
     name: E2E Podman · Windows
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     env:
       PYTHONUTF8: "1"
@@ -130,8 +142,20 @@ jobs:
       - name: Validate hello-world workspace
         run: uv run cutip validate --path tests/e2e/hello-world
 
-      - name: Run E2E group (Podman · Windows)
+      - name: Run E2E group hello-world (Podman · Windows)
         run: uv run cutip run hello --path tests/e2e/hello-world
+
+      - name: Validate simple workspace
+        run: uv run cutip validate --path tests/e2e/simple
+
+      - name: Run E2E group simple (Podman · Windows)
+        run: uv run cutip run simple --path tests/e2e/simple
+
+      - name: Validate complex workspace
+        run: uv run cutip validate --path tests/e2e/complex
+
+      - name: Run E2E group complex (Podman · Windows)
+        run: uv run cutip run complex --path tests/e2e/complex
 
   docs-build:
     name: Docs Build

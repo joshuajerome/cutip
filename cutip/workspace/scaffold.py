@@ -48,6 +48,8 @@ _CUTIP_DIRS = [
     "cutip/cards",
     "cutip/units",
     "cutip/groups",
+    "resources/dockerfiles",
+    "resources/buildtime",
 ]
 
 _RUNTIME_DIRS = [
@@ -57,10 +59,11 @@ _RUNTIME_DIRS = [
     ".cutip/locks",
 ]
 
-# -- Example file contents written by `cutip init` ----------------------------
-# All files are idempotent -- they are skipped if they already exist.
+# =============================================================================
+# SIMPLE project — single Alpine container, one-shot exec on every `cutip run`
+# =============================================================================
 
-_EXAMPLE_IMAGE_YAML = """\
+_SIMPLE_IMAGE_YAML = """\
 # -----------------------------------------------------------------------------
 # ImageCard -- tells CUTIP where to get the container image.
 #
@@ -75,7 +78,7 @@ kind: ImageCard
 metadata:
   # Unique name within your workspace.  ContainerCards reference this via
   # imageRef.ref: images/<name>
-  name: hello
+  name: simple
 
 spec:
   source: pull
@@ -88,18 +91,18 @@ spec:
 # spec:
 #   source: build
 #   tag: "1.0"
-#   context: containers/dockerfiles
-#   dockerfile: hello.dockerfile
+#   context: resources/dockerfiles
+#   dockerfile: simple.dockerfile
 #   build_args:
 #     PYTHON_VERSION: "3.11"
 #   buildtime_resources:
-#     - src: containers/resources/requirements.txt
+#     - src: resources/buildtime/requirements.txt
 #     - src: "{{ vars.my_repo }}/src/package.json"
 #       dest: package.json
 # -----------------------------------------------------------------------------
 """
 
-_EXAMPLE_CONTAINER_YAML = """\
+_SIMPLE_CONTAINER_YAML = """\
 # -----------------------------------------------------------------------------
 # ContainerCard -- describes a single container: image, network, command,
 # environment variables, ports, mounts, volumes, labels, and more.
@@ -107,25 +110,25 @@ _EXAMPLE_CONTAINER_YAML = """\
 apiVersion: cutip/v1
 kind: ContainerCard
 metadata:
-  name: cutip-hello
+  name: cutip-simple
 
 spec:
   imageRef:
-    ref: images/hello
+    ref: images/simple
 
   # Use the default bridge network
   network_mode: bridge
 
   # tail -f /dev/null keeps the container alive indefinitely so you can
-  # `podman exec -it cutip-hello /bin/sh` into it at any time.
-  # workflow.py execs a one-shot echo on every `cutip run hello`.
+  # `podman exec -it cutip-simple /bin/sh` into it at any time.
+  # workflow.py execs a one-shot echo on every `cutip run simple`.
   command: "tail -f /dev/null"
 
   environment:
     LANG: "C.UTF-8"
 
   labels:
-    app: cutip-hello
+    app: cutip-simple
     env: dev
 
   # -- Bind mounts (sources resolved from cutip/vars.yaml at run time) -------
@@ -149,25 +152,25 @@ spec:
   #   node_modules_vol: /app/node_modules   # auto-created by CUTIP
 """
 
-_EXAMPLE_UNIT_YAML = """\
+_SIMPLE_UNIT_YAML = """\
 # -----------------------------------------------------------------------------
 # Unit -- a named, reusable deployment unit backed by a ContainerCard.
 # -----------------------------------------------------------------------------
 apiVersion: cutip/v1
 kind: Unit
 metadata:
-  name: hello
+  name: simple
 
 spec:
   containerRef:
-    ref: containers/cutip-hello
+    ref: containers/cutip-simple
 """
 
-_EXAMPLE_GROUP_YAML = """\
+_SIMPLE_GROUP_YAML = """\
 # -----------------------------------------------------------------------------
 # Group -- an ordered set of Units and the workflow that orchestrates them.
 #
-# Running `cutip run hello` triggers the full CUTIP lifecycle:
+# Running `cutip run simple` triggers the full CUTIP lifecycle:
 #   1. Load cutip/vars.yaml
 #   2. Create host directories (create_host_path: true) and named volumes
 #   3. Call pre_build(ctx) in each unit's startup.py  [if defined]
@@ -180,17 +183,17 @@ _EXAMPLE_GROUP_YAML = """\
 apiVersion: cutip/v1
 kind: Group
 metadata:
-  name: hello
+  name: simple
 
 spec:
   units:
-    - ref: units/hello
+    - ref: units/simple
 
   workflow: workflow.py
 """
 
-_EXAMPLE_STARTUP_PY = """\
-\"\"\"hello unit startup.
+_SIMPLE_STARTUP_PY = """\
+\"\"\"simple unit startup.
 
 Two optional hooks called by CUTIP:
 
@@ -221,13 +224,13 @@ from cutip.models.cards.container import ContainerCard
 #     from local_deps import stage_local_deps
 #     stage_local_deps(
 #         src_dir=Path(ctx.vars[\"my_repo\"]) / \"src\",
-#         build_context_dir=ctx.project_root / \"containers/dockerfiles/buildtime\",
+#         build_context_dir=ctx.project_root / \"resources/dockerfiles\",
 #         clean=True,
 #     )
 
 
 def startup(ctx: CutipContext) -> None:
-    \"\"\"Called by CUTIP after workflow.main() has started the 'hello' container.\"\"\"
+    \"\"\"Called by CUTIP after workflow.main() has started the 'simple' container.\"\"\"
     cc = next(c for c in ctx.resolved_cards.values() if isinstance(c, ContainerCard))
     cname = cc.metadata.name
 
@@ -236,8 +239,8 @@ def startup(ctx: CutipContext) -> None:
     logger.info(f\"  Stop:     podman stop {cname}\")
 """
 
-_EXAMPLE_WORKFLOW_PY = """\
-\"\"\"hello group workflow.
+_SIMPLE_WORKFLOW_PY = """\
+\"\"\"simple group workflow.
 
 workflow.main() is responsible for starting containers and any cross-unit
 orchestration.  For most single-unit projects, it simply starts the container
@@ -255,17 +258,361 @@ from cutip.context.workflow import CutipContext
 
 
 def main(ctx: CutipContext) -> None:
-    \"\"\"Start the hello container and exec a greeting.
+    \"\"\"Start the simple container and exec a greeting.
 
     The container runs ``tail -f /dev/null`` so it stays alive — you can
-    ``podman exec -it cutip-hello /bin/sh`` into it at any time.  Here we
-    exec a one-shot echo on every ``cutip run hello`` to show the exec API.
+    ``podman exec -it cutip-simple /bin/sh`` into it at any time.  Here we
+    exec a one-shot echo on every ``cutip run simple`` to show the exec API.
     \"\"\"
-    container = ctx.container(\"cutip-hello\")
+    container = ctx.container(\"cutip-simple\")
     container.start()
 
     _, output = container.exec_run([\"sh\", \"-c\", \"echo 'hello from container'\"])
     logger.info(output.decode(\"utf-8\", errors=\"replace\").strip())
+"""
+
+# =============================================================================
+# COMPLEX project — PostgreSQL + Python web app
+#
+# Demonstrates:
+#   - pre_build(ctx): generates config.yaml into build context before podman build
+#   - workflow.py health-check loop: exec psql to confirm postgres is ready
+#   - NetworkCard: isolated bridge network shared by db and web containers
+#   - startup(ctx): exec-based post-start verification for the web container
+#   - vars.yaml: required db_password + generated db_data_dir
+# =============================================================================
+
+_COMPLEX_VARS_YAML_COMMENT = """\
+# Add these entries to cutip/vars.yaml for the complex project:
+#
+# required:
+#   db_password: ""        # must be filled in before cutip run complex
+#
+# generated:
+#   db_data_dir: ".cutip-complex-data"   # CUTIP creates this automatically
+"""
+
+_COMPLEX_NETWORK_YAML = """\
+# -----------------------------------------------------------------------------
+# NetworkCard -- defines an isolated bridge network for the complex project.
+#
+# Both the database (cutip-db) and web (cutip-web) containers attach to this
+# network so they can communicate by container name.
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: NetworkCard
+metadata:
+  name: app-net
+
+spec:
+  driver: bridge
+  subnet: "172.20.0.0/24"
+  gateway: "172.20.0.1"
+"""
+
+_COMPLEX_DB_IMAGE_YAML = """\
+# -----------------------------------------------------------------------------
+# ImageCard -- PostgreSQL 16 pulled from Docker Hub.
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: ImageCard
+metadata:
+  name: db
+
+spec:
+  source: pull
+  image: docker.io/library/postgres
+  tag: "16"
+"""
+
+_COMPLEX_DB_CONTAINER_YAML = """\
+# -----------------------------------------------------------------------------
+# ContainerCard -- PostgreSQL database container.
+#
+# The password is read from cutip/vars.yaml at run time.  CUTIP validates that
+# {{ vars.db_password }} is non-empty before creating any container.
+#
+# The data volume (db_data) is auto-created by CUTIP as a named Podman volume.
+# The generated db_data_dir var creates a host-side directory that you can use
+# for pg_dump backups or direct inspection.
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: ContainerCard
+metadata:
+  name: cutip-db
+
+spec:
+  imageRef:
+    ref: images/db
+
+  networkRef:
+    ref: networks/app-net
+
+  environment:
+    POSTGRES_DB: appdb
+    POSTGRES_USER: appuser
+    POSTGRES_PASSWORD: "{{ vars.db_password }}"
+
+  # Named volume — auto-created by CUTIP.
+  volumes:
+    db_data: /var/lib/postgresql/data
+
+  labels:
+    app: cutip-complex
+    role: database
+"""
+
+_COMPLEX_WEB_IMAGE_YAML = """\
+# -----------------------------------------------------------------------------
+# ImageCard -- Python web app built locally.
+#
+# The Dockerfile lives in resources/dockerfiles/.
+# pre_build(ctx) in cutip/units/web/startup.py generates config.yaml into
+# resources/buildtime/ before podman build runs.  CUTIP's buildtime_resources
+# stages it into the build context so the Dockerfile can COPY it.
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: ImageCard
+metadata:
+  name: web
+
+spec:
+  source: build
+  tag: "latest"
+  context: resources/dockerfiles
+  dockerfile: web.dockerfile
+  buildtime_resources:
+    - src: resources/buildtime/config.yaml   # generated by pre_build(ctx)
+      dest: config.yaml                       # available as COPY config.yaml ... in Dockerfile
+"""
+
+_COMPLEX_WEB_CONTAINER_YAML = """\
+# -----------------------------------------------------------------------------
+# ContainerCard -- Python web application container.
+#
+# Shares the app-net network with the database so it can reach cutip-db by
+# container name (e.g. host=cutip-db in the database URL).
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: ContainerCard
+metadata:
+  name: cutip-web
+
+spec:
+  imageRef:
+    ref: images/web
+
+  networkRef:
+    ref: networks/app-net
+
+  # Expose the app on host port 8080 → container port 8080
+  ports:
+    "8080/tcp": "8080"
+
+  labels:
+    app: cutip-complex
+    role: web
+"""
+
+_COMPLEX_DB_UNIT_YAML = """\
+apiVersion: cutip/v1
+kind: Unit
+metadata:
+  name: db
+
+spec:
+  containerRef:
+    ref: containers/cutip-db
+"""
+
+_COMPLEX_DB_STARTUP_PY = """\
+\"\"\"complex/db unit startup.
+
+Optional hooks — uncomment and implement as needed.
+
+  pre_build(ctx)  -- runs before the db image is built (not needed for a pull
+                     image, but available if you switch to a custom postgres image)
+
+  startup(ctx)    -- runs after workflow.main() confirms the database is ready.
+                     Useful for running migrations, seeding data, etc.
+\"\"\"
+
+from __future__ import annotations
+
+# from loguru import logger
+# from cutip.context.workflow import CutipContext
+
+
+# def pre_build(ctx: CutipContext) -> None:
+#     \"\"\"Optional: stage files before the db image is built.\"\"\"
+#     pass
+
+
+# def startup(ctx: CutipContext) -> None:
+#     \"\"\"Optional: run after the database is confirmed ready.\"\"\"
+#     logger.info(\"Running database migrations...\")
+#     ctx.container(\"cutip-db\").exec_run([\"psql\", \"-U\", \"appuser\", \"-d\", \"appdb\", \"-f\", \"/migrations/001_init.sql\"])
+"""
+
+_COMPLEX_WEB_UNIT_YAML = """\
+apiVersion: cutip/v1
+kind: Unit
+metadata:
+  name: web
+
+spec:
+  containerRef:
+    ref: containers/cutip-web
+"""
+
+_COMPLEX_WEB_STARTUP_PY = """\
+\"\"\"complex/web unit startup.
+
+  pre_build(ctx)  -- generates config.yaml into resources/buildtime/ before
+                     the web image is built.  CUTIP's buildtime_resources in
+                     web.image.yaml stages it into the build context.
+
+  startup(ctx)    -- verifies the web app is serving after the container starts.
+\"\"\"
+
+from __future__ import annotations
+
+import yaml
+from loguru import logger
+
+from cutip.context.workflow import CutipContext
+
+
+def pre_build(ctx: CutipContext) -> None:
+    \"\"\"Generate config.yaml into resources/buildtime/ before podman build runs.\"\"\"
+    config = {
+        \"database\": {
+            \"host\": \"cutip-db\",          # container name — reachable on app-net
+            \"port\": 5432,
+            \"name\": \"appdb\",
+            \"user\": \"appuser\",
+        },
+        \"app\": {
+            \"debug\": False,
+            \"port\": 8080,
+        },
+    }
+
+    config_path = ctx.project_root / \"resources\" / \"buildtime\" / \"config.yaml\"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(yaml.dump(config))
+    logger.info(\"Generated resources/buildtime/config.yaml\")
+
+
+def startup(ctx: CutipContext) -> None:
+    \"\"\"Verify the web app is serving after it starts.\"\"\"
+    exit_code, output = ctx.container(\"cutip-web\").exec_run(
+        [\"curl\", \"-sf\", \"http://localhost:8080/health\"]
+    )
+    if exit_code == 0:
+        logger.success(\"Web app is serving at http://localhost:8080\")
+    else:
+        logger.warning(f\"Health endpoint returned non-zero exit code: {exit_code}\")
+
+    logger.info(\"  DB shell:   podman exec -it cutip-db psql -U appuser -d appdb\")
+    logger.info(\"  Web shell:  podman exec -it cutip-web /bin/sh\")
+    logger.info(\"  Stop all:   podman stop cutip-db cutip-web\")
+"""
+
+_COMPLEX_GROUP_YAML = """\
+# -----------------------------------------------------------------------------
+# Group -- PostgreSQL + web app.
+#
+# The workflow starts the database, waits for it to be ready (health-check loop
+# via exec_run), then starts the web app.  See workflow.py for the full logic.
+# -----------------------------------------------------------------------------
+apiVersion: cutip/v1
+kind: Group
+metadata:
+  name: complex
+
+spec:
+  units:
+    - ref: units/db
+    - ref: units/web
+
+  workflow: workflow.py
+"""
+
+_COMPLEX_WORKFLOW_PY = """\
+\"\"\"complex group workflow.
+
+Starts PostgreSQL, waits for it to accept connections, then starts the web app.
+
+This is the key demonstration of CUTIP vs docker-compose: startup ordering
+is expressed as Python, not as a healthcheck declaration.  You can log
+progress, branch on failure, or take corrective action — all in one function.
+\"\"\"
+
+from __future__ import annotations
+
+import time
+
+from loguru import logger
+
+from cutip.context.workflow import CutipContext
+
+
+def main(ctx: CutipContext) -> None:
+    \"\"\"Start the database, confirm it is ready, then start the web app.\"\"\"
+    db = ctx.container(\"cutip-db\")
+    web = ctx.container(\"cutip-web\")
+
+    # --- Step 1: Start the database -------------------------------------------
+    db.start()
+    logger.info(\"Waiting for postgres to accept connections...\")
+
+    # --- Step 2: Health-check loop (exec psql into the running container) ------
+    db_password = ctx.vars[\"db_password\"]
+    for attempt in range(1, 31):
+        exit_code, _ = db.exec_run(
+            [\"psql\", \"-U\", \"appuser\", \"-d\", \"appdb\", \"-c\", \"SELECT 1\"],
+            environment={\"PGPASSWORD\": db_password},
+        )
+        if exit_code == 0:
+            logger.success(f\"Postgres ready after {attempt} attempt(s)\")
+            break
+        logger.debug(f\"  attempt {attempt}/30 — postgres not ready yet\")
+        time.sleep(1)
+    else:
+        raise RuntimeError(
+            \"Postgres did not become ready within 30 seconds. \"
+            \"Check 'podman logs cutip-db' for details.\"
+        )
+
+    # --- Step 3: Database confirmed ready — start the web app -----------------
+    web.start()
+    logger.info(\"Web app started\")
+"""
+
+_COMPLEX_WEB_DOCKERFILE = """\
+# resources/dockerfiles/web.dockerfile
+# Minimal Python web app stub for the CUTIP complex example.
+#
+# config.yaml is generated by pre_build(ctx) in cutip/units/web/startup.py
+# and staged here by CUTIP's buildtime_resources before the build runs.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies — replace with your actual requirements
+# COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
+
+# config.yaml generated by pre_build and staged by buildtime_resources
+COPY config.yaml /app/config.yaml
+
+# Add your application source files here, e.g.:
+# COPY app.py /app/app.py
+
+# Placeholder entrypoint — replace with your actual server command
+CMD ["python", "-c", "import time; print('cutip-web started'); time.sleep(86400)"]
 """
 
 
@@ -321,36 +668,98 @@ class WorkspaceScaffold:
             "cutip/vars.yaml",
         )
 
-        # -- Example project (organized by unit name: "hello") -----------------
+        # -- Simple project (single Alpine container) --------------------------
         _write_file(
-            root / "cutip/cards/hello/hello.image.yaml",
-            _EXAMPLE_IMAGE_YAML,
-            "cutip/cards/hello/hello.image.yaml",
+            root / "cutip/cards/simple/simple.image.yaml",
+            _SIMPLE_IMAGE_YAML,
+            "cutip/cards/simple/simple.image.yaml",
         )
         _write_file(
-            root / "cutip/cards/hello/hello.container.yaml",
-            _EXAMPLE_CONTAINER_YAML,
-            "cutip/cards/hello/hello.container.yaml",
+            root / "cutip/cards/simple/simple.container.yaml",
+            _SIMPLE_CONTAINER_YAML,
+            "cutip/cards/simple/simple.container.yaml",
         )
         _write_file(
-            root / "cutip/units/hello/hello.unit.yaml",
-            _EXAMPLE_UNIT_YAML,
-            "cutip/units/hello/hello.unit.yaml",
+            root / "cutip/units/simple/simple.unit.yaml",
+            _SIMPLE_UNIT_YAML,
+            "cutip/units/simple/simple.unit.yaml",
         )
         _write_file(
-            root / "cutip/units/hello/startup.py",
-            _EXAMPLE_STARTUP_PY,
-            "cutip/units/hello/startup.py",
+            root / "cutip/units/simple/startup.py",
+            _SIMPLE_STARTUP_PY,
+            "cutip/units/simple/startup.py",
         )
         _write_file(
-            root / "cutip/groups/hello/group.yaml",
-            _EXAMPLE_GROUP_YAML,
-            "cutip/groups/hello/group.yaml",
+            root / "cutip/groups/simple/group.yaml",
+            _SIMPLE_GROUP_YAML,
+            "cutip/groups/simple/group.yaml",
         )
         _write_file(
-            root / "cutip/groups/hello/workflow.py",
-            _EXAMPLE_WORKFLOW_PY,
-            "cutip/groups/hello/workflow.py",
+            root / "cutip/groups/simple/workflow.py",
+            _SIMPLE_WORKFLOW_PY,
+            "cutip/groups/simple/workflow.py",
+        )
+
+        # -- Complex project (PostgreSQL + Python web app) ---------------------
+        _write_file(
+            root / "cutip/cards/app-net/app-net.network.yaml",
+            _COMPLEX_NETWORK_YAML,
+            "cutip/cards/app-net/app-net.network.yaml",
+        )
+        _write_file(
+            root / "cutip/cards/db/db.image.yaml",
+            _COMPLEX_DB_IMAGE_YAML,
+            "cutip/cards/db/db.image.yaml",
+        )
+        _write_file(
+            root / "cutip/cards/db/db.container.yaml",
+            _COMPLEX_DB_CONTAINER_YAML,
+            "cutip/cards/db/db.container.yaml",
+        )
+        _write_file(
+            root / "cutip/cards/web/web.image.yaml",
+            _COMPLEX_WEB_IMAGE_YAML,
+            "cutip/cards/web/web.image.yaml",
+        )
+        _write_file(
+            root / "cutip/cards/web/web.container.yaml",
+            _COMPLEX_WEB_CONTAINER_YAML,
+            "cutip/cards/web/web.container.yaml",
+        )
+        _write_file(
+            root / "cutip/units/db/db.unit.yaml",
+            _COMPLEX_DB_UNIT_YAML,
+            "cutip/units/db/db.unit.yaml",
+        )
+        _write_file(
+            root / "cutip/units/db/startup.py",
+            _COMPLEX_DB_STARTUP_PY,
+            "cutip/units/db/startup.py",
+        )
+        _write_file(
+            root / "cutip/units/web/web.unit.yaml",
+            _COMPLEX_WEB_UNIT_YAML,
+            "cutip/units/web/web.unit.yaml",
+        )
+        _write_file(
+            root / "cutip/units/web/startup.py",
+            _COMPLEX_WEB_STARTUP_PY,
+            "cutip/units/web/startup.py",
+        )
+        _write_file(
+            root / "cutip/groups/complex/group.yaml",
+            _COMPLEX_GROUP_YAML,
+            "cutip/groups/complex/group.yaml",
+        )
+        _write_file(
+            root / "cutip/groups/complex/workflow.py",
+            _COMPLEX_WORKFLOW_PY,
+            "cutip/groups/complex/workflow.py",
+        )
+        _write_file(
+            root / "resources/dockerfiles/web.dockerfile",
+            _COMPLEX_WEB_DOCKERFILE,
+            "resources/dockerfiles/web.dockerfile",
         )
 
         logger.info("Workspace ready.")
