@@ -11,13 +11,13 @@
       
       
       
-        <link rel="canonical" href="https://joshuajerome.github.io/cutip/architecture/backend-interface/">
+        <link rel="canonical" href="https://joshuajerome.github.io/cutip/development/workflows/">
       
       
-        <link rel="prev" href="../design-decisions/">
+        <link rel="prev" href="../branching/">
       
       
-        <link rel="next" href="../../automation/">
+        <link rel="next" href="../../capabilities/">
       
       
         
@@ -28,7 +28,7 @@
     
     
       
-        <title>Backend Interface - CUTIP</title>
+        <title>CI/CD Workflows - CUTIP</title>
       
     
     
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-backend-interface" class="md-skip">
+        <a href="#cicd-workflows-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Backend Interface
+              CI/CD Workflows
             
           </span>
         </div>
@@ -333,13 +333,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../design-decisions/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../architecture/design-decisions/" class="md-tabs__link">
           
   
   
@@ -375,11 +373,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../development/branching/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../branching/" class="md-tabs__link">
           
   
   
@@ -1491,31 +1491,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1533,7 +1530,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1551,7 +1548,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design-decisions/" class="md-nav__link">
+      <a href="../../architecture/design-decisions/" class="md-nav__link">
         
   
   
@@ -1576,37 +1573,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backend Interface
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../architecture/backend-interface/" class="md-nav__link">
         
   
   
@@ -1622,72 +1592,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-abc" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The ABC
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#idempotency-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Idempotency contract
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implementing-a-new-backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Implementing a new backend
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#error-handling-conventions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error handling conventions
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1877,28 +1781,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
             
   
   
@@ -1916,7 +1823,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1934,7 +1841,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/branching/" class="md-nav__link">
+      <a href="../branching/" class="md-nav__link">
         
   
   
@@ -1959,10 +1866,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/workflows/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Workflows
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1978,6 +1912,178 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-trigger-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Trigger Matrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow Trigger Matrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#e2e-is-pr-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E is PR-only
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-pypi-dev-artifact-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test PyPI Dev Artifact Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test PyPI Dev Artifact Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version computation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-a-dev-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing a dev build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-failure-retry-before-force-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI Failure: Retry Before Force-Merging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI Failure: Retry Before Force-Merging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-read-the-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Read the failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-diagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Diagnose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-retry-failed-jobs-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Retry failed jobs only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-if-retries-fail-consistently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — If retries fail consistently
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2075,43 +2181,149 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-abc" class="md-nav__link">
+  <a href="#workflow-trigger-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The ABC
+        Workflow Trigger Matrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow Trigger Matrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#e2e-is-pr-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E is PR-only
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#idempotency-contract" class="md-nav__link">
+  <a href="#test-pypi-dev-artifact-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Idempotency contract
+        Test PyPI Dev Artifact Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test PyPI Dev Artifact Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version computation
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#implementing-a-new-backend" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#installing-a-dev-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Implementing a new backend
+        Installing a dev build
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#error-handling-conventions" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisite" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error handling conventions
+        Prerequisite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-failure-retry-before-force-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI Failure: Retry Before Force-Merging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI Failure: Retry Before Force-Merging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-read-the-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Read the failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-diagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Diagnose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-retry-failed-jobs-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Retry failed jobs only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-if-retries-fail-consistently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — If retries fail consistently
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Files
       
     </span>
   </a>
@@ -2135,7 +2347,7 @@
 
 
   
-    <a href="https://github.com/joshuajerome/cutip/edit/integration/docs/architecture/backend-interface.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/joshuajerome/cutip/edit/integration/docs/development/workflows.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2143,106 +2355,143 @@
   
 
 
-<h1 id="architecture-backend-interface">Architecture: Backend Interface<a class="headerlink" href="#architecture-backend-interface" title="Permanent link">&para;</a></h1>
-<p>CUTIP's execution layer is abstracted behind <code>CutipBackend</code>, an abstract base class in <code>cutip/backends/base.py</code>. The Podman backend implements this interface. Adding a new backend (e.g. containerd, remote API) requires implementing one class.</p>
+<h1 id="cicd-workflows-reference">CI/CD Workflows Reference<a class="headerlink" href="#cicd-workflows-reference" title="Permanent link">&para;</a></h1>
+<p>Complete reference for CUTIP's GitHub Actions workflows — what triggers what, how Test PyPI dev builds work, and the correct procedure when CI fails.</p>
 <hr />
-<h2 id="the-abc">The ABC<a class="headerlink" href="#the-abc" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CutipBackend</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pull_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">ImageCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">ImageCard</span><span class="p">,</span> <span class="n">project_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">ensure_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">NetworkCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">create_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">ContainerCard</span><span class="p">,</span> <span class="n">image_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">start_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">stop_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">container_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="nd">@abstractmethod</span>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">container_logs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
-</span></code></pre></div>
-<hr />
-<h2 id="idempotency-contract">Idempotency contract<a class="headerlink" href="#idempotency-contract" title="Permanent link">&para;</a></h2>
-<p>All <code>ensure_*</code> and <code>create_*</code> methods must be idempotent — calling them when the resource already exists must be a no-op, not an error. This is how CUTIP achieves safe re-runs:</p>
+<h2 id="workflow-trigger-matrix">Workflow Trigger Matrix<a class="headerlink" href="#workflow-trigger-matrix" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Idempotent behaviour</th>
+<th>Event</th>
+<th>Workflow</th>
+<th>Jobs</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>ensure_network</code></td>
-<td>Return without error if network exists</td>
+<td>Push to <code>feat/**</code>, <code>bug/**</code>, <code>claude/**</code></td>
+<td><code>ci.yml</code></td>
+<td>unit-tests, smoke-test, docs-build, build-wheel</td>
 </tr>
 <tr>
-<td><code>create_container</code></td>
-<td>Return without error if container exists</td>
+<td>PR → <code>staging</code> or <code>integration</code></td>
+<td><code>ci.yml</code></td>
+<td>auto-label, unit-tests, smoke-test, e2e-ubuntu, e2e-windows, install-macos, docs-build</td>
+</tr>
+<tr>
+<td>Push to <code>staging</code></td>
+<td><code>docs.yml</code></td>
+<td>build, generate, ai-review</td>
+</tr>
+<tr>
+<td>Push to <code>integration</code></td>
+<td><code>docs.yml</code> + <code>integration.yml</code></td>
+<td>build, deploy (gh-pages), <strong>Test PyPI publish</strong>, prune</td>
+</tr>
+<tr>
+<td>Push to <code>docs/**</code> or PR touching docs / <code>mkdocs.yml</code></td>
+<td><code>docs.yml</code></td>
+<td>build</td>
+</tr>
+<tr>
+<td>Push to <code>release/**</code></td>
+<td><code>release.yml</code></td>
+<td>unit-tests, smoke-test, e2e-ubuntu, e2e-windows, install-macos, build-and-release</td>
 </tr>
 </tbody>
 </table>
+<h3 id="e2e-is-pr-only">E2E is PR-only<a class="headerlink" href="#e2e-is-pr-only" title="Permanent link">&para;</a></h3>
+<p><code>e2e-podman-ubuntu</code>, <code>e2e-podman-windows</code>, and <code>install-validate-macos</code> carry <code>if: github.event_name == 'pull_request'</code>.</p>
+<p>On a <strong>push to a feature branch</strong>, only unit-tests, smoke-test, docs-build, and build-wheel run. This prevents expensive E2E from running on every iterative commit during development.</p>
+<p>On a <strong>PR to staging or integration</strong>, all jobs run — E2E is still a required merge gate. GitHub treats skipped jobs as passing for branch-protection purposes, so the protection rules are unchanged.</p>
 <hr />
-<h2 id="implementing-a-new-backend">Implementing a new backend<a class="headerlink" href="#implementing-a-new-backend" title="Permanent link">&para;</a></h2>
+<h2 id="test-pypi-dev-artifact-flow">Test PyPI Dev Artifact Flow<a class="headerlink" href="#test-pypi-dev-artifact-flow" title="Permanent link">&para;</a></h2>
+<p>Every push to <code>integration</code> triggers <code>integration.yml → publish-dev</code>.</p>
+<h3 id="version-computation">Version computation<a class="headerlink" href="#version-computation" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Create <code>cutip/backends/myruntime.py</code></li>
-<li>Subclass <code>CutipBackend</code> and implement all abstract methods</li>
-<li>Add a <code>connect()</code> classmethod that returns a connected instance and raises <code>CutipError</code> on failure</li>
-<li>Add a corresponding <code>BackendChoice</code> enum value in <code>cutip/cli/commands/run.py</code></li>
-<li>Add the optional dependency to <code>pyproject.toml</code> under <code>[project.optional-dependencies]</code></li>
+<li><code>pyproject.toml</code> is read for the current version (e.g., <code>0.1.5</code>)</li>
+<li>Dev version is computed: <code>{major}.{minor}.{patch+1}.dev{GITHUB_RUN_NUMBER}</code> → <code>0.1.6.dev42</code></li>
+<li><code>pyproject.toml</code> is patched in-place (not committed)</li>
+<li>Wheel is built and published to <code>https://test.pypi.org/legacy/</code></li>
 </ol>
-<p>Minimal skeleton:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cutip.backends.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CutipBackend</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cutip.utils.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CutipError</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyRuntimeBackend</span><span class="p">(</span><span class="n">CutipBackend</span><span class="p">):</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">client</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="nd">@classmethod</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MyRuntimeBackend&quot;</span><span class="p">:</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>            <span class="kn">import</span><span class="w"> </span><span class="nn">myruntime</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>            <span class="n">client</span> <span class="o">=</span> <span class="n">myruntime</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>            <span class="k">raise</span> <span class="n">CutipError</span><span class="p">(</span><span class="s2">&quot;Install cutip[myruntime] to use this backend&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>            <span class="k">raise</span> <span class="n">CutipError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pull_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">,</span> <span class="n">project_root</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">ensure_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">create_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">,</span> <span class="n">image_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">start_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">stop_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">container_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">container_logs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+<h3 id="installing-a-dev-build">Installing a dev build<a class="headerlink" href="#installing-a-dev-build" title="Permanent link">&para;</a></h3>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--index-url<span class="w"> </span>https://test.pypi.org/simple/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--extra-index-url<span class="w"> </span>https://pypi.org/simple/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="s2">&quot;cutip&gt;=0.1.6.dev0&quot;</span>
 </span></code></pre></div>
-<hr />
-<h2 id="error-handling-conventions">Error handling conventions<a class="headerlink" href="#error-handling-conventions" title="Permanent link">&para;</a></h2>
+<p>Replace <code>0.1.6.dev0</code> with the specific dev version shown in the <code>integration.yml</code> run logs.</p>
+<h3 id="prerequisite">Prerequisite<a class="headerlink" href="#prerequisite" title="Permanent link">&para;</a></h3>
+<p>The <code>TEST_PYPI_TOKEN</code> secret must be set in the GitHub repository:</p>
+<p><strong>Settings → Secrets and variables → Actions → New repository secret</strong></p>
 <ul>
-<li>Raise <code>CutipError</code> (from <code>cutip.utils.exceptions</code>) for all expected failure modes (connection refused, resource not found during removal, build failed)</li>
-<li>Let unexpected exceptions propagate — they will be caught by the CLI and displayed with a traceback</li>
-<li><code>stop_container</code> and <code>remove_container</code> should catch and log "not found" errors rather than raising — containers may already be stopped/removed in cleanup paths</li>
+<li>Name: <code>TEST_PYPI_TOKEN</code></li>
+<li>Value: API token from <a href="https://test.pypi.org">test.pypi.org</a> (account settings → API tokens)</li>
 </ul>
+<p>Without this secret, <code>publish-dev</code> fails silently on every integration push.</p>
+<hr />
+<h2 id="ci-failure-retry-before-force-merging">CI Failure: Retry Before Force-Merging<a class="headerlink" href="#ci-failure-retry-before-force-merging" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-read-the-failure">Step 1 — Read the failure<a class="headerlink" href="#step-1-read-the-failure" title="Permanent link">&para;</a></h3>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>run<span class="w"> </span>view<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--log-failed
+</span></code></pre></div>
+<p>This shows only the failed steps, not the full log.</p>
+<h3 id="step-2-diagnose">Step 2 — Diagnose<a class="headerlink" href="#step-2-diagnose" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Code issue</strong> (test failure, lint error, import error): fix locally and push. CI reruns automatically.</li>
+<li><strong>Transient infra issue</strong> (GitHub 500, checkout timeout, rate limit): retry the run.</li>
+</ul>
+<h3 id="step-3-retry-failed-jobs-only">Step 3 — Retry failed jobs only<a class="headerlink" href="#step-3-retry-failed-jobs-only" title="Permanent link">&para;</a></h3>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>gh<span class="w"> </span>run<span class="w"> </span>rerun<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--failed
+</span></code></pre></div>
+<p><code>--failed</code> retries only the jobs that failed — it does not re-run the entire suite. This is faster and cheaper than a full rerun.</p>
+<p>To get the run ID:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gh<span class="w"> </span>run<span class="w"> </span>list<span class="w"> </span>--limit<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div>
+<p>Or from a PR:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>checks<span class="w"> </span>&lt;PR_NUMBER&gt;
+</span></code></pre></div>
+<h3 id="step-4-if-retries-fail-consistently">Step 4 — If retries fail consistently<a class="headerlink" href="#step-4-if-retries-fail-consistently" title="Permanent link">&para;</a></h3>
+<p>If the same job fails three times with the same transient error and the failure is clearly not a code issue, <code>--admin</code> force merge may be used as a last resort.</p>
+<p><strong><code>--admin</code> is not a convenience tool.</strong> It bypasses all branch protections, including required status checks. It must only be used when:</p>
+<ul>
+<li>The failure is a confirmed persistent infrastructure issue (not a code issue)</li>
+<li>At least two retry attempts (<code>gh run rerun --failed</code>) have been made</li>
+<li>The PR has been reviewed and the code is correct</li>
+</ul>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>gh<span class="w"> </span>pr<span class="w"> </span>merge<span class="w"> </span>&lt;PR_NUMBER&gt;<span class="w"> </span>--merge<span class="w"> </span>--admin<span class="w"> </span>--delete-branch
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Force-merging with <code>--admin</code> during a transient GitHub error can allow broken code to reach staging or integration if the failure turns out to be a real test failure. Retry first. Always.</p>
+</div>
+<hr />
+<h2 id="workflow-files">Workflow Files<a class="headerlink" href="#workflow-files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.github/workflows/ci.yml</code></td>
+<td>Unit tests, smoke, E2E (PR-only), docs build, wheel archive</td>
+</tr>
+<tr>
+<td><code>.github/workflows/docs.yml</code></td>
+<td>Docs build check, staging doc generation, gh-pages deploy</td>
+</tr>
+<tr>
+<td><code>.github/workflows/integration.yml</code></td>
+<td>Test PyPI publish, merged-branch pruning</td>
+</tr>
+<tr>
+<td><code>.github/workflows/release.yml</code></td>
+<td>Full test matrix + GitHub Release creation</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../branching/">Branching Guide</a> for branch types and the full feature development workflow.</p>
 
 
 
