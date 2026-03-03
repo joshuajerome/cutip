@@ -76,16 +76,53 @@ jobs:
           echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
           podman version
 
-      - name: Validate hello-world workspace
-        run: uv run cutip validate --path tests/e2e/hello-world
+      - name: Validate simple workspace
+        run: uv run cutip validate --path tests/e2e/simple
 
       - name: Run E2E group (Podman · Ubuntu)
-        run: uv run cutip run hello --path tests/e2e/hello-world --local
+        run: uv run cutip run simple --path tests/e2e/simple --local
+
+  install-validate-macos:
+    # GitHub Actions free macOS runners report VZErrorDomain Code=2
+    # ("Virtualization is not available on this hardware") — the Apple
+    # Hypervisor Framework is not exposed to runner processes, so podman machine
+    # cannot start. Container runtime E2E is tested locally on a developer Mac
+    # or via a self-hosted runner. This job validates install + schema only.
+    name: Install & Validate · macOS
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install cutip
+        run: |
+          uv venv .venv
+          uv pip install -e .
+
+      - name: Smoke-test CLI (no runtime needed)
+        run: |
+          uv run cutip --help
+          uv run cutip --version
+
+      - name: Validate simple workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/simple
+
+      - name: Validate complex workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/complex
 
   build-and-release:
     name: Build & GitHub Release
     runs-on: ubuntu-latest
-    needs: [unit-tests, smoke-test, e2e-podman-ubuntu]
+    needs: [unit-tests, smoke-test, e2e-podman-ubuntu, install-validate-macos]
 
     permissions:
       contents: write

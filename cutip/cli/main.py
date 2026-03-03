@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib.metadata import version as _pkg_version
+
 import typer
 
 from cutip.cli.commands.init import app as init_app
@@ -15,6 +17,25 @@ app = typer.Typer(
     help="CUTIP — Container Unit Templates in Python",
     no_args_is_help=True,
 )
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"cutip {_pkg_version('cutip')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(  # noqa: ARG001
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
+    pass
 
 app.add_typer(init_app, name="init")
 app.add_typer(tree_app, name="tree")

@@ -56,8 +56,8 @@ pipeline {
                 sh '''
                     uv venv .venv
                     uv pip install -e .
-                    uv run cutip validate --path tests/e2e/hello-world
-                    uv run cutip run hello --path tests/e2e/hello-world --local
+                    uv run cutip validate --path tests/e2e/simple
+                    uv run cutip run simple --path tests/e2e/simple --local
                 '''
             }
         }
