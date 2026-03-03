@@ -20,7 +20,9 @@ from pathlib import Path
 
 import anthropic
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(
+    subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+)
 PROMPT_FILE = REPO_ROOT / ".jenkins" / "prompts" / "analyze-doc-coverage.md"
 CHANGED_FILES_PATH = "/tmp/changed_files.txt"
 DOCS_DIR = REPO_ROOT / "docs"

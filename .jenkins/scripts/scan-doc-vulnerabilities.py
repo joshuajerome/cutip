@@ -16,12 +16,15 @@ Exit 1 — one or more HIGH-severity findings.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 import anthropic
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(
+    subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+)
 PROMPT_FILE = REPO_ROOT / ".jenkins" / "prompts" / "scan-doc-vulnerabilities.md"
 DOCS_DIR = REPO_ROOT / "docs"
 

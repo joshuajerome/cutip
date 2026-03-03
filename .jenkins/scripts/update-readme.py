@@ -23,7 +23,9 @@ from pathlib import Path
 
 import anthropic
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(
+    subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+)
 PROMPT_FILE = REPO_ROOT / ".jenkins" / "prompts" / "update-readme.md"
 README_PATH = REPO_ROOT / "README.md"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
