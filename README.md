@@ -4,7 +4,7 @@
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
 [![Runtime](https://img.shields.io/badge/runtime-podman-892ca0)](https://podman.io/)
-[![CI](https://github.com/joshuajerome/cutip/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/joshuajerome/cutip/actions/workflows/pr-checks.yml)
+[![CI](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml/badge.svg)](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-github%20pages-0969da)](https://joshuajerome.github.io/cutip)
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
