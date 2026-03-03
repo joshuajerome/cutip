@@ -1841,6 +1841,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#dev-release-track-test-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dev Release Track (Test PyPI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#patch-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2096,6 +2107,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#dev-release-track-test-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dev Release Track (Test PyPI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#patch-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2193,15 +2215,27 @@
 <li>No PR numbers, no authors, no GitHub-generated "What's Changed"</li>
 </ul>
 <hr />
+<h2 id="dev-release-track-test-pypi">Dev Release Track (Test PyPI)<a class="headerlink" href="#dev-release-track-test-pypi" title="Permanent link">&para;</a></h2>
+<p>Every merge to <code>integration</code> automatically publishes a dev build to Test PyPI. Issue fixes accumulate in a single installable pre-release version.</p>
+<p><strong>Workflow:</strong> <code>.github/workflows/publish-dev.yml</code></p>
+<p><strong>Version format:</strong> <code>{major}.{minor}.{patch+1}.dev{RUN_NUMBER}</code> — e.g. <code>0.1.5.dev42</code></p>
+<p><strong>Install:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--index-url<span class="w"> </span>https://test.pypi.org/simple/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--extra-index-url<span class="w"> </span>https://pypi.org/simple/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="s2">&quot;cutip&gt;=0.1.5.dev0&quot;</span>
+</span></code></pre></div>
+<p>The <code>--extra-index-url</code> flag lets pip resolve dependencies from the main PyPI registry.</p>
+<p><strong>Requires secret:</strong> <code>TEST_PYPI_TOKEN</code> — add once in repo settings → Secrets → Actions.</p>
+<hr />
 <h2 id="patch-notes">Patch notes<a class="headerlink" href="#patch-notes" title="Permanent link">&para;</a></h2>
 <p><code>docs/patch-notes.md</code> is updated as part of every release. Each entry follows the same structure:</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gu">## v{X.Y.Z} ({YYYY-MM-DD})</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="gu">### Features</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">-</span><span class="w"> </span><span class="gs">**cap{N}**</span> — {title}: {description}
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="gu">### Patch Notes</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">-</span><span class="w"> </span><span class="gs">**cap{N}**</span> — {title}: {description}
+<div class="language-markdown highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gu">## v{X.Y.Z} ({YYYY-MM-DD})</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="gu">### Features</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">-</span><span class="w"> </span><span class="gs">**cap{N}**</span> — {title}: {description}
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="gu">### Patch Notes</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">-</span><span class="w"> </span><span class="gs">**cap{N}**</span> — {title}: {description}
 </span></code></pre></div>
 
 
