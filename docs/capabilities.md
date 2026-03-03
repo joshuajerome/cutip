@@ -17,7 +17,7 @@ commit messages, and PR titles.
 | cap007 | Improve init scaffold, validate logs, group name match | feat | merged | feat/cap007-scaffold-validate-completion | #36 | 2026-03-03 |
 | cap008 | Add docker-compose vs CUTIP comparison to docs and README | feat | merged | feat/cap008-compose-comparison-docs      | #37 | 2026-03-03 |
 | cap009 | Rename scaffold hello→simple, add complex project, e2e tests | feat | merged | feat/cap009-scaffold-simple-complex      | #38 | 2026-03-03 |
-| cap010 | cutip from-compose — convert compose.yaml to CUTIP artifacts  | feat | open    | feat/cap010-from-compose                | —   | 2026-03-03 |
+| cap010 | cutip from-compose — convert compose.yaml to CUTIP artifacts  | feat | merged  | feat/cap010-from-compose                | #45 | 2026-03-03 |
 | cap011 | cutip push/pull — git-based artifact registry                 | feat | planned | —                                       | —   | —          |
 | cap012 | Docker backend support                                        | feat | planned | —                                       | —   | —          |
 | cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | merged | feat/cap013-mac-podman-ci-docs          | #40 | 2026-03-03 |
@@ -25,6 +25,7 @@ commit messages, and PR titles.
 | cap015 | Consolidate GHA workflows + PR auto-label/assign            | feat | merged | feat/cap015-consolidate-workflows       | #42 | 2026-03-03 |
 | cap016 | Add Windows E2E + complex workspace to release gate         | feat | merged | feat/cap016-release-full-matrix         | #43 | 2026-03-03 |
 | cap017 | Fix doc language: imperative/declarative, remove overhead   | feat | merged | feat/cap017-doc-language-fixes          | #44 | 2026-03-03 |
+| cap018 | Document from-compose interoperability in compose comparison | feat | open    | feat/cap018-from-compose-docs           | —   | 2026-03-03 |
 
 ## ID Assignment
 

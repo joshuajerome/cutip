@@ -15,6 +15,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 | **Config variables** | `.env` flat substitution — one level, no validation | `vars.yaml` with `required:` / `generated:` sections — fails fast with a clear error if any required value is missing |
 | **Validation** | Runtime only — errors surface when the daemon tries to create the container | Static graph validation — `cutip validate` checks every ref before any backend is contacted |
 | **Orchestration logic** | Separate shell scripts or CI YAML | First-class Python in `workflow.py` — testable, importable, debuggable |
+| **Migration from compose** | — | `cutip from-compose <compose-file>` — converts an existing compose file into a full CUTIP workspace in one command |
 
 **Use compose when:**
 
@@ -29,6 +30,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 - You want static validation before touching the container runtime
 - You need startup ordering that depends on actual container behavior, not just a healthcheck definition
 - You want your orchestration logic to be Python you can import, test, and step through in a debugger
+- You have an existing compose file and want to migrate — `cutip from-compose` generates the full workspace for you
 
 ---
 
@@ -304,8 +306,33 @@ Subsequent runs are idempotent — CUTIP removes stale containers and recreates 
 
 ---
 
+## Migrating from an existing compose file
+
+If you already have a `docker-compose.yaml`, you do not need to rewrite it by hand. CUTIP ships a converter:
+
+```shell
+cutip from-compose docker-compose.yaml --output-dir .
+```
+
+This generates the full workspace in one command:
+
+- **ImageCard** per service — `source: pull` for image references, `source: build` for build sections
+- **ContainerCard** per service — ports, environment, volumes, bind mounts, labels, restart policy, cap_add
+- **NetworkCard** per compose network — with a placeholder subnet you fill in once
+- **Unit** per service — ready to extend with `pre_build(ctx)` and `startup(ctx)` hooks
+- **Group** with a `workflow.py` stub — services ordered by `depends_on`, annotated with TODO comments where health checks are needed
+- **vars.yaml** — sensitive environment variables (passwords, tokens, API keys) are automatically extracted as `{{ vars.<key> }}` references
+
+Fields that cannot be mapped automatically (`entrypoint`, `depends_on` health logic, `healthcheck`) are listed in the end-of-run report with specific instructions.
+
+After conversion, run `cutip validate` to confirm the graph is consistent, then implement the health-check stubs in each unit's `startup.py` and review the start order in `workflow.py`.
+
+---
+
 ## Summary
 
 CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is imperative, not declarative — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.
 
 If your workflow is "bring up 3 services and let them find each other", use compose. If your workflow is "generate a config file, start the database, wait until it can answer queries, then start the app that depends on it", CUTIP gives you the right primitives.
+
+If you are already on compose and want to move to CUTIP, `cutip from-compose` handles the translation.
