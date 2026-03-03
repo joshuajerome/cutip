@@ -94,7 +94,6 @@ nav:
       - ImageCard: reference/cards/image-card.md
       - ContainerCard: reference/cards/container-card.md
       - NetworkCard: reference/cards/network-card.md
-      - VolumeCard: reference/cards/volume-card.md
 
   - Guides:
     - Runtimes:
@@ -108,6 +107,12 @@ nav:
   - Architecture:
     - Design Decisions: architecture/design-decisions.md
     - Backend Interface: architecture/backend-interface.md
+
+  - Automation:
+    - Overview: automation/index.md
+    - Feature / Fix Pipeline: automation/feature-fix-pipeline.md
+    - Documentation Pipeline: automation/documentation-pipeline.md
+    - Release Pipeline: automation/release-pipeline.md
 
   - Development:
     - Branching Guide: development/branching.md

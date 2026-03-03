@@ -17,8 +17,7 @@ This means you can validate your entire container graph statically (no daemon, n
 
 ```
 ImageCard   ─┐
-NetworkCard ─┤──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
-VolumeCard  ─┘
+NetworkCard ─┘──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
 ```
 
 ### Layer 1: Cards (atomic definitions)

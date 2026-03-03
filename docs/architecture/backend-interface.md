@@ -1,6 +1,6 @@
 # Architecture: Backend Interface
 
-CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Both the Podman and Docker backends implement this interface. Adding a new backend (e.g. containerd, remote API) requires implementing one class.
+CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. The Podman backend implements this interface. Adding a new backend (e.g. containerd, remote API) requires implementing one class.
 
 ---
 
@@ -17,9 +17,6 @@ class CutipBackend(ABC):
 
     @abstractmethod
     def ensure_network(self, card: NetworkCard) -> None: ...
-
-    @abstractmethod
-    def ensure_volume(self, card: VolumeCard) -> None: ...
 
     @abstractmethod
     def create_container(self, card: ContainerCard, image_name: str | None = None) -> str: ...
@@ -49,7 +46,6 @@ All `ensure_*` and `create_*` methods must be idempotent — calling them when t
 | Method | Idempotent behaviour |
 |---|---|
 | `ensure_network` | Return without error if network exists |
-| `ensure_volume` | Return without error if volume exists |
 | `create_container` | Return without error if container exists |
 
 ---
@@ -87,7 +83,6 @@ class MyRuntimeBackend(CutipBackend):
     def pull_image(self, card): ...
     def build_image(self, card, project_root=None): ...
     def ensure_network(self, card): ...
-    def ensure_volume(self, card): ...
     def create_container(self, card, image_name=None): ...
     def start_container(self, name): ...
     def stop_container(self, name): ...
