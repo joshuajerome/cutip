@@ -4,6 +4,24 @@
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments with structured YAML artifacts and Python workflows. **Podman is the only supported backend** (docker support was removed).
 
+## Deliverables — End-to-End Mandate
+
+When asked to implement a feature, fix a bug, or cut a release, **complete the full workflow**.
+Do not stop at writing code. Do not stop at opening a PR. Finish when every completion criterion is met.
+
+| Task type | Playbook | Template |
+|-----------|----------|----------|
+| Feature / bug fix | `.claude/workflows/feature-fix.md` | `.claude/templates/pr-body.md` |
+| Release | `.claude/workflows/release.md` | `.claude/templates/github-release-notes.md` |
+| Resolve issues | `.claude/skills/resolve-issues.md` | `.claude/templates/pr-body.md` |
+
+**Always read the playbook before starting. Always use the template for PRs and release notes.**
+
+The only valid stopping points before completion are:
+- A test is failing and the fix is not clear — report and ask
+- A required manual action (GitHub web UI, auth) — report exactly what the user must do, then continue everything else
+- The user explicitly asks you to stop
+
 ## Key Conventions
 
 - **Never auto-commit.** Only commit when explicitly asked.
