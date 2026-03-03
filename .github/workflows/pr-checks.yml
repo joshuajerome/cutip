@@ -157,6 +157,43 @@ jobs:
       - name: Run E2E group complex (Podman · Windows)
         run: uv run cutip run complex --path tests/e2e/complex
 
+  install-validate-macos:
+    # GitHub Actions free macOS runners report VZErrorDomain Code=2
+    # ("Virtualization is not available on this hardware") — the Apple
+    # Hypervisor Framework is not exposed to runner processes, so podman machine
+    # cannot start. Container runtime E2E is tested locally on a developer Mac
+    # or via a self-hosted runner. This job validates install + schema only.
+    name: Install & Validate · macOS
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install cutip
+        run: |
+          uv venv .venv
+          uv pip install -e .
+
+      - name: Smoke-test CLI (no runtime needed)
+        run: |
+          uv run cutip --help
+          uv run cutip --version
+
+      - name: Validate simple workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/simple
+
+      - name: Validate complex workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/complex
+
   docs-build:
     name: Docs Build
     runs-on: ubuntu-latest
