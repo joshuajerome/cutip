@@ -1,25 +1,30 @@
 # Guide: GitHub Actions
 
-CUTIP's CI pipeline uses the following workflows under `.github/workflows/`:
+CUTIP's CI pipeline lives entirely in `.github/workflows/ci.yml`. A single file handles every stage: unit tests, smoke test, E2E, docs build, and wheel archive.
 
 | File | Trigger | What it does |
 |---|---|---|
-| `wheel-build.yml` | push to `feat/**`, `bug/**`, `claude/**` | Build wheel and upload as artifact |
-| `pr-checks.yml` | PR to `staging` or `integration` | Unit tests, smoke test, E2E (Ubuntu + Windows), docs build |
-| `docs-check.yml` | push to `docs/**`, `integration`; PR touching docs | Build docs (strict); deploy to GitHub Pages on `integration` push |
-| `release.yml` | push to `release/**` | Run all checks, build wheel + sdist, create GitHub Release |
+| `ci.yml` | Push to `feat/**`, `bug/**`, `claude/**`; PR → `staging` or `integration` | Unit tests, smoke test, E2E (PR-only), docs build, wheel archive |
+| `docs.yml` | Push to `staging` or `docs/**`; PR touching docs | Docs build check, AI audit, GitHub Pages deploy |
+| `integration.yml` | Push to `integration` | Test PyPI dev publish, merged-branch pruning |
+| `release.yml` | Push to `release/**` | Full test matrix + GitHub Release creation |
 
 ---
 
-## PR Checks (`pr-checks.yml`)
+## Workflow trigger matrix
 
-Every PR to `staging` or `integration` must pass all five jobs before merge:
+| Event | Jobs that run |
+|---|---|
+| Push to `feat/**`, `bug/**`, `claude/**` | unit-tests, smoke-test, docs-build, build-wheel |
+| PR → `staging` or `integration` | auto-label, unit-tests, smoke-test, **e2e-ubuntu**, **e2e-windows**, **install-macos**, docs-build |
 
-```
-unit-tests → smoke-test → e2e-podman-ubuntu → e2e-podman-windows → docs-build
-```
+E2E jobs carry `if: github.event_name == 'pull_request'` — they only run on PRs, not on every iterative push to a feature branch. This keeps per-push CI fast while still requiring E2E to pass before any merge.
 
-Key steps:
+---
+
+## Unit tests and smoke test
+
+These run on every push and every PR:
 
 ```yaml
 - name: Run unit tests
@@ -29,16 +34,17 @@ Key steps:
   run: |
     uv venv .wheel-test
     uv pip install --python .wheel-test/bin/python dist/cutip-*.whl
+    .wheel-test/bin/python -c "import cutip; print('cutip import OK')"
     .wheel-test/bin/cutip --help
 ```
 
-Unit tests live in `tests/`. The E2E fixture (`tests/e2e/`) is excluded from the unit test job — it requires a live Podman runtime.
+Unit tests live in `tests/`. The E2E directory (`tests/e2e/`) is excluded from the unit test job — it requires a live Podman runtime.
 
 ---
 
-## E2E — Podman
+## E2E — Podman (PR-only)
 
-Runs `tests/e2e/hello-world` against the Podman backend on Ubuntu and Windows.
+E2E runs against two workspaces plus a from-compose validation suite, on Ubuntu and Windows.
 
 ### How each platform gets a working Podman socket
 
@@ -47,40 +53,77 @@ Runs `tests/e2e/hello-world` against the Podman backend on Ubuntu and Windows.
 | Ubuntu | `apt install podman` + `systemctl --user start podman.socket` | `unix:///run/user/<uid>/podman/podman.sock` |
 | Windows | Download MSI, install, `podman machine init --now` | `npipe:////./pipe/podman-machine-default` |
 
-### Connection mode
+### E2E workspaces
 
-Both platforms use `--local` to connect via the socket set in `CONTAINER_HOST`:
+Two permanent workspaces live under `tests/e2e/`:
+
+| Workspace | Group | What it tests |
+|---|---|---|
+| `tests/e2e/simple/` | `simple` | Single container (alpine), basic lifecycle |
+| `tests/e2e/complex/` | `complex` | Multi-container (postgres + Python app), health-check loop, pre-build hooks |
+
+Both are validated (schema + ref check) before being run:
 
 ```yaml
-- run: uv run cutip run hello --path tests/e2e/hello-world --local
+- name: Validate simple workspace
+  run: uv run cutip validate --path tests/e2e/simple
+
+- name: Run E2E group simple (Podman · Ubuntu)
+  run: uv run cutip run simple --path tests/e2e/simple --local
+
+- name: Validate complex workspace
+  run: uv run cutip validate --path tests/e2e/complex
+
+- name: Run E2E group complex (Podman · Ubuntu)
+  run: uv run cutip run complex --path tests/e2e/complex --local
 ```
+
+### from-compose validation suite
+
+Five projects from [docker/awesome-compose](https://github.com/docker/awesome-compose) are fetched and converted via `cutip from-compose`, then validated with `cutip validate`. This confirms the converter produces valid CUTIP artifacts across a range of real-world compose files:
+
+| Project | Services | What it exercises |
+|---|---|---|
+| `react-nginx` | frontend, proxy | multi-stage build, nginx proxy |
+| `fastapi` | api | single-service with restart policy |
+| `nginx-flask-mongo` | nginx, flask, mongo | 3-service stack, depends_on |
+| `prometheus-grafana` | prometheus, grafana | named volumes, env vars, port bindings |
+| `angular` | frontend | Angular SPA build |
+
+Each step fetches the compose file, converts it, and validates the output (schema + ref check). Container runtime is not invoked — `cutip validate` only checks the artifact graph.
+
+Ubuntu example:
+
+```yaml
+- name: "from-compose · react-nginx"
+  run: |
+    curl -fsSL https://raw.githubusercontent.com/docker/awesome-compose/master/react-nginx/compose.yaml \
+      -o /tmp/react-nginx.yaml
+    mkdir -p /tmp/fc-react-nginx
+    uv run cutip from-compose /tmp/react-nginx.yaml --output-dir /tmp/fc-react-nginx
+    uv run cutip validate --path /tmp/fc-react-nginx
+```
+
+Windows uses `Invoke-WebRequest` and `$env:TEMP` paths via PowerShell.
 
 ---
 
-## The E2E fixture (`tests/e2e/hello-world/`)
+## Install & Validate — macOS (PR-only)
 
-A minimal CUTIP workspace:
+Free macOS runners (`macos-14`) do not expose the Apple Hypervisor Framework, so `podman machine` cannot start. The macOS job validates install and schema only — no containers:
 
+```yaml
+- name: Smoke-test CLI (no runtime needed)
+  run: |
+    uv run cutip --help
+    uv run cutip --version
+
+- name: Validate simple workspace (schema only, no containers)
+  run: uv run cutip validate --path tests/e2e/simple
+
+- name: Validate complex workspace (schema only, no containers)
+  run: uv run cutip validate --path tests/e2e/complex
 ```
-cutip.yaml
-cutip/
-  cards/images/hello.yaml         # pull alpine:3.20
-  cards/containers/hello.yaml     # network_mode: bridge, command: echo CUTIP_OK
-  units/hello.yaml
-  groups/hello/
-    group.yaml
-    workflow.py
-```
-
-The workflow:
-1. Pulls `alpine:3.20`
-2. Creates and starts `cutip-hello` container
-3. Waits up to 15 s for the container to exit
-4. Reads container logs
-5. Asserts `"CUTIP_OK"` is present in the output
-6. Removes the container
-
-A failed assertion propagates as a non-zero exit, turning the GitHub Actions step red.
 
 ---
 
@@ -99,6 +142,8 @@ System Python on Ubuntu and macOS is marked as "externally managed" (PEP 668), w
 
 ---
 
-## Adding more E2E groups
+## Adding more E2E workspaces
 
-To test additional CUTIP workspaces in CI, add steps that run `uv run cutip run <group> --path <path>`. The fixtures live under `tests/e2e/`.
+To test additional CUTIP workspaces in CI, add steps that run `uv run cutip validate --path <path>` and `uv run cutip run <group> --path <path>`. The workspaces live under `tests/e2e/`.
+
+For `from-compose` tests, add steps that fetch a compose file, run `cutip from-compose`, and then `cutip validate` — no container runtime needed.

@@ -87,16 +87,16 @@ pip install cutip=={X.Y.Z}
 
 Every merge to `integration` automatically publishes a dev build to Test PyPI. Issue fixes accumulate in a single installable pre-release version.
 
-**Workflow:** `.github/workflows/publish-dev.yml`
+**Workflow:** `.github/workflows/integration.yml` (the `publish-dev` job)
 
-**Version format:** `{major}.{minor}.{patch+1}.dev{RUN_NUMBER}` — e.g. `0.1.5.dev42`
+**Version format:** `{major}.{minor}.{patch+1}.dev{RUN_NUMBER}` — e.g. `0.1.7.dev42`
 
 **Install:**
 
 ```bash
 pip install --index-url https://test.pypi.org/simple/ \
   --extra-index-url https://pypi.org/simple/ \
-  "cutip>=0.1.5.dev0"
+  "cutip>=0.1.7.dev0"
 ```
 
 The `--extra-index-url` flag lets pip resolve dependencies from the main PyPI registry.

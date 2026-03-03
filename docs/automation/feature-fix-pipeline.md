@@ -6,43 +6,35 @@ Every capability (`feat/cap{N}`) and bug fix (`bug/cap{N}`) runs through the sam
 
 ## Trigger
 
-- Push to `feat/**` or `bug/**` — triggers GHA `pr-checks.yml` and `wheel-build.yml`
-- PR opened targeting `staging` — triggers the same checks
+- Push to `feat/**` or `bug/**` — triggers `ci.yml` (unit-tests, smoke-test, docs-build, build-wheel)
+- PR opened targeting `staging` — triggers all of the above plus E2E (Ubuntu, Windows, macOS validate)
 
 ---
 
-## GitHub Actions stages
+## GitHub Actions: `ci.yml`
 
-### `pr-checks.yml`
+All CI runs through a single consolidated workflow file.
 
-| Step | Command |
+### On push to feature branch
+
+| Job | Command |
 |---|---|
 | Unit tests | `uv run pytest tests/ -v --ignore=tests/e2e --tb=short` |
-| Smoke test | Build wheel → install in isolated venv → `import cutip` |
-| E2E | `cutip validate` + `cutip run hello --local` |
+| Smoke test | Build wheel → install in isolated venv → `import cutip` + `cutip --help` |
+| Docs build | `uv run mkdocs build --strict` |
+| Build wheel | `uv build --wheel` → archived as workflow artifact |
+
+### On PR to staging or integration (adds E2E)
+
+| Job | What it runs |
+|---|---|
+| E2E · Ubuntu | `cutip validate` + `cutip run simple` + `cutip run complex` + from-compose suite |
+| E2E · Windows | Same, using PowerShell and Podman Machine |
+| Install & Validate · macOS | Install check + schema-only validate (no container runtime) |
+
+E2E jobs carry `if: github.event_name == 'pull_request'` — they skip on push to feature branches and only gate PRs. GitHub treats skipped jobs as passing for branch-protection purposes.
 
 All checks must pass before merge is allowed.
-
-### `wheel-build.yml`
-
-Builds the distributable `.whl` and archives it as a workflow artifact. Runs on every push to `feat/**`, `bug/**`, and `claude/**`.
-
----
-
-## Jenkins stages (`build.Jenkinsfile`)
-
-The Jenkins build pipeline mirrors GHA but runs on the Jenkins agent (which has Podman available unconditionally):
-
-```
-Checkout → Install Dependencies → Unit Tests → Smoke Test → E2E → Build Wheel
-```
-
-| Stage | Notes |
-|---|---|
-| Unit Tests | JUnit XML archived |
-| Smoke Test | Wheel installed in isolated `.wheel-test` venv |
-| E2E | `cutip run hello --local` — Podman always available |
-| Build Wheel | `.whl` archived as Jenkins artifact |
 
 ---
 
@@ -57,9 +49,9 @@ After merge to `staging`, `docs-generate.yml` fires automatically for `feat/*` a
 ```
 1. Branch from staging: feat/cap{N}-slug
 2. Implement + run tests locally
-3. Push → GHA pr-checks.yml runs
-4. Open PR to staging (with assignee + label)
-5. All checks pass → merge --merge --delete-branch
+3. Push → ci.yml runs unit-tests, smoke-test, docs-build, build-wheel
+4. Open PR to staging (auto-labeled + assigned by CI)
+5. All checks pass (including E2E on PR) → merge --merge --delete-branch
 6. docs-generate fires → merge docs PR if created
 7. Forward staging → integration
 8. Prune local branch
