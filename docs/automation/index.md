@@ -25,7 +25,7 @@ feat/cap{N} branch
       ▼
   PR → staging
       │
-      ├── GHA: pr-checks.yml  (unit tests, smoke test, e2e, wheel build)
+      ├── GHA: ci.yml  (unit tests, smoke test, e2e, docs build, wheel archive)
       │
       ▼
   merge to staging
@@ -33,7 +33,7 @@ feat/cap{N} branch
       ├── GHA: docs-generate.yml  (auto-generates docs PR if feat/* or bug/*)
       │   └── docs/cap{N}-* PR → CI → merge
       │
-      ├── Jenkins: docs.Jenkinsfile  (AI audit, README sync, gh-pages deploy)
+      ├── GHA: docs.yml  (AI audit, README sync, gh-pages deploy)
       │
       ▼
   staging → integration (fast-forward merge)

@@ -1,6 +1,6 @@
 # Architecture: Backend Interface
 
-CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. The Podman backend implements this interface. Adding a new backend (e.g. containerd, remote API) requires implementing one class.
+CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Podman is the only supported backend. The interface exists to isolate the Podman-specific code and make the execution layer testable independently of the runtime.
 
 ---
 
@@ -13,7 +13,12 @@ class CutipBackend(ABC):
     def pull_image(self, card: ImageCard) -> None: ...
 
     @abstractmethod
-    def build_image(self, card: ImageCard, project_root: Path | None = None) -> None: ...
+    def build_image(
+        self,
+        card: ImageCard,
+        project_root: Path | None = None,
+        vars: dict | None = None,
+    ) -> None: ...
 
     @abstractmethod
     def ensure_network(self, card: NetworkCard) -> None: ...
@@ -55,7 +60,7 @@ All `ensure_*` and `create_*` methods must be idempotent — calling them when t
 1. Create `cutip/backends/myruntime.py`
 2. Subclass `CutipBackend` and implement all abstract methods
 3. Add a `connect()` classmethod that returns a connected instance and raises `CutipError` on failure
-4. Add a corresponding `BackendChoice` enum value in `cutip/cli/commands/run.py`
+4. Wire the new backend into `cutip/cli/commands/run.py` (replace the `PodmanBackend` instantiation with a dispatch on `CUTIP_BACKEND_NAME`)
 5. Add the optional dependency to `pyproject.toml` under `[project.optional-dependencies]`
 
 Minimal skeleton:
@@ -81,7 +86,7 @@ class MyRuntimeBackend(CutipBackend):
         return cls(client=client)
 
     def pull_image(self, card): ...
-    def build_image(self, card, project_root=None): ...
+    def build_image(self, card, project_root=None, vars=None): ...
     def ensure_network(self, card): ...
     def create_container(self, card, image_name=None): ...
     def start_container(self, name): ...
