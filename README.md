@@ -9,7 +9,18 @@
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
 
-CUTIP is not a wrapper around `docker-compose`. It is an opinionated engineering layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function.
+CUTIP is not a replacement for `docker-compose`. It is designed for a different use case: environments where the startup sequence is a program, not a declaration.
+
+| | docker-compose | CUTIP |
+|---|---|---|
+| **Startup ordering** | `depends_on` with condition polling | Python loop — exec into container, branch on result |
+| **Post-start hooks** | None native | `startup(ctx)` per unit — full podman-py API |
+| **Pre-build file staging** | None | `pre_build(ctx)` — generate config, copy deps before build |
+| **Config variables** | `.env` flat substitution | `vars.yaml` with required/generated sections + fail-fast validation |
+| **Validation** | Runtime only | Static graph validation — no backend required |
+| **Orchestration logic** | Shell scripts outside compose | First-class Python in `workflow.py` |
+
+> **[When to use each →](https://joshuajerome.github.io/cutip/getting-started/why-cutip/)**
 
 ---
 
