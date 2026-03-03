@@ -25,6 +25,7 @@ commit messages, and PR titles.
 | cap015 | Consolidate GHA workflows + PR auto-label/assign            | feat | merged | feat/cap015-consolidate-workflows       | #42 | 2026-03-03 |
 | cap016 | Add Windows E2E + complex workspace to release gate         | feat | merged | feat/cap016-release-full-matrix         | #43 | 2026-03-03 |
 | cap017 | Fix doc language: imperative/declarative, remove overhead   | feat | merged | feat/cap017-doc-language-fixes          | #44 | 2026-03-03 |
+| cap018 | Document from-compose interoperability in compose comparison | feat | open    | feat/cap018-from-compose-docs           | —   | 2026-03-03 |
 
 ## ID Assignment
 
