@@ -733,6 +733,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#migrating-from-an-existing-compose-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating from an existing compose file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2246,6 +2257,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#migrating-from-an-existing-compose-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating from an existing compose file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2329,6 +2351,11 @@
 <td>Separate shell scripts or CI YAML</td>
 <td>First-class Python in <code>workflow.py</code> — testable, importable, debuggable</td>
 </tr>
+<tr>
+<td><strong>Migration from compose</strong></td>
+<td>—</td>
+<td><code>cutip from-compose &lt;compose-file&gt;</code> — converts an existing compose file into a full CUTIP workspace in one command</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Use compose when:</strong></p>
@@ -2344,6 +2371,7 @@
 <li>You want static validation before touching the container runtime</li>
 <li>You need startup ordering that depends on actual container behavior, not just a healthcheck definition</li>
 <li>You want your orchestration logic to be Python you can import, test, and step through in a debugger</li>
+<li>You have an existing compose file and want to migrate — <code>cutip from-compose</code> generates the full workspace for you</li>
 </ul>
 <hr />
 <h2 id="hands-on-the-complex-project">Hands-on: the <code>complex</code> project<a class="headerlink" href="#hands-on-the-complex-project" title="Permanent link">&para;</a></h2>
@@ -2562,9 +2590,26 @@
 </span></code></pre></div>
 <p>Subsequent runs are idempotent — CUTIP removes stale containers and recreates them.</p>
 <hr />
+<h2 id="migrating-from-an-existing-compose-file">Migrating from an existing compose file<a class="headerlink" href="#migrating-from-an-existing-compose-file" title="Permanent link">&para;</a></h2>
+<p>If you already have a <code>docker-compose.yaml</code>, you do not need to rewrite it by hand. CUTIP ships a converter:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>cutip<span class="w"> </span>from-compose<span class="w"> </span>docker-compose.yaml<span class="w"> </span>--output-dir<span class="w"> </span>.
+</span></code></pre></div>
+<p>This generates the full workspace in one command:</p>
+<ul>
+<li><strong>ImageCard</strong> per service — <code>source: pull</code> for image references, <code>source: build</code> for build sections</li>
+<li><strong>ContainerCard</strong> per service — ports, environment, volumes, bind mounts, labels, restart policy, cap_add</li>
+<li><strong>NetworkCard</strong> per compose network — with a placeholder subnet you fill in once</li>
+<li><strong>Unit</strong> per service — ready to extend with <code>pre_build(ctx)</code> and <code>startup(ctx)</code> hooks</li>
+<li><strong>Group</strong> with a <code>workflow.py</code> stub — services ordered by <code>depends_on</code>, annotated with TODO comments where health checks are needed</li>
+<li><strong>vars.yaml</strong> — sensitive environment variables (passwords, tokens, API keys) are automatically extracted as <code>{{ vars.&lt;key&gt; }}</code> references</li>
+</ul>
+<p>Fields that cannot be mapped automatically (<code>entrypoint</code>, <code>depends_on</code> health logic, <code>healthcheck</code>) are listed in the end-of-run report with specific instructions.</p>
+<p>After conversion, run <code>cutip validate</code> to confirm the graph is consistent, then implement the health-check stubs in each unit's <code>startup.py</code> and review the start order in <code>workflow.py</code>.</p>
+<hr />
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
 <p>CUTIP is not trying to replace compose for standard stacks. It is designed for environments where the startup sequence is imperative, not declarative — where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.</p>
 <p>If your workflow is "bring up 3 services and let them find each other", use compose. If your workflow is "generate a config file, start the database, wait until it can answer queries, then start the app that depends on it", CUTIP gives you the right primitives.</p>
+<p>If you are already on compose and want to move to CUTIP, <code>cutip from-compose</code> handles the translation.</p>
 
 
 
