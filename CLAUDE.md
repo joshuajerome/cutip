@@ -29,6 +29,9 @@ The only valid stopping points before completion are:
 - **Run tests** with: `cd ~/dev/cutip && uv run pytest tests/ -v --ignore=tests/e2e`
 - **Validate a consumer project**: `cd <project> && uv run --project ~/dev/cutip cutip validate`
 - **List workspace artifacts**: `cutip group ls` / `cutip unit ls` / `cutip card ls`
+- **CI failures: retry before force-merging.** For transient GitHub 500 errors:
+  `gh run rerun <run-id> --failed` retries only failed jobs without re-running the whole suite.
+  Use `--admin` only after retries confirm it is a persistent infra failure — not a code issue.
 
 ## Architecture
 
