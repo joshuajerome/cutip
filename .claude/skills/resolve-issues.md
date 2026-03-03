@@ -1,6 +1,6 @@
 # resolve-issues
 
-Fetch all open GitHub issues, group them by root cause, fix each group on a dedicated branch, open PRs, and comment on every issue with the resolution and a downloadable wheel.
+Fetch all open GitHub issues, group them by root cause, fix each group on a dedicated branch, open PRs, and comment on every issue with the resolution and a Test PyPI install command.
 
 ---
 
@@ -49,15 +49,7 @@ git checkout -b bug/cap{N}-<short-desc>
 - Commit with prefix: `[cap{N}] fix: <description>`
 - Push the branch
 
-### Step 5 — Build a wheel for this fix
-
-```bash
-uv build --wheel
-```
-
-This produces `dist/cutip-X.Y.Z-py3-none-any.whl`. Note the path — it will be attached to the PR and referenced in issue comments.
-
-### Step 6 — Open a PR
+### Step 5 — Open a PR
 
 ```bash
 gh pr create --base staging \
@@ -73,7 +65,7 @@ PR body must include:
 - **Issues resolved**: `Closes #N, Closes #M`
 - **Test plan**: checklist
 
-### Step 7 — Upload wheel and comment on every resolved issue
+### Step 6 — Comment on every resolved issue
 
 For each issue resolved by this group:
 
@@ -89,12 +81,18 @@ Comment body:
 
 **Fix:** <what changed>
 
-**Wheel with fix:** download `cutip-X.Y.Z-py3-none-any.whl` from the PR's wheel-build artifact, or wait for it to ship in the next release.
+**Try the fix:** Once this PR merges to staging → integration, install the dev build from Test PyPI:
+```bash
+pip install --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  "cutip>=0.1.5.dev0"
+```
+(The `--extra-index-url` flag lets pip resolve dependencies from the main PyPI registry.)
 
 This issue will be closed automatically when the PR merges to staging.
 ```
 
-### Step 8 — Repeat for all groups
+### Step 7 — Repeat for all groups
 
 Work through all groups and standalone issues. After all PRs are open, print a summary table:
 

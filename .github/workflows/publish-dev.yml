@@ -1,0 +1,42 @@
+name: Publish Dev Build
+
+on:
+  push:
+    branches:
+      - integration
+
+jobs:
+  publish-dev:
+    name: Publish dev build to Test PyPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Compute dev version and patch pyproject.toml
+        run: |
+          CURRENT=$(python -c "import re; m=re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M); print(m.group(1))")
+          IFS='.' read -r MAJ MIN PATCH <<< "$CURRENT"
+          DEV_VERSION="${MAJ}.${MIN}.$((PATCH+1)).dev${GITHUB_RUN_NUMBER}"
+          echo "DEV_VERSION=$DEV_VERSION" >> "$GITHUB_ENV"
+          sed -i "s/^version = \"${CURRENT}\"/version = \"${DEV_VERSION}\"/" pyproject.toml
+          echo "Patched version: $DEV_VERSION"
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Publish to Test PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+        run: |
+          uv publish --publish-url https://test.pypi.org/legacy/
+          echo ""
+          echo "Install with:"
+          echo "  pip install --index-url https://test.pypi.org/simple/ \\"
+          echo "    --extra-index-url https://pypi.org/simple/ \\"
+          echo "    \"cutip>=${DEV_VERSION}\""
