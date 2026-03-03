@@ -27,6 +27,7 @@ commit messages, and PR titles.
 | cap017 | Fix doc language: imperative/declarative, remove overhead   | feat | merged | feat/cap017-doc-language-fixes          | #44 | 2026-03-03 |
 | cap018 | Document from-compose interoperability in compose comparison | feat | open    | feat/cap018-from-compose-docs           | —   | 2026-03-03 |
 | cap019 | Revise CI workflow matrix, Test PyPI continuity, and retry policy | feat | open | feat/cap019-ci-matrix-testpypi-retry | —   | 2026-03-03 |
+| cap020 | Add from-compose E2E tests for 5 awesome-compose projects         | feat | open | feat/cap020-e2e-from-compose-matrix  | —   | 2026-03-03 |
 
 ## ID Assignment
 
