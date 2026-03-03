@@ -278,7 +278,7 @@ def _container_yaml(
                 lines.append(f"    - {c}")
 
     if "restart" in service:
-        lines.append(f"  restart_policy: {service['restart']}")
+        lines.append(f"  restart_policy: {_yaml_scalar(str(service['restart']))}")
 
     # -- Environment -----------------------------------------------------------
     env = _normalize_env(service.get("environment", {}))
