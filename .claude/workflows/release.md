@@ -121,7 +121,11 @@ gh run view <run-id> --log-failed
 
 ## Step 8 — Edit the GitHub Release page
 
-After `release.yml` completes, update the release notes:
+After `release.yml` completes, update the release notes using the template at
+`.claude/templates/github-release-notes.md`. The release description must list
+capabilities added/fixed — do not list individual PRs, authors, or retain the
+GitHub-generated "What's Changed" content.
+
 ```bash
 gh release edit v{X.Y.Z} --notes "$(cat /tmp/release-notes.md)"
 ```
