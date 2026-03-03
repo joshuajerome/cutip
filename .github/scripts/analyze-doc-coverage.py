@@ -3,7 +3,7 @@
 analyze-doc-coverage.py
 
 Uses Claude to analyze changed Python source files and identify documentation
-gaps. Prompt is loaded from .jenkins/prompts/analyze-doc-coverage.md.
+gaps. Prompt is loaded from .github/prompts/analyze-doc-coverage.md.
 
 Environment variables:
   ANTHROPIC_API_KEY  - Anthropic API key
@@ -23,7 +23,7 @@ import anthropic
 REPO_ROOT = Path(
     subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
 )
-PROMPT_FILE = REPO_ROOT / ".jenkins" / "prompts" / "analyze-doc-coverage.md"
+PROMPT_FILE = REPO_ROOT / ".github" / "prompts" / "analyze-doc-coverage.md"
 CHANGED_FILES_PATH = "/tmp/changed_files.txt"
 DOCS_DIR = REPO_ROOT / "docs"
 
