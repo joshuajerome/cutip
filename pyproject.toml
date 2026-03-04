@@ -11,7 +11,7 @@ license = { text = "MIT" }
 authors = [
     { name = "Joshua Jerome" },
 ]
-keywords = ["containers", "podman", "devops", "workflow", "infrastructure"]
+keywords = ["containers", "podman", "docker", "devops", "workflow", "infrastructure"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -43,6 +43,7 @@ Repository = "https://github.com/joshuajerome/cutip"
 cutip = "cutip.cli.main:app"
 
 [project.optional-dependencies]
+docker = ["docker>=6.0"]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocs<2.0",              # MkDocs 2.0 is incompatible with mkdocs-material (Feb 2026)

@@ -19,7 +19,7 @@ commit messages, and PR titles.
 | cap009 | Rename scaffold hello→simple, add complex project, e2e tests | feat | merged | feat/cap009-scaffold-simple-complex      | #38 | 2026-03-03 |
 | cap010 | cutip from-compose — convert compose.yaml to CUTIP artifacts  | feat | merged  | feat/cap010-from-compose                | #45 | 2026-03-03 |
 | cap011 | cutip push/pull — git-based artifact registry                 | feat | planned | —                                       | —   | —          |
-| cap012 | Docker backend support                                        | feat | planned | —                                       | —   | —          |
+| cap012 | Docker backend support                                        | feat | merged  | feat/cap012-docker-backend              | —   | 2026-03-04 |
 | cap013 | Mac/Apple Silicon Podman CI + docs                           | feat | merged | feat/cap013-mac-podman-ci-docs          | #40 | 2026-03-03 |
 | cap014 | Remove Jenkins, migrate AI doc scripts to GHA               | feat | merged | feat/cap014-remove-jenkins-migrate-gha  | #41 | 2026-03-03 |
 | cap015 | Consolidate GHA workflows + PR auto-label/assign            | feat | merged | feat/cap015-consolidate-workflows       | #42 | 2026-03-03 |
