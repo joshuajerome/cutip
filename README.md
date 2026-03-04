@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/downloads/)
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
-[![Runtime](https://img.shields.io/badge/runtime-podman-892ca0)](https://podman.io/)
+[![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-892ca0)](https://joshuajerome.github.io/cutip/getting-started/installation/)
 [![CI](https://github.com/joshuajerome/cutip/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/joshuajerome/cutip/actions/workflows/pr-checks.yml)
 [![Docs](https://img.shields.io/badge/docs-github%20pages-0969da)](https://joshuajerome.github.io/cutip)
 
@@ -14,7 +14,7 @@ CUTIP is not a replacement for `docker-compose`. It is designed for a different 
 | | docker-compose | CUTIP |
 |---|---|---|
 | **Startup ordering** | `depends_on` with condition polling | Python loop — exec into container, branch on result |
-| **Post-start hooks** | None native | `startup(ctx)` per unit — full podman-py API |
+| **Post-start hooks** | None native | `startup(ctx)` per unit — full container API |
 | **Pre-build file staging** | None | `pre_build(ctx)` — generate config, copy deps before build |
 | **Config variables** | `.env` flat substitution | `vars.yaml` with required/generated sections + fail-fast validation |
 | **Validation** | Runtime only | Static graph validation — no backend required |
@@ -55,7 +55,7 @@ cutip --help
 > **Contributing?** Clone the repo and use `uv pip install -e .` for an editable install — see the [installation guide](https://joshuajerome.github.io/cutip/getting-started/installation/).
 
 > [!NOTE]
-> `cutip init`, `cutip from-compose`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
+> `cutip init`, `cutip from-compose`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires a container backend (Podman or Docker).
 
 ---
 
@@ -116,12 +116,12 @@ cutip run dev
 | `cutip show unit <name>` | Show a unit's resolved card graph |
 | `cutip show group <name>` | Show a group's units and workflow status |
 | `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
-| `cutip run <group> [--local] [--path]` | Validate → connect → execute workflow |
+| `cutip run <group> [-b backend] [--local] [--path]` | Validate → connect → execute workflow |
 | `cutip group ls` | List all groups in the workspace |
 | `cutip unit ls` | List all units in the workspace |
 | `cutip card ls` | List all cards in the workspace |
 
-`cutip run` connects to the Podman socket over SSH by default. Pass `--local` to use the local socket directly (useful in CI or rootless setups).
+`cutip run` uses Podman by default. Pass `--backend docker` (or set `CUTIP_BACKEND=docker`) to use Docker instead. For Docker, install the optional extra: `pip install cutip[docker]`. Pass `--local` for direct socket connection (CI / rootless setups).
 
 ---
 
@@ -150,7 +150,7 @@ Full documentation at **[joshuajerome.github.io/cutip](https://joshuajerome.gith
 | [Getting Started](https://joshuajerome.github.io/cutip/getting-started/installation/) | Installation, quickstart, workspace layout |
 | [Concepts](https://joshuajerome.github.io/cutip/concepts/overview/) | The 4-layer model, cards, units, groups, graph resolution |
 | [Reference](https://joshuajerome.github.io/cutip/reference/cli/) | CLI flags, card schemas, workflow contract, exceptions |
-| [Guides](https://joshuajerome.github.io/cutip/guides/runtimes/podman/) | Podman setup, writing workflows, CI/CD |
+| [Guides](https://joshuajerome.github.io/cutip/guides/runtimes/podman/) | Podman/Docker setup, writing workflows, CI/CD |
 
 ---
 

@@ -10,7 +10,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 |---|---|---|
 | **Model** | Declarative convergence — describe desired state, the runtime figures out transitions | Declarative definitions + imperative Python — YAML for structure, Python for orchestration |
 | **Startup ordering** | `depends_on` with `condition: service_healthy` — polls a healthcheck defined in the file | Full Python: loop, exec into the container, branch on result, log progress |
-| **Post-start hooks** | None native — you write shell scripts and call them yourself | `startup(ctx)` per unit — runs after the container starts, has full `podman-py` API |
+| **Post-start hooks** | None native — you write shell scripts and call them yourself | `startup(ctx)` per unit — runs after the container starts, has full container API |
 | **Pre-build file staging** | None — build context must be ready before `docker compose up` | `pre_build(ctx)` per unit — generate config files, copy local deps, write secrets to build context |
 | **Config variables** | `.env` flat substitution — one level, no validation | `vars.yaml` with `required:` / `generated:` sections — fails fast with a clear error if any required value is missing |
 | **Validation** | Runtime only — errors surface when the daemon tries to create the container | Static graph validation — `cutip validate` checks every ref before any backend is contacted |
@@ -40,7 +40,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 
 The `complex` project runs a **PostgreSQL database** and a **Python web application** that connects to it. It is a realistic setup and it demonstrates four CUTIP capabilities that compose cannot replicate cleanly:
 
-1. **Pre-build config generation** — a Python script writes `config.yaml` into the build context before `podman build` runs
+1. **Pre-build config generation** — a Python script writes `config.yaml` into the build context before the image build runs
 2. **Health-check loop in Python** — the workflow waits for postgres to be ready by exec-ing into it
 3. **Isolated container network** — both containers live on a private network defined in a NetworkCard
 4. **Post-start verification** — startup.py for the web unit confirms the app is serving
@@ -55,7 +55,7 @@ generated:
   db_data_dir: ".cutip-complex-data"   # cutip creates this automatically
 ```
 
-`db_password` is a required var. CUTIP will refuse to run if it is empty — before touching Podman, before pulling images. No silent misconfigurations.
+`db_password` is a required var. CUTIP will refuse to run if it is empty — before touching the container backend, before pulling images. No silent misconfigurations.
 
 `db_data_dir` is a generated var. CUTIP creates `.cutip-complex-data/` at the project root automatically.
 
@@ -125,7 +125,7 @@ The data volume `db_data` is a named volume. CUTIP creates it automatically.
 
 ### Step 4 — Pre-build config generation
 
-The web app reads a `config.yaml` that is baked into its image at build time. CUTIP generates this file before `podman build` runs:
+The web app reads a `config.yaml` that is baked into its image at build time. CUTIP generates this file before the image build runs:
 
 ```python
 # cutip/units/web/startup.py
@@ -153,7 +153,7 @@ def pre_build(ctx: CutipContext) -> None:
     logger.info("Generated resources/buildtime/config.yaml")
 ```
 
-This runs before `podman build`. The Dockerfile copies `config.yaml` from the build context:
+This runs before the image build. The Dockerfile copies `config.yaml` from the build context:
 
 ```dockerfile
 # resources/dockerfiles/web.dockerfile
@@ -279,7 +279,7 @@ INFO    ✓ complex → units/web
 INFO    ✓ complex: workflow.py
 ```
 
-Every ref in every card is resolved. The workflow file is confirmed to exist. The `{{ vars.db_password }}` ref is confirmed non-empty. No Podman socket required. This runs cleanly in CI before any image is pulled.
+Every ref in every card is resolved. The workflow file is confirmed to exist. The `{{ vars.db_password }}` ref is confirmed non-empty. No container runtime required. This runs cleanly in CI before any image is pulled.
 
 ---
 
@@ -295,8 +295,8 @@ cutip plan complex      # prints execution table, starts nothing
 
 cutip run complex
 # pre_build(ctx) generates resources/buildtime/config.yaml
-# podman build web image
-# podman pull postgres:16
+# build web image
+# pull postgres:16
 # workflow.main() starts db, waits 3s for postgres, starts web
 # startup(ctx) confirms web is serving
 # ✓ done

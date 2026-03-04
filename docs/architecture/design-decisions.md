@@ -59,11 +59,13 @@ Compare this to a base class that requires `super().__init__()`, registering met
 
 ---
 
-## Why SSH tunnel + local socket as separate modes
+## Why SSH tunnel + local socket as separate modes (Podman)
 
-The SSH tunnel mode (`PodmanBackend.connect()`) mirrors how Podman Desktop and the Podman CLI communicate with machines on macOS and Windows — they proxy a Unix socket over SSH. This is the safe, production default.
+The SSH tunnel mode (`PodmanBackend.connect()`) mirrors how Podman Desktop and the Podman CLI communicate with machines on macOS and Windows — they proxy a Unix socket over SSH. This is the safe, production default for the Podman backend.
 
 The local socket mode (`--local`) exists for CI environments where the daemon is already local. Forcing CI to configure SSH keys and connections would be impractical. `CONTAINER_HOST` is the standard Podman convention for this, so CUTIP adopts it rather than inventing its own variable.
+
+The Docker backend always connects locally via `docker.from_env()` — Docker Desktop handles all socket/pipe management internally, so no SSH tunnel or `--local` distinction is needed.
 
 ---
 

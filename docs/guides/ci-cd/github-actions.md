@@ -38,13 +38,13 @@ These run on every push and every PR:
     .wheel-test/bin/cutip --help
 ```
 
-Unit tests live in `tests/`. The E2E directory (`tests/e2e/`) is excluded from the unit test job — it requires a live Podman runtime.
+Unit tests live in `tests/`. The E2E directory (`tests/e2e/`) is excluded from the unit test job — it requires a live container runtime (Podman or Docker).
 
 ---
 
-## E2E — Podman (PR-only)
+## E2E — Podman and Docker (PR-only)
 
-E2E runs against two workspaces plus a from-compose validation suite, on Ubuntu and Windows.
+E2E runs against two workspaces plus a from-compose validation suite. Podman E2E runs on Ubuntu and Windows. Docker E2E runs on Ubuntu (Docker is pre-installed on `ubuntu-latest` runners).
 
 ### How each platform gets a working Podman socket
 

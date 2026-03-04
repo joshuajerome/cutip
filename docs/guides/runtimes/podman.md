@@ -1,6 +1,6 @@
 # Guide: Podman Runtime
 
-Podman is the only supported container backend. CUTIP supports two connection modes:
+Podman is the default container backend. CUTIP also supports [Docker](docker.md). Podman offers two connection modes:
 
 | Mode | Command | Use case |
 |---|---|---|
