@@ -24,7 +24,7 @@ class CutipContext:
         resolved_cards: Mapping of card ref → Card for all transitively resolved cards.
         registry:       The full workspace registry (read-only access).
         project_root:   Absolute path to the project root.
-        runtime:        Raw backend client (PodmanClient). None in dry-run / plan mode.
+        runtime:        Raw backend client (PodmanClient or DockerClient). None in dry-run / plan mode.
         vars:           User-specific variables loaded from ``cutip/vars.yaml``.
                         Replaces the ``.env`` pattern — paths, credentials, and other machine-specific
                         values that should not be committed.  Empty dict if ``cutip/vars.yaml`` is absent.
@@ -39,7 +39,7 @@ class CutipContext:
     vars: dict = field(default_factory=dict)
 
     def container(self, name: str):
-        """Return the live Podman container object for the given container name.
+        """Return the live container object for the given container name.
 
         Use in ``workflow.main()`` to start or inspect a container that CUTIP
         has already created::
@@ -49,8 +49,8 @@ class CutipContext:
 
         The name must match the ``metadata.name`` of the ContainerCard.
 
-        Raises :class:`podman.errors.NotFound` if no container with that name
-        exists (i.e. CUTIP has not yet created it).
+        Raises ``NotFound`` (from the active backend SDK) if no container with
+        that name exists (i.e. CUTIP has not yet created it).
         """
         if self.runtime is None:
             raise RuntimeError(

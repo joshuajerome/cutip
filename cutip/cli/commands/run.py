@@ -455,6 +455,13 @@ def run(
         help="Name of the group to run",
         autocompletion=_complete_group_name,
     ),
+    backend: str = typer.Option(
+        "podman",
+        "--backend",
+        "-b",
+        envvar="CUTIP_BACKEND",
+        help="Container backend to use (podman or docker).",
+    ),
     local: bool = typer.Option(
         False,
         "--local",
@@ -465,7 +472,7 @@ def run(
     ),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
-    """Run a group's workflow against the Podman backend.
+    """Run a group's workflow.
 
     CUTIP handles the container lifecycle up to creation; workflow.main(ctx)
     is responsible for starting containers and orchestrating across units.
@@ -504,10 +511,11 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
-    # Connect Podman backend
+    # Connect backend
+    backend_name = backend.lower()
     try:
-        from cutip.backends.podman import PodmanBackend
-        _backend = PodmanBackend.connect_local() if is_local else PodmanBackend.connect()
+        from cutip.backends import get_backend
+        _backend = get_backend(backend_name, local=is_local)
     except CutipError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
@@ -565,7 +573,7 @@ def run(
         write_run_record(
             cutip_dir / "runs",
             group=group_name,
-            backend="podman",
+            backend=backend_name,
             started_at=started_at,
             status=status,
             error=run_error,
