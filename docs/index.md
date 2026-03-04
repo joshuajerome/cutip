@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/downloads/)
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-e92063)](https://docs.pydantic.dev/latest/)
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
-[![Runtime](https://img.shields.io/badge/runtime-podman-892ca0)](https://podman.io/)
+[![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-892ca0)](getting-started/installation.md)
 
 **Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
 
@@ -41,7 +41,7 @@ cutip --help
 > **Contributing?** Clone the repo and use `uv pip install -e .` for an editable install — see [Installation](getting-started/installation.md).
 
 > [!NOTE]
-> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires Podman.
+> `cutip init`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires a container backend (Podman or Docker).
 
 ---
 
@@ -88,6 +88,6 @@ cutip run dev
 | `cutip show unit <name>` | Show a unit's resolved card graph |
 | `cutip show group <name>` | Show a group's units and workflow status |
 | `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
-| `cutip run <group> [--local] [--path]` | Validate → connect → execute workflow |
+| `cutip run <group> [-b backend] [--local] [--path]` | Validate → connect → execute workflow |
 
 Full reference: [CLI Reference](reference/cli.md)

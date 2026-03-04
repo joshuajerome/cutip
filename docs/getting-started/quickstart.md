@@ -1,6 +1,6 @@
 # Quickstart
 
-This guide walks you from an empty directory to a running container group in under 10 minutes. It assumes CUTIP is installed and Podman is available.
+This guide walks you from an empty directory to a running container group in under 10 minutes. It assumes CUTIP is installed and a container backend (Podman or Docker) is available.
 
 For installation, see [installation.md](installation.md).
 

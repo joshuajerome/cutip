@@ -50,7 +50,7 @@ Run them independently:
 
 ```shell
 cutip plan dev
-cutip run staging --backend podman
+cutip run staging
 ```
 
 ---

@@ -160,15 +160,36 @@ Plan for group: dev
 Validate, connect to the backend, and execute the group's workflow.
 
 ```shell
-cutip run <group> [--local] [--path PATH]
+cutip run <group> [--backend BACKEND] [--local] [--path PATH]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--local / -l` | `false` | Connect to the local Podman socket directly (no SSH tunnel). Required for CI. |
+| `--backend / -b` | `podman` | Container backend to use (`podman` or `docker`). |
+| `--local / -l` | `false` | Connect to the local Podman socket directly (no SSH tunnel). Required for CI. Ignored by Docker. |
 | `--path / -p` | git root / cwd | Override project root |
 
-### Connection modes
+### Backend selection
+
+CUTIP supports two container backends:
+
+| Backend | Install | Connection |
+|---|---|---|
+| **Podman** (default) | `pip install cutip` | SSH tunnel or local socket |
+| **Docker** | `pip install cutip[docker]` | Local daemon via `docker.from_env()` |
+
+```shell
+# Podman (default)
+cutip run dev
+
+# Docker
+cutip run dev --backend docker
+
+# Or via environment variable
+CUTIP_BACKEND=docker cutip run dev
+```
+
+### Podman connection modes
 
 **SSH tunnel (default):**
 
@@ -193,9 +214,9 @@ Connects directly to the local Podman socket. Socket URL is resolved in priority
 
 | Variable | Effect |
 |---|---|
+| `CUTIP_BACKEND` | Backend name (`podman` or `docker`) — equivalent to `--backend` |
 | `CUTIP_LOCAL=1` | Equivalent to passing `--local` |
 | `CONTAINER_HOST` | Podman socket URL (used by `--local`) |
-| `CUTIP_BACKEND_NAME` | Informational — passed to `workflow.py` via `os.environ` |
 
 ---
 
