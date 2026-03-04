@@ -215,7 +215,8 @@ integration → release/v{X}.{Y}.{Z} → GitHub Release
 ## Recent Work (this development cycle)
 
 - Renamed `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`
-- Moved `podman>=4.0` to core deps (docker removed as supported backend)
+- `podman>=4.0` is a core dep; `docker>=6.0` is an optional extra (`pip install cutip[docker]`)
+- Docker backend added (cap012): `--backend docker` / `CUTIP_BACKEND=docker`
 - Renamed groups: `main` → `snf-gui` / `snf-blueprint-manager`
 - Added `_validate_vars()` — checks `{{ vars.X }}` refs are present + non-empty (skips generated keys)
 - Added `_prepare_generated_dirs()` — creates generated var directories before lifecycle

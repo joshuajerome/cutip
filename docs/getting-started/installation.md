@@ -6,7 +6,7 @@
 |---|---|---|
 | Python | 3.11 | 3.12+ recommended |
 | [uv](https://github.com/astral-sh/uv) | latest | Package manager and virtual environment tool |
-| Podman | any recent | Required only for `cutip run` |
+| Podman **or** Docker | any recent | Required only for `cutip run` — Podman is the default backend |
 
 ---
 
@@ -21,7 +21,7 @@ cutip --help
 
 ## Runtime Setup
 
-### Podman
+### Podman (default)
 
 See the full per-platform guide: [guides/runtimes/podman.md](../guides/runtimes/podman.md)
 
@@ -29,6 +29,17 @@ Summary:
 - **Ubuntu** — `sudo apt-get install podman`, start the user socket
 - **macOS** — `brew install podman && podman machine init --now`
 - **Windows** — Download the MSI from the [Podman releases page](https://github.com/containers/podman/releases), then `podman machine init --now`
+
+### Docker (optional)
+
+Install the Docker extra and have Docker Desktop or the Docker daemon running:
+
+```shell
+pip install cutip[docker]
+cutip run dev --backend docker
+```
+
+See the full guide: [guides/runtimes/docker.md](../guides/runtimes/docker.md)
 
 ---
 

@@ -1,6 +1,6 @@
 # Architecture: Backend Interface
 
-CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Podman is the only supported backend. The interface exists to isolate the Podman-specific code and make the execution layer testable independently of the runtime.
+CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Two backends are supported: **Podman** (default) and **Docker** (optional, install with `pip install cutip[docker]`). The interface isolates backend-specific code and makes the execution layer testable independently of the runtime.
 
 ---
 
@@ -55,12 +55,23 @@ All `ensure_*` and `create_*` methods must be idempotent — calling them when t
 
 ---
 
+## Available backends
+
+| Backend | Package | Connection | CLI flag |
+|---|---|---|---|
+| `PodmanBackend` | `podman>=4.0` (core dep) | SSH tunnel or local socket | `--backend podman` (default) |
+| `DockerBackend` | `docker>=6.0` (optional) | Local daemon via `docker.from_env()` | `--backend docker` |
+
+The `get_backend(name, local)` factory in `cutip/backends/__init__.py` routes the CLI `--backend` flag to the correct class.
+
+---
+
 ## Implementing a new backend
 
-1. Create `cutip/backends/myruntime.py`
+1. Create `cutip/backends/myruntime/` package
 2. Subclass `CutipBackend` and implement all abstract methods
 3. Add a `connect()` classmethod that returns a connected instance and raises `CutipError` on failure
-4. Wire the new backend into `cutip/cli/commands/run.py` (replace the `PodmanBackend` instantiation with a dispatch on `CUTIP_BACKEND_NAME`)
+4. Register the backend in `cutip/backends/__init__.py` → `get_backend()`
 5. Add the optional dependency to `pyproject.toml` under `[project.optional-dependencies]`
 
 Minimal skeleton:
