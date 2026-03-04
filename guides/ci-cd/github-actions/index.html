@@ -1272,6 +1272,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runtimes/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1549,15 +1577,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman-pr-only" class="md-nav__link">
+  <a href="#e2e-podman-and-docker-pr-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman (PR-only)
+        E2E — Podman and Docker (PR-only)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman (PR-only)">
+    <nav class="md-nav" aria-label="E2E — Podman and Docker (PR-only)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2169,15 +2197,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#e2e-podman-pr-only" class="md-nav__link">
+  <a href="#e2e-podman-and-docker-pr-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        E2E — Podman (PR-only)
+        E2E — Podman and Docker (PR-only)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="E2E — Podman (PR-only)">
+    <nav class="md-nav" aria-label="E2E — Podman and Docker (PR-only)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2343,10 +2371,10 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="no">.wheel-test/bin/python -c &quot;import cutip; print(&#39;cutip import OK&#39;)&quot;</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="no">.wheel-test/bin/cutip --help</span>
 </span></code></pre></div>
-<p>Unit tests live in <code>tests/</code>. The E2E directory (<code>tests/e2e/</code>) is excluded from the unit test job — it requires a live Podman runtime.</p>
+<p>Unit tests live in <code>tests/</code>. The E2E directory (<code>tests/e2e/</code>) is excluded from the unit test job — it requires a live container runtime (Podman or Docker).</p>
 <hr />
-<h2 id="e2e-podman-pr-only">E2E — Podman (PR-only)<a class="headerlink" href="#e2e-podman-pr-only" title="Permanent link">&para;</a></h2>
-<p>E2E runs against two workspaces plus a from-compose validation suite, on Ubuntu and Windows.</p>
+<h2 id="e2e-podman-and-docker-pr-only">E2E — Podman and Docker (PR-only)<a class="headerlink" href="#e2e-podman-and-docker-pr-only" title="Permanent link">&para;</a></h2>
+<p>E2E runs against two workspaces plus a from-compose validation suite. Podman E2E runs on Ubuntu and Windows. Docker E2E runs on Ubuntu (Docker is pre-installed on <code>ubuntu-latest</code> runners).</p>
 <h3 id="how-each-platform-gets-a-working-podman-socket">How each platform gets a working Podman socket<a class="headerlink" href="#how-each-platform-gets-a-working-podman-socket" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

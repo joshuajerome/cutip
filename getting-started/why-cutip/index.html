@@ -1454,6 +1454,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/runtimes/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2357,7 +2385,7 @@
 <tr>
 <td><strong>Post-start hooks</strong></td>
 <td>None native — you write shell scripts and call them yourself</td>
-<td><code>startup(ctx)</code> per unit — runs after the container starts, has full <code>podman-py</code> API</td>
+<td><code>startup(ctx)</code> per unit — runs after the container starts, has full container API</td>
 </tr>
 <tr>
 <td><strong>Pre-build file staging</strong></td>
@@ -2406,7 +2434,7 @@
 <p><code>cutip init</code> creates two example projects. <code>simple</code> is the minimal single-container hello-world. <code>complex</code> is the one that shows why CUTIP exists.</p>
 <p>The <code>complex</code> project runs a <strong>PostgreSQL database</strong> and a <strong>Python web application</strong> that connects to it. It is a realistic setup and it demonstrates four CUTIP capabilities that compose cannot replicate cleanly:</p>
 <ol>
-<li><strong>Pre-build config generation</strong> — a Python script writes <code>config.yaml</code> into the build context before <code>podman build</code> runs</li>
+<li><strong>Pre-build config generation</strong> — a Python script writes <code>config.yaml</code> into the build context before the image build runs</li>
 <li><strong>Health-check loop in Python</strong> — the workflow waits for postgres to be ready by exec-ing into it</li>
 <li><strong>Isolated container network</strong> — both containers live on a private network defined in a NetworkCard</li>
 <li><strong>Post-start verification</strong> — startup.py for the web unit confirms the app is serving</li>
@@ -2418,7 +2446,7 @@
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">generated</span><span class="p">:</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">db_data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.cutip-complex-data&quot;</span><span class="w">   </span><span class="c1"># cutip creates this automatically</span>
 </span></code></pre></div>
-<p><code>db_password</code> is a required var. CUTIP will refuse to run if it is empty — before touching Podman, before pulling images. No silent misconfigurations.</p>
+<p><code>db_password</code> is a required var. CUTIP will refuse to run if it is empty — before touching the container backend, before pulling images. No silent misconfigurations.</p>
 <p><code>db_data_dir</code> is a generated var. CUTIP creates <code>.cutip-complex-data/</code> at the project root automatically.</p>
 <hr />
 <h3 id="step-2-the-network">Step 2 — The network<a class="headerlink" href="#step-2-the-network" title="Permanent link">&para;</a></h3>
@@ -2471,7 +2499,7 @@
 <p>The data volume <code>db_data</code> is a named volume. CUTIP creates it automatically.</p>
 <hr />
 <h3 id="step-4-pre-build-config-generation">Step 4 — Pre-build config generation<a class="headerlink" href="#step-4-pre-build-config-generation" title="Permanent link">&para;</a></h3>
-<p>The web app reads a <code>config.yaml</code> that is baked into its image at build time. CUTIP generates this file before <code>podman build</code> runs:</p>
+<p>The web app reads a <code>config.yaml</code> that is baked into its image at build time. CUTIP generates this file before the image build runs:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># cutip/units/web/startup.py</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">pre_build</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">CutipContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -2496,7 +2524,7 @@
 </span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>    <span class="n">config_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
 </span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generated resources/buildtime/config.yaml&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>This runs before <code>podman build</code>. The Dockerfile copies <code>config.yaml</code> from the build context:</p>
+<p>This runs before the image build. The Dockerfile copies <code>config.yaml</code> from the build context:</p>
 <div class="language-dockerfile highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c"># resources/dockerfiles/web.dockerfile</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">FROM</span><span class="w"> </span><span class="s">python:3.11-slim</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
@@ -2598,7 +2626,7 @@
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>INFO    ✓ complex → units/web
 </span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>INFO    ✓ complex: workflow.py
 </span></code></pre></div>
-<p>Every ref in every card is resolved. The workflow file is confirmed to exist. The <code>{{ vars.db_password }}</code> ref is confirmed non-empty. No Podman socket required. This runs cleanly in CI before any image is pulled.</p>
+<p>Every ref in every card is resolved. The workflow file is confirmed to exist. The <code>{{ vars.db_password }}</code> ref is confirmed non-empty. No container runtime required. This runs cleanly in CI before any image is pulled.</p>
 <hr />
 <h2 id="what-this-looks-like-end-to-end">What this looks like end-to-end<a class="headerlink" href="#what-this-looks-like-end-to-end" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># First time</span>
@@ -2610,8 +2638,8 @@
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
 </span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>cutip<span class="w"> </span>run<span class="w"> </span>complex
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="c1"># pre_build(ctx) generates resources/buildtime/config.yaml</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># podman build web image</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># podman pull postgres:16</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># build web image</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># pull postgres:16</span>
 </span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="c1"># workflow.main() starts db, waits 3s for postgres, starts web</span>
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># startup(ctx) confirms web is serving</span>
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="c1"># ✓ done</span>

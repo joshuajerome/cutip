@@ -1264,6 +1264,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/runtimes/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1657,10 +1685,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-ssh-tunnel-local-socket-as-separate-modes" class="md-nav__link">
+  <a href="#why-ssh-tunnel-local-socket-as-separate-modes-podman" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why SSH tunnel + local socket as separate modes
+        Why SSH tunnel + local socket as separate modes (Podman)
       
     </span>
   </a>
@@ -2152,10 +2180,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-ssh-tunnel-local-socket-as-separate-modes" class="md-nav__link">
+  <a href="#why-ssh-tunnel-local-socket-as-separate-modes-podman" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why SSH tunnel + local socket as separate modes
+        Why SSH tunnel + local socket as separate modes (Podman)
       
     </span>
   </a>
@@ -2259,9 +2287,10 @@
 </ul>
 <p><code>ctx.runtime</code> being <code>None</code> in plan mode enforces this contract at the Python level — a workflow that accidentally calls <code>ctx.runtime.create_container()</code> in plan mode will raise <code>AttributeError</code>, making the bug immediately visible.</p>
 <hr />
-<h2 id="why-ssh-tunnel-local-socket-as-separate-modes">Why SSH tunnel + local socket as separate modes<a class="headerlink" href="#why-ssh-tunnel-local-socket-as-separate-modes" title="Permanent link">&para;</a></h2>
-<p>The SSH tunnel mode (<code>PodmanBackend.connect()</code>) mirrors how Podman Desktop and the Podman CLI communicate with machines on macOS and Windows — they proxy a Unix socket over SSH. This is the safe, production default.</p>
+<h2 id="why-ssh-tunnel-local-socket-as-separate-modes-podman">Why SSH tunnel + local socket as separate modes (Podman)<a class="headerlink" href="#why-ssh-tunnel-local-socket-as-separate-modes-podman" title="Permanent link">&para;</a></h2>
+<p>The SSH tunnel mode (<code>PodmanBackend.connect()</code>) mirrors how Podman Desktop and the Podman CLI communicate with machines on macOS and Windows — they proxy a Unix socket over SSH. This is the safe, production default for the Podman backend.</p>
 <p>The local socket mode (<code>--local</code>) exists for CI environments where the daemon is already local. Forcing CI to configure SSH keys and connections would be impractical. <code>CONTAINER_HOST</code> is the standard Podman convention for this, so CUTIP adopts it rather than inventing its own variable.</p>
+<p>The Docker backend always connects locally via <code>docker.from_env()</code> — Docker Desktop handles all socket/pipe management internally, so no SSH tunnel or <code>--local</code> distinction is needed.</p>
 <hr />
 <h2 id="why-graphvalidator-collects-all-errors-before-reporting">Why <code>GraphValidator</code> collects all errors before reporting<a class="headerlink" href="#why-graphvalidator-collects-all-errors-before-reporting" title="Permanent link">&para;</a></h2>
 <p>Most validation frameworks stop at the first error. CUTIP's <code>GraphValidator</code> walks the entire graph and collects every error before reporting. The rationale: in a project with 10 units, stopping at the first broken ref forces the engineer to run <code>cutip validate</code> 10 times to discover all problems. Reporting all errors at once is a strict quality-of-life requirement for production tooling.</p>

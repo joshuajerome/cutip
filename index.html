@@ -1355,6 +1355,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/runtimes/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2142,7 +2170,7 @@
 <p><a href="https://www.python.org/downloads/"><img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776ab" /></a>
 <a href="https://docs.pydantic.dev/latest/"><img alt="Pydantic v2" src="https://img.shields.io/badge/pydantic-v2-e92063" /></a>
 <a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/badge/uv-package_manager-6e44ff" /></a>
-<a href="https://podman.io/"><img alt="Runtime" src="https://img.shields.io/badge/runtime-podman-892ca0" /></a></p>
+<a href="getting-started/installation/"><img alt="Runtime" src="https://img.shields.io/badge/runtime-podman%20%7C%20docker-892ca0" /></a></p>
 <p><strong>Container Unit Templates in Python</strong> — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.</p>
 <p>CUTIP is not a wrapper around <code>docker-compose</code>. It is an opinionated engineering layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function.</p>
 <hr />
@@ -2188,7 +2216,7 @@
 </blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code>cutip init</code>, <code>cutip tree</code>, <code>cutip validate</code>, <code>cutip show</code>, and <code>cutip plan</code> run without any container runtime installed. Only <code>cutip run</code> requires Podman.</p>
+<p><code>cutip init</code>, <code>cutip tree</code>, <code>cutip validate</code>, <code>cutip show</code>, and <code>cutip plan</code> run without any container runtime installed. Only <code>cutip run</code> requires a container backend (Podman or Docker).</p>
 </div>
 <hr />
 <h2 id="quick-look">Quick Look<a class="headerlink" href="#quick-look" title="Permanent link">&para;</a></h2>
@@ -2253,7 +2281,7 @@
 <td>Dry-run: print execution table, start nothing</td>
 </tr>
 <tr>
-<td><code>cutip run &lt;group&gt; [--local] [--path]</code></td>
+<td><code>cutip run &lt;group&gt; [-b backend] [--local] [--path]</code></td>
 <td>Validate → connect → execute workflow</td>
 </tr>
 </tbody>

@@ -1052,10 +1052,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#connection-modes" class="md-nav__link">
+  <a href="#backend-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection modes
+        Backend selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#podman-connection-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Podman connection modes
       
     </span>
   </a>
@@ -1433,6 +1444,34 @@
     
   
     Podman
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/runtimes/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
   
 
     
@@ -2250,10 +2289,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#connection-modes" class="md-nav__link">
+  <a href="#backend-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection modes
+        Backend selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#podman-connection-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Podman connection modes
       
     </span>
   </a>
@@ -2408,7 +2458,7 @@
 <hr />
 <h2 id="cutip-run"><code>cutip run</code><a class="headerlink" href="#cutip-run" title="Permanent link">&para;</a></h2>
 <p>Validate, connect to the backend, and execute the group's workflow.</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>&lt;group&gt;<span class="w"> </span><span class="o">[</span>--local<span class="o">]</span><span class="w"> </span><span class="o">[</span>--path<span class="w"> </span>PATH<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>&lt;group&gt;<span class="w"> </span><span class="o">[</span>--backend<span class="w"> </span>BACKEND<span class="o">]</span><span class="w"> </span><span class="o">[</span>--local<span class="o">]</span><span class="w"> </span><span class="o">[</span>--path<span class="w"> </span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -2420,9 +2470,14 @@
 </thead>
 <tbody>
 <tr>
+<td><code>--backend / -b</code></td>
+<td><code>podman</code></td>
+<td>Container backend to use (<code>podman</code> or <code>docker</code>).</td>
+</tr>
+<tr>
 <td><code>--local / -l</code></td>
 <td><code>false</code></td>
-<td>Connect to the local Podman socket directly (no SSH tunnel). Required for CI.</td>
+<td>Connect to the local Podman socket directly (no SSH tunnel). Required for CI. Ignored by Docker.</td>
 </tr>
 <tr>
 <td><code>--path / -p</code></td>
@@ -2431,13 +2486,45 @@
 </tr>
 </tbody>
 </table>
-<h3 id="connection-modes">Connection modes<a class="headerlink" href="#connection-modes" title="Permanent link">&para;</a></h3>
+<h3 id="backend-selection">Backend selection<a class="headerlink" href="#backend-selection" title="Permanent link">&para;</a></h3>
+<p>CUTIP supports two container backends:</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Install</th>
+<th>Connection</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Podman</strong> (default)</td>
+<td><code>pip install cutip</code></td>
+<td>SSH tunnel or local socket</td>
+</tr>
+<tr>
+<td><strong>Docker</strong></td>
+<td><code>pip install cutip[docker]</code></td>
+<td>Local daemon via <code>docker.from_env()</code></td>
+</tr>
+</tbody>
+</table>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Podman (default)</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Docker</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--backend<span class="w"> </span>docker
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Or via environment variable</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="nv">CUTIP_BACKEND</span><span class="o">=</span>docker<span class="w"> </span>cutip<span class="w"> </span>run<span class="w"> </span>dev
+</span></code></pre></div>
+<h3 id="podman-connection-modes">Podman connection modes<a class="headerlink" href="#podman-connection-modes" title="Permanent link">&para;</a></h3>
 <p><strong>SSH tunnel (default):</strong></p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev
 </span></code></pre></div>
 <p>Reads the default connection from <code>podman system connection ls</code> and opens a TCP-over-SSH tunnel. Requires Podman to be installed and a machine to be running.</p>
 <p><strong>Local socket (<code>--local</code>):</strong></p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--local
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>cutip<span class="w"> </span>run<span class="w"> </span>dev<span class="w"> </span>--local
 </span></code></pre></div>
 <p>Connects directly to the local Podman socket. Socket URL is resolved in priority order:</p>
 <ol>
@@ -2454,16 +2541,16 @@
 </thead>
 <tbody>
 <tr>
+<td><code>CUTIP_BACKEND</code></td>
+<td>Backend name (<code>podman</code> or <code>docker</code>) — equivalent to <code>--backend</code></td>
+</tr>
+<tr>
 <td><code>CUTIP_LOCAL=1</code></td>
 <td>Equivalent to passing <code>--local</code></td>
 </tr>
 <tr>
 <td><code>CONTAINER_HOST</code></td>
 <td>Podman socket URL (used by <code>--local</code>)</td>
-</tr>
-<tr>
-<td><code>CUTIP_BACKEND_NAME</code></td>
-<td>Informational — passed to <code>workflow.py</code> via <code>os.environ</code></td>
 </tr>
 </tbody>
 </table>
