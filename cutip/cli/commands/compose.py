@@ -804,7 +804,11 @@ def from_compose(
 
         doc = {
             "apiVersion": "cutip/v1",
-            "project": {"name": project_root.name, "version": "0.1.0"},
+            "project": {
+                "name": project_root.name,
+                "version": "0.1.0",
+                "backend": "podman",
+            },
         }
         cutip_yaml_path.write_text(
             _yaml.dump(doc, default_flow_style=False, sort_keys=False),
