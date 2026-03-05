@@ -506,6 +506,30 @@ def _run_unit_startups(
 
 
 # ---------------------------------------------------------------------------
+# Project config helpers
+# ---------------------------------------------------------------------------
+
+def _load_project_backend(project_root: Path) -> str | None:
+    """Read ``project.backend`` from ``cutip.yaml`` if it exists.
+
+    Returns the backend name (e.g. ``"podman"``, ``"docker"``) or ``None``
+    when the file is missing or the field is absent.
+    """
+    import yaml as _yaml
+
+    config_path = project_root / "cutip.yaml"
+    if not config_path.exists():
+        return None
+
+    data = _yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    project = data.get("project") or {}
+    backend_val = project.get("backend")
+    if backend_val is not None:
+        return str(backend_val).lower()
+    return None
+
+
+# ---------------------------------------------------------------------------
 # CLI command
 # ---------------------------------------------------------------------------
 
@@ -516,11 +540,12 @@ def run(
         autocompletion=_complete_group_name,
     ),
     backend: str = typer.Option(
-        "podman",
+        None,
         "--backend",
         "-b",
         envvar="CUTIP_BACKEND",
-        help="Container backend to use (podman or docker).",
+        help="Container backend to use (podman or docker). "
+             "Defaults to project.backend in cutip.yaml, then podman.",
     ),
     local: bool = typer.Option(
         False,
@@ -571,8 +596,15 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
+    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → podman
+    backend_name = (
+        backend.lower() if backend
+        else _load_project_backend(project_root)
+        or "podman"
+    )
+    logger.debug(f"Using backend: {backend_name}")
+
     # Connect backend
-    backend_name = backend.lower()
     try:
         from cutip.backends import get_backend
         _backend = get_backend(backend_name, local=is_local)
