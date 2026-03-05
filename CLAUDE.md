@@ -42,9 +42,9 @@ NetworkCard─┤──▶  ContainerCard  ──▶  Unit  ──▶  Group  �
 
 Every artifact is a versioned YAML file. Every ref is validated before any backend is contacted. The lifecycle is:
 
-1. Load `cutip/vars.yaml` → flat vars dict (required + generated sections)
+1. Load `cutip/paths.yaml` → flat paths dict + `cutip/secrets.yaml` → flat secrets dict
 2. Create generated directories (`_prepare_generated_dirs`)
-3. Validate all `{{ vars.X }}` refs are present and non-empty (skip generated keys)
+3. Validate all `{{ paths.X }}` / `{{ secrets.X }}` refs are present and non-empty (skip generated keys)
 4. Create host dirs (`create_host_path: true`) + named volumes
 5. Run `pre_build(ctx)` in each unit's `startup.py`
 6. Build/pull images, ensure networks, create containers
@@ -60,7 +60,8 @@ cutip/
 │   ├── cli/
 │   │   ├── main.py           # Typer app root — add_typer + commands
 │   │   └── commands/
-│   │       ├── run.py        # _load_vars, _validate_vars, run()
+│   │       ├── run.py        # _load_paths, _load_secrets, _validate_refs, run()
+│   │       ├── secrets.py    # cutip secrets set/list/check
 │   │       ├── ls.py         # group/unit/card ls sub-apps
 │   │       ├── show.py       # show card/unit/group
 │   │       ├── plan.py       # dry-run
@@ -68,7 +69,7 @@ cutip/
 │   │       ├── validate.py   # graph validation
 │   │       └── init.py       # workspace scaffold
 │   ├── context/
-│   │   ├── workflow.py       # CutipContext — ctx.container(), ctx.vars, etc.
+│   │   ├── workflow.py       # CutipContext — ctx.container(), ctx.paths, ctx.secrets
 │   │   └── startup.py        # UnitStartupLoader — runs startup.py hooks
 │   ├── models/
 │   │   ├── cards/container.py  # ContainerCard, Mount, Ref, VolumeMount
@@ -97,7 +98,8 @@ cutip/
 <project>/
 ├── cutip.yaml                  # project name/version
 ├── cutip/
-│   ├── vars.yaml               # gitignored — user fills required:, generated: auto-created
+│   ├── paths.yaml              # gitignored — filesystem paths (required: + generated:)
+│   ├── secrets.yaml            # gitignored — sensitive values (passwords, tokens, keys)
 │   ├── cards/<name>/
 │   │   ├── <name>.image.yaml
 │   │   └── <name>.container.yaml
@@ -113,16 +115,23 @@ cutip/
         └── <name>.dockerfile
 ```
 
-## vars.yaml Format
+## paths.yaml Format
 
 ```yaml
 required:
   my_repo: ""          # user must fill in — CUTIP fails fast if empty
-  ssh_private_key: ""
 
 generated:
   data_dir: ".my-data" # CUTIP creates <project_root>/.my-data/ automatically
                        # sub-dirs created by create_host_path: true mounts
+```
+
+## secrets.yaml Format
+
+```yaml
+required:
+  ssh_private_key: ""  # passwords, tokens, keys — never synced
+  db_password: ""
 ```
 
 ## Logging Architecture
@@ -150,14 +159,16 @@ Both are at `~/dev/cutip-projects/`:
 - Group: `snf-gui`
 - Container: `snf-gui`
 - `sfm_vm_support/` package — uses `config.yaml` (not `.env`); kubectl exec for keycloak patch
-- `vars.yaml` required: `snf_repo`, `ssh_private_key`, `ssh_public_key`
+- `paths.yaml` required: `snf_repo`
+- `secrets.yaml` required: `ssh_private_key`, `ssh_public_key`
 
 ### snf-blueprint-dev
 - Group: `snf-blueprint-manager`
 - Container: `snf-blueprint-manager` (Ansible/blueprint tooling)
-- `vars.yaml` required: `ssh_private_key`, `ssh_public_key`, `blueprint_manager`
-- `vars.yaml` generated: `blueprint_manager_data: ".snf-blueprint-manager-data"`
-  - Mounts: `{{ vars.blueprint_manager_data }}/sheets` and `.../infrastructures` with `create_host_path: true`
+- `secrets.yaml` required: `ssh_private_key`, `ssh_public_key`
+- `paths.yaml` required: `blueprint_manager`
+- `paths.yaml` generated: `blueprint_manager_data: ".snf-blueprint-manager-data"`
+  - Mounts: `{{ paths.blueprint_manager_data }}/sheets` and `.../infrastructures` with `create_host_path: true`
 
 ## Branch Conventions
 
@@ -218,9 +229,10 @@ integration → release/v{X}.{Y}.{Z} → GitHub Release
 - `podman>=4.0` is a core dep; `docker>=6.0` is an optional extra (`pip install cutip[docker]`)
 - Docker backend added (cap012): `--backend docker` / `CUTIP_BACKEND=docker`
 - Renamed groups: `main` → `snf-gui` / `snf-blueprint-manager`
-- Added `_validate_vars()` — checks `{{ vars.X }}` refs are present + non-empty (skips generated keys)
-- Added `_prepare_generated_dirs()` — creates generated var directories before lifecycle
+- Added `_validate_refs()` — checks `{{ paths.X }}` / `{{ secrets.X }}` refs are present + non-empty (skips generated keys)
+- Added `_prepare_generated_dirs()` — creates generated path directories before lifecycle
 - Build output: `subprocess.Popen` streaming → `logger.bind(subprocess=True).debug()`
 - Added `cutip group ls`, `cutip unit ls`, `cutip card ls` commands
 - Added tab-completion for group names in `cutip run`
-- New `vars.yaml` schema: `required:` / `generated:` sections
+- Split `vars.yaml` into `paths.yaml` (filesystem paths) + `secrets.yaml` (sensitive values)
+- Added `cutip secrets set/list/check` commands

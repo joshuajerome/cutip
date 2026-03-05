@@ -25,9 +25,10 @@ commit messages, and PR titles.
 | cap015 | Consolidate GHA workflows + PR auto-label/assign            | feat | merged | feat/cap015-consolidate-workflows       | #42 | 2026-03-03 |
 | cap016 | Add Windows E2E + complex workspace to release gate         | feat | merged | feat/cap016-release-full-matrix         | #43 | 2026-03-03 |
 | cap017 | Fix doc language: imperative/declarative, remove overhead   | feat | merged | feat/cap017-doc-language-fixes          | #44 | 2026-03-03 |
-| cap018 | Document from-compose interoperability in compose comparison | feat | open    | feat/cap018-from-compose-docs           | —   | 2026-03-03 |
-| cap019 | Revise CI workflow matrix, Test PyPI continuity, and retry policy | feat | open | feat/cap019-ci-matrix-testpypi-retry | —   | 2026-03-03 |
-| cap020 | Add from-compose E2E tests for 5 awesome-compose projects         | feat | open | feat/cap020-e2e-from-compose-matrix  | —   | 2026-03-03 |
+| cap018 | Document from-compose interoperability in compose comparison | feat | merged  | feat/cap018-from-compose-docs           | #46 | 2026-03-03 |
+| cap019 | Revise CI workflow matrix, Test PyPI continuity, and retry policy | feat | merged | feat/cap019-ci-matrix-testpypi-retry | #47 | 2026-03-03 |
+| cap020 | Add from-compose E2E tests for 5 awesome-compose projects         | feat | open   | feat/cap020-e2e-from-compose-matrix  | #48 | 2026-03-03 |
+| cap021 | Rename vars.yaml → paths.yaml + add cutip/secrets.yaml            | feat | open   | feat/cap021-paths-secrets-split      | —   | 2026-03-04 |
 
 ## ID Assignment
 

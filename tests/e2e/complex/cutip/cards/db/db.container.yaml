@@ -10,7 +10,7 @@ spec:
   environment:
     POSTGRES_DB: appdb
     POSTGRES_USER: appuser
-    POSTGRES_PASSWORD: "{{ vars.db_password }}"
+    POSTGRES_PASSWORD: "{{ secrets.db_password }}"
   volumes:
     db_data: /var/lib/postgresql/data
   labels:
