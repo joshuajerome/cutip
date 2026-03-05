@@ -80,13 +80,13 @@ jobs:
         run: uv run cutip validate --path tests/e2e/simple
 
       - name: Run E2E group simple (Podman · Ubuntu)
-        run: uv run cutip run simple --path tests/e2e/simple --local
+        run: uv run cutip run simple --path tests/e2e/simple --backend podman --local
 
       - name: Validate complex workspace
         run: uv run cutip validate --path tests/e2e/complex
 
       - name: Run E2E group complex (Podman · Ubuntu)
-        run: uv run cutip run complex --path tests/e2e/complex --local
+        run: uv run cutip run complex --path tests/e2e/complex --backend podman --local
 
       # ── from-compose: awesome-compose validation suite ──────────────────────
       - name: "from-compose · react-nginx"
@@ -254,13 +254,13 @@ jobs:
         run: uv run cutip validate --path tests/e2e/simple
 
       - name: Run E2E group simple (Podman · Windows)
-        run: uv run cutip run simple --path tests/e2e/simple
+        run: uv run cutip run simple --path tests/e2e/simple --backend podman
 
       - name: Validate complex workspace
         run: uv run cutip validate --path tests/e2e/complex
 
       - name: Run E2E group complex (Podman · Windows)
-        run: uv run cutip run complex --path tests/e2e/complex
+        run: uv run cutip run complex --path tests/e2e/complex --backend podman
 
       # ── from-compose: awesome-compose validation suite ──────────────────────
       - name: "from-compose · react-nginx (Windows)"
