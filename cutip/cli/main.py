@@ -9,6 +9,7 @@ from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import plan
 from cutip.cli.commands.run import run
+from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
 from cutip.cli.commands.tree import app as tree_app
 from cutip.cli.commands.validate import app as validate_app
@@ -45,6 +46,7 @@ app.add_typer(show_app, name="show")
 app.add_typer(group_app, name="group")
 app.add_typer(unit_app, name="unit")
 app.add_typer(card_app, name="card")
+app.add_typer(secrets_app, name="secrets")
 app.command("plan")(plan)
 app.command("run")(run)
 app.command("from-compose")(from_compose)

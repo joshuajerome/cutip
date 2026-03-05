@@ -24,7 +24,7 @@ def main(ctx: CutipContext) -> None:
     db.start()
     logger.info("Waiting for postgres to accept connections...")
 
-    db_password = ctx.vars["db_password"]
+    db_password = ctx.secrets["db_password"]
     for attempt in range(1, 31):
         exit_code, _ = db.exec_run(
             ["psql", "-U", "appuser", "-d", "appdb", "-c", "SELECT 1"],

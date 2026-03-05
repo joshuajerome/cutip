@@ -16,7 +16,7 @@ CUTIP is not a replacement for `docker-compose`. It is designed for a different 
 | **Startup ordering** | `depends_on` with condition polling | Python loop — exec into container, branch on result |
 | **Post-start hooks** | None native | `startup(ctx)` per unit — full container API |
 | **Pre-build file staging** | None | `pre_build(ctx)` — generate config, copy deps before build |
-| **Config variables** | `.env` flat substitution | `vars.yaml` with required/generated sections + fail-fast validation |
+| **Config variables** | `.env` flat substitution | `paths.yaml` + `secrets.yaml` with required/generated sections + fail-fast validation |
 | **Validation** | Runtime only | Static graph validation — no backend required |
 | **Orchestration logic** | Shell scripts outside compose | First-class Python in `workflow.py` |
 | **Migration from compose** | — | `cutip from-compose` — convert any compose file to a CUTIP workspace |
@@ -125,19 +125,27 @@ cutip run dev
 
 ---
 
-## vars.yaml
+## paths.yaml + secrets.yaml
 
-Workspace variables are declared in `cutip/vars.yaml` with two sections:
+Workspace configuration is split into two files:
 
+**`cutip/paths.yaml`** — filesystem paths (safe to sync):
 ```yaml
 required:
-  ssh_private_key: ""   # must be filled in — cutip fails fast if empty
+  my_repo: ""           # must be filled in — cutip fails fast if empty
 
 generated:
   data_dir: ".my-data"  # cutip creates this directory automatically
 ```
 
-CUTIP validates all `{{ vars.key }}` references in cards before any container backend is contacted — missing or empty required values surface as a clear error, not a runtime failure.
+**`cutip/secrets.yaml`** — sensitive values (never synced, always gitignored):
+```yaml
+required:
+  ssh_private_key: ""   # passwords, tokens, keys
+  db_password: ""
+```
+
+CUTIP validates all `{{ paths.key }}` and `{{ secrets.key }}` references in cards before any container backend is contacted — missing or empty required values surface as a clear error, not a runtime failure.
 
 ---
 

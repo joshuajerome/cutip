@@ -8,11 +8,11 @@ import yaml
 from loguru import logger
 
 
-_CUTIP_VARS_YAML = """\
-# cutip/vars.yaml — fill in your machine-specific values.
+_CUTIP_PATHS_YAML = """\
+# cutip/paths.yaml — filesystem paths specific to your machine.
 #
-# This file is gitignored and MUST NOT be committed — it contains paths and
-# credentials that are specific to your machine.
+# This file is gitignored.  It is safe to sync via `cutip push` because it
+# contains only filesystem paths, never credentials.
 #
 # Two sections are supported:
 #
@@ -20,27 +20,44 @@ _CUTIP_VARS_YAML = """\
 #   generated:  Paths that CUTIP creates automatically relative to the project
 #               root.  No manual action needed — just name the directory.
 #
-# Reference values in ContainerCard YAML mount sources using {{ vars.key }}:
+# Reference values in ContainerCard YAML mount sources using {{ paths.key }}:
 #
 #   mounts:
 #     - type: bind
-#       source: "{{ vars.my_repo }}"
+#       source: "{{ paths.my_repo }}"
 #       target: /app/repo
 #
-# Access values in workflow.py / startup.py via ctx.vars["key"].
+# Access values in workflow.py / startup.py via ctx.paths["key"].
 #
 # -----------------------------------------------------------------------------
 
 required:
-  # SSH credentials (mounted read-only into containers for git/remote access)
-  # ssh_private_key: ""   # e.g. /Users/you/.ssh/id_ed25519
-  # ssh_public_key: ""    # e.g. /Users/you/.ssh/id_ed25519.pub
-
   # Path to a locally cloned source repository
   # my_repo: ""           # e.g. /Users/you/dev/my-project
 
 generated:
   # data_dir: ".cutip-data"   # → created at <project_root>/.cutip-data/
+"""
+
+_CUTIP_SECRETS_YAML = """\
+# cutip/secrets.yaml — sensitive values. NEVER commit this file.
+#
+# Passwords, tokens, API keys, and SSH credentials go here.
+# This file is gitignored and is never synced via `cutip push`.
+#
+# Reference values in ContainerCard YAML using {{ secrets.key }}:
+#
+#   environment:
+#     DB_PASSWORD: "{{ secrets.db_password }}"
+#
+# Access values in workflow.py / startup.py via ctx.secrets["key"].
+#
+# -----------------------------------------------------------------------------
+
+required:
+  # ssh_private_key: ""   # e.g. /Users/you/.ssh/id_ed25519
+  # ssh_public_key: ""    # e.g. /Users/you/.ssh/id_ed25519.pub
+  # db_password: ""
 """
 
 # Directories created by `cutip init` (project-specific subdirs are added per unit)
@@ -97,7 +114,7 @@ spec:
 #     PYTHON_VERSION: "3.11"
 #   buildtime_resources:
 #     - src: resources/buildtime/requirements.txt
-#     - src: "{{ vars.my_repo }}/src/package.json"
+#     - src: "{{ paths.my_repo }}/src/package.json"
 #       dest: package.json
 # -----------------------------------------------------------------------------
 """
@@ -131,14 +148,14 @@ spec:
     app: cutip-simple
     env: dev
 
-  # -- Bind mounts (sources resolved from cutip/vars.yaml at run time) -------
+  # -- Bind mounts (sources resolved from cutip/paths.yaml at run time) ------
   # mounts:
   #   - type: bind
-  #     source: "{{ vars.my_repo }}"   # resolved from cutip/vars.yaml
+  #     source: "{{ paths.my_repo }}"   # resolved from cutip/paths.yaml
   #     target: /app/repo
   #
   #   - type: bind
-  #     source: "{{ vars.ssh_private_key }}"
+  #     source: "{{ secrets.ssh_private_key }}"
   #     target: /root/.ssh/id_ed25519
   #     read_only: true
   #
@@ -171,12 +188,12 @@ _SIMPLE_GROUP_YAML = """\
 # Group -- an ordered set of Units and the workflow that orchestrates them.
 #
 # Running `cutip run simple` triggers the full CUTIP lifecycle:
-#   1. Load cutip/vars.yaml
+#   1. Load cutip/paths.yaml + cutip/secrets.yaml
 #   2. Create host directories (create_host_path: true) and named volumes
 #   3. Call pre_build(ctx) in each unit's startup.py  [if defined]
 #   4. Build / pull images
 #   5. Ensure networks
-#   6. Remove stale + create fresh containers ({{ vars.key }} mounts resolved)
+#   6. Remove stale + create fresh containers ({{ paths.key }} mounts resolved)
 #   7. Call workflow.main(ctx)  -- starts containers, orchestrates units
 #   8. Call startup(ctx) in each unit's startup.py  [if defined]
 # -----------------------------------------------------------------------------
@@ -223,7 +240,7 @@ from cutip.models.cards.container import ContainerCard
 #     sys.path.insert(0, str(ctx.project_root / \"scripts\"))
 #     from local_deps import stage_local_deps
 #     stage_local_deps(
-#         src_dir=Path(ctx.vars[\"my_repo\"]) / \"src\",
+#         src_dir=Path(ctx.paths[\"my_repo\"]) / \"src\",
 #         build_context_dir=ctx.project_root / \"resources/dockerfiles\",
 #         clean=True,
 #     )
@@ -279,17 +296,19 @@ def main(ctx: CutipContext) -> None:
 #   - workflow.py health-check loop: exec psql to confirm postgres is ready
 #   - NetworkCard: isolated bridge network shared by db and web containers
 #   - startup(ctx): exec-based post-start verification for the web container
-#   - vars.yaml: required db_password + generated db_data_dir
+#   - secrets.yaml: required db_password; paths.yaml: generated db_data_dir
 # =============================================================================
 
 _COMPLEX_VARS_YAML_COMMENT = """\
-# Add these entries to cutip/vars.yaml for the complex project:
+# Add these entries for the complex project:
 #
-# required:
-#   db_password: ""        # must be filled in before cutip run complex
+# cutip/secrets.yaml:
+#   required:
+#     db_password: ""        # must be filled in before cutip run complex
 #
-# generated:
-#   db_data_dir: ".cutip-complex-data"   # CUTIP creates this automatically
+# cutip/paths.yaml:
+#   generated:
+#     db_data_dir: ".cutip-complex-data"   # CUTIP creates this automatically
 """
 
 _COMPLEX_NETWORK_YAML = """\
@@ -329,8 +348,8 @@ _COMPLEX_DB_CONTAINER_YAML = """\
 # -----------------------------------------------------------------------------
 # ContainerCard -- PostgreSQL database container.
 #
-# The password is read from cutip/vars.yaml at run time.  CUTIP validates that
-# {{ vars.db_password }} is non-empty before creating any container.
+# The password is read from cutip/secrets.yaml at run time.  CUTIP validates
+# that {{ secrets.db_password }} is non-empty before creating any container.
 #
 # The data volume (db_data) is auto-created by CUTIP as a named Podman volume.
 # The generated db_data_dir var creates a host-side directory that you can use
@@ -351,7 +370,7 @@ spec:
   environment:
     POSTGRES_DB: appdb
     POSTGRES_USER: appuser
-    POSTGRES_PASSWORD: "{{ vars.db_password }}"
+    POSTGRES_PASSWORD: "{{ secrets.db_password }}"
 
   # Named volume — auto-created by CUTIP.
   volumes:
@@ -568,7 +587,7 @@ def main(ctx: CutipContext) -> None:
     logger.info(\"Waiting for postgres to accept connections...\")
 
     # --- Step 2: Health-check loop (exec psql into the running container) ------
-    db_password = ctx.vars[\"db_password\"]
+    db_password = ctx.secrets[\"db_password\"]
     for attempt in range(1, 31):
         exit_code, _ = db.exec_run(
             [\"psql\", \"-U\", \"appuser\", \"-d\", \"appdb\", \"-c\", \"SELECT 1\"],
@@ -661,11 +680,16 @@ class WorkspaceScaffold:
         # -- Project config ----------------------------------------------------
         self._write_cutip_yaml()
 
-        # -- User vars file (gitignored, filled in by the user) ----------------
+        # -- User paths + secrets files (gitignored, filled in by the user) -----
         _write_file(
-            root / "cutip" / "vars.yaml",
-            _CUTIP_VARS_YAML,
-            "cutip/vars.yaml",
+            root / "cutip" / "paths.yaml",
+            _CUTIP_PATHS_YAML,
+            "cutip/paths.yaml",
+        )
+        _write_file(
+            root / "cutip" / "secrets.yaml",
+            _CUTIP_SECRETS_YAML,
+            "cutip/secrets.yaml",
         )
 
         # -- Simple project (single Alpine container) --------------------------

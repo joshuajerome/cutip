@@ -25,9 +25,10 @@ class CutipContext:
         registry:       The full workspace registry (read-only access).
         project_root:   Absolute path to the project root.
         runtime:        Raw backend client (PodmanClient or DockerClient). None in dry-run / plan mode.
-        vars:           User-specific variables loaded from ``cutip/vars.yaml``.
-                        Replaces the ``.env`` pattern — paths, credentials, and other machine-specific
-                        values that should not be committed.  Empty dict if ``cutip/vars.yaml`` is absent.
+        paths:          Filesystem paths loaded from ``cutip/paths.yaml``.
+                        Safe to sync via ``cutip push``.  Empty dict if absent.
+        secrets:        Sensitive values loaded from ``cutip/secrets.yaml``.
+                        Never synced, always gitignored.  Empty dict if absent.
     """
 
     group: Group
@@ -36,7 +37,8 @@ class CutipContext:
     registry: CutipRegistry = field(default_factory=CutipRegistry)
     project_root: Path = field(default_factory=Path.cwd)
     runtime: Any = None
-    vars: dict = field(default_factory=dict)
+    paths: dict = field(default_factory=dict)
+    secrets: dict = field(default_factory=dict)
 
     def container(self, name: str):
         """Return the live container object for the given container name.

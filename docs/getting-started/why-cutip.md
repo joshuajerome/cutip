@@ -12,7 +12,7 @@ This page is an honest comparison. If `docker-compose` does what you need, use i
 | **Startup ordering** | `depends_on` with `condition: service_healthy` — polls a healthcheck defined in the file | Full Python: loop, exec into the container, branch on result, log progress |
 | **Post-start hooks** | None native — you write shell scripts and call them yourself | `startup(ctx)` per unit — runs after the container starts, has full container API |
 | **Pre-build file staging** | None — build context must be ready before `docker compose up` | `pre_build(ctx)` per unit — generate config files, copy local deps, write secrets to build context |
-| **Config variables** | `.env` flat substitution — one level, no validation | `vars.yaml` with `required:` / `generated:` sections — fails fast with a clear error if any required value is missing |
+| **Config variables** | `.env` flat substitution — one level, no validation | `paths.yaml` + `secrets.yaml` with `required:` / `generated:` sections — fails fast with a clear error if any required value is missing |
 | **Validation** | Runtime only — errors surface when the daemon tries to create the container | Static graph validation — `cutip validate` checks every ref before any backend is contacted |
 | **Orchestration logic** | Separate shell scripts or CI YAML | First-class Python in `workflow.py` — testable, importable, debuggable |
 | **Migration from compose** | — | `cutip from-compose <compose-file>` — converts an existing compose file into a full CUTIP workspace in one command |
@@ -45,19 +45,23 @@ The `complex` project runs a **PostgreSQL database** and a **Python web applicat
 3. **Isolated container network** — both containers live on a private network defined in a NetworkCard
 4. **Post-start verification** — startup.py for the web unit confirms the app is serving
 
-### Step 1 — vars.yaml
+### Step 1 — paths.yaml + secrets.yaml
 
+**`cutip/secrets.yaml`**:
 ```yaml
 required:
   db_password: ""        # must be filled in before cutip run complex
+```
 
+**`cutip/paths.yaml`**:
+```yaml
 generated:
   db_data_dir: ".cutip-complex-data"   # cutip creates this automatically
 ```
 
-`db_password` is a required var. CUTIP will refuse to run if it is empty — before touching the container backend, before pulling images. No silent misconfigurations.
+`db_password` is a required secret. CUTIP will refuse to run if it is empty — before touching the container backend, before pulling images. No silent misconfigurations.
 
-`db_data_dir` is a generated var. CUTIP creates `.cutip-complex-data/` at the project root automatically.
+`db_data_dir` is a generated path. CUTIP creates `.cutip-complex-data/` at the project root automatically.
 
 ---
 
@@ -111,13 +115,13 @@ spec:
   environment:
     POSTGRES_DB: appdb
     POSTGRES_USER: appuser
-    POSTGRES_PASSWORD: "{{ vars.db_password }}"
+    POSTGRES_PASSWORD: "{{ secrets.db_password }}"
 
   volumes:
     db_data: /var/lib/postgresql/data
 ```
 
-The password is `{{ vars.db_password }}` — resolved from `vars.yaml` at run time. CUTIP checks this ref exists and is non-empty before creating a single container.
+The password is `{{ secrets.db_password }}` — resolved from `secrets.yaml` at run time. CUTIP checks this ref exists and is non-empty before creating a single container.
 
 The data volume `db_data` is a named volume. CUTIP creates it automatically.
 
@@ -196,7 +200,7 @@ def main(ctx: CutipContext) -> None:
     for attempt in range(1, 31):
         exit_code, _ = db.exec_run(
             ["psql", "-U", "appuser", "-d", "appdb", "-c", "SELECT 1"],
-            environment={"PGPASSWORD": ctx.vars["db_password"]},
+            environment={"PGPASSWORD": ctx.secrets["db_password"]},
         )
         if exit_code == 0:
             logger.success(f"Postgres ready after {attempt} attempt(s)")
@@ -279,7 +283,7 @@ INFO    ✓ complex → units/web
 INFO    ✓ complex: workflow.py
 ```
 
-Every ref in every card is resolved. The workflow file is confirmed to exist. The `{{ vars.db_password }}` ref is confirmed non-empty. No container runtime required. This runs cleanly in CI before any image is pulled.
+Every ref in every card is resolved. The workflow file is confirmed to exist. The `{{ secrets.db_password }}` ref is confirmed non-empty. No container runtime required. This runs cleanly in CI before any image is pulled.
 
 ---
 
@@ -288,7 +292,7 @@ Every ref in every card is resolved. The workflow file is confirmed to exist. Th
 ```shell
 # First time
 cutip init
-# Edit cutip/vars.yaml — fill in db_password
+# Edit cutip/secrets.yaml — fill in db_password
 
 cutip validate          # checks the whole graph, no Podman needed
 cutip plan complex      # prints execution table, starts nothing
@@ -321,7 +325,7 @@ This generates the full workspace in one command:
 - **NetworkCard** per compose network — with a placeholder subnet you fill in once
 - **Unit** per service — ready to extend with `pre_build(ctx)` and `startup(ctx)` hooks
 - **Group** with a `workflow.py` stub — services ordered by `depends_on`, annotated with TODO comments where health checks are needed
-- **vars.yaml** — sensitive environment variables (passwords, tokens, API keys) are automatically extracted as `{{ vars.<key> }}` references
+- **secrets.yaml** — sensitive environment variables (passwords, tokens, API keys) are automatically extracted as `{{ secrets.<key> }}` references
 
 Fields that cannot be mapped automatically (`entrypoint`, `depends_on` health logic, `healthcheck`) are listed in the end-of-run report with specific instructions.
 
