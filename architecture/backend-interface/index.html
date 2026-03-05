@@ -2194,7 +2194,7 @@
 
 
 <h1 id="architecture-backend-interface">Architecture: Backend Interface<a class="headerlink" href="#architecture-backend-interface" title="Permanent link">&para;</a></h1>
-<p>CUTIP's execution layer is abstracted behind <code>CutipBackend</code>, an abstract base class in <code>cutip/backends/base.py</code>. Two backends are supported: <strong>Podman</strong> (default) and <strong>Docker</strong> (optional, install with <code>pip install cutip[docker]</code>). The interface isolates backend-specific code and makes the execution layer testable independently of the runtime.</p>
+<p>CUTIP's execution layer is abstracted behind <code>CutipBackend</code>, an abstract base class in <code>cutip/backends/base.py</code>. Two backends are supported: <strong>Docker</strong> (default) and <strong>Podman</strong>. Both are core dependencies. The interface isolates backend-specific code and makes the execution layer testable independently of the runtime.</p>
 <hr />
 <h2 id="the-abc">The ABC<a class="headerlink" href="#the-abc" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CutipBackend</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -2268,13 +2268,13 @@
 <td><code>PodmanBackend</code></td>
 <td><code>podman&gt;=4.0</code> (core dep)</td>
 <td>SSH tunnel or local socket</td>
-<td><code>--backend podman</code> (default)</td>
+<td><code>--backend podman</code></td>
 </tr>
 <tr>
 <td><code>DockerBackend</code></td>
-<td><code>docker&gt;=6.0</code> (optional)</td>
+<td><code>docker&gt;=6.0</code> (core dep)</td>
 <td>Local daemon via <code>docker.from_env()</code></td>
-<td><code>--backend docker</code></td>
+<td><code>--backend docker</code> (default)</td>
 </tr>
 </tbody>
 </table>
