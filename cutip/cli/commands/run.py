@@ -88,11 +88,11 @@ def _complete_group_name(incomplete: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Vars helpers
+# Paths / secrets helpers
 # ---------------------------------------------------------------------------
 
-def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
-    """Load ``cutip/vars.yaml`` from the project if it exists.
+def _load_paths(project_root: Path) -> tuple[dict, frozenset[str]]:
+    """Load ``cutip/paths.yaml`` from the project if it exists.
 
     Supports two formats:
 
@@ -104,11 +104,10 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
     **Structured** — explicit ``required`` and ``generated`` sections::
 
         required:
-          ssh_private_key: ""
-          blueprint_manager: ""
+          my_repo: ""
 
         generated:
-          blueprint_manager_data: ".snf-blueprint-manager"
+          data_dir: ".my-data"
 
     *required* keys must be present **and** non-empty at run time.
 
@@ -116,18 +115,18 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
     root and their directories are created automatically by
     :func:`_prepare_generated_dirs`.  They never fail validation.
 
-    Returns ``(flat_vars, generated_keys)`` where *flat_vars* is the merged
+    Returns ``(flat_paths, generated_keys)`` where *flat_paths* is the merged
     dict of both sections and *generated_keys* is the frozenset of keys whose
     directories CUTIP manages.
     """
     import yaml as _yaml
-    p = project_root / "cutip" / "vars.yaml"
+    p = project_root / "cutip" / "paths.yaml"
     if not p.exists():
         return {}, frozenset()
 
     data = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
-        raise CutipError("cutip/vars.yaml must be a YAML mapping (key: value pairs)")
+        raise CutipError("cutip/paths.yaml must be a YAML mapping (key: value pairs)")
 
     # ── Structured format (has 'required' or 'generated' top-level keys) ──
     if "required" in data or "generated" in data:
@@ -135,9 +134,9 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
         gen = data.get("generated") or {}
 
         if not isinstance(req, dict):
-            raise CutipError("cutip/vars.yaml: 'required' must be a mapping")
+            raise CutipError("cutip/paths.yaml: 'required' must be a mapping")
         if not isinstance(gen, dict):
-            raise CutipError("cutip/vars.yaml: 'generated' must be a mapping")
+            raise CutipError("cutip/paths.yaml: 'generated' must be a mapping")
 
         flat: dict = {}
         flat.update({k: (str(v) if v is not None else "") for k, v in req.items()})
@@ -146,7 +145,7 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
         for key, rel_path in gen.items():
             if rel_path is None or not str(rel_path).strip():
                 raise CutipError(
-                    f"cutip/vars.yaml: generated key '{key}' must have a non-empty "
+                    f"cutip/paths.yaml: generated key '{key}' must have a non-empty "
                     f"path value (e.g. '.my-data'). Got: {rel_path!r}"
                 )
             abs_path = (project_root / str(rel_path)).resolve()
@@ -154,69 +153,116 @@ def _load_vars(project_root: Path) -> tuple[dict, frozenset[str]]:
             generated_keys.add(key)
 
         logger.debug(
-            f"Loaded vars: {len(req)} required, {len(gen)} generated "
-            f"(from cutip/vars.yaml)"
+            f"Loaded paths: {len(req)} required, {len(gen)} generated "
+            f"(from cutip/paths.yaml)"
         )
         return flat, frozenset(generated_keys)
 
     # ── Flat (legacy) format — every key is required ──────────────────────
     flat = {k: (str(v) if v is not None else "") for k, v in data.items()}
-    logger.debug(f"Loaded {len(flat)} var(s) from cutip/vars.yaml")
+    logger.debug(f"Loaded {len(flat)} path(s) from cutip/paths.yaml")
     return flat, frozenset()
 
 
-def _resolve_vars_in_str(text: str, vars: dict) -> str:
-    """Resolve ``{{ vars.key }}`` placeholders in *text*.
+def _load_secrets(project_root: Path) -> dict:
+    """Load ``cutip/secrets.yaml`` from the project if it exists.
+
+    Returns a flat dict of secret key → value pairs.
+    """
+    import yaml as _yaml
+    p = project_root / "cutip" / "secrets.yaml"
+    if not p.exists():
+        return {}
+
+    data = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise CutipError("cutip/secrets.yaml must be a YAML mapping (key: value pairs)")
+
+    if "required" in data:
+        req = data.get("required") or {}
+        if not isinstance(req, dict):
+            raise CutipError("cutip/secrets.yaml: 'required' must be a mapping")
+        flat = {k: (str(v) if v is not None else "") for k, v in req.items()}
+        logger.debug(f"Loaded {len(flat)} secret(s) from cutip/secrets.yaml")
+        return flat
+
+    # Flat format — every key is a secret
+    flat = {k: (str(v) if v is not None else "") for k, v in data.items()}
+    logger.debug(f"Loaded {len(flat)} secret(s) from cutip/secrets.yaml")
+    return flat
+
+
+def _resolve_refs_in_str(text: str, paths: dict, secrets: dict) -> str:
+    """Resolve ``{{ paths.key }}`` and ``{{ secrets.key }}`` placeholders in *text*.
 
     Raises :class:`~cutip.utils.exceptions.CutipError` when a referenced key
-    is absent from *vars*.
+    is absent from the corresponding dict.
     """
     def _replace(match: re.Match) -> str:
-        key = match.group(1).strip()
-        if key not in vars:
-            raise CutipError(
-                f"'{{{{ vars.{key} }}}}' not found in cutip/vars.yaml"
-            )
-        return str(vars[key])
+        namespace = match.group(1)
+        key = match.group(2).strip()
+        if namespace == "paths":
+            if key not in paths:
+                raise CutipError(
+                    f"'{{{{ paths.{key} }}}}' not found in cutip/paths.yaml"
+                )
+            return str(paths[key])
+        else:  # secrets
+            if key not in secrets:
+                raise CutipError(
+                    f"'{{{{ secrets.{key} }}}}' not found in cutip/secrets.yaml"
+                )
+            return str(secrets[key])
 
-    return re.sub(r"\{\{\s*vars\.(\w+)\s*\}\}", _replace, text)
+    return re.sub(r"\{\{\s*(paths|secrets)\.(\w+)\s*\}\}", _replace, text)
 
 
-def _validate_vars(
+def _validate_refs(
     ctx: CutipContext,
-    vars: dict,
+    paths: dict,
+    secrets: dict,
     generated_keys: frozenset[str] = frozenset(),
 ) -> None:
-    """Validate that every ``{{ vars.key }}`` referenced in resolved cards is
-    present *and* non-empty in *vars*.
+    """Validate that every ``{{ paths.key }}`` and ``{{ secrets.key }}``
+    referenced in resolved cards is present *and* non-empty.
 
-    *generated_keys* are skipped — their values are resolved and created
-    automatically by CUTIP, so they are always valid.
+    *generated_keys* are skipped for paths — their values are resolved and
+    created automatically by CUTIP, so they are always valid.
 
-    Called before any lifecycle step so that missing or unfilled vars.yaml
-    entries surface as a clear error instead of cryptic backend failures
-    (e.g. ``statfs /sheets: no such file or directory`` when a path prefix
-    resolves to an empty string).
+    Called before any lifecycle step so that missing or unfilled entries
+    surface as a clear error instead of cryptic backend failures.
 
     Raises :class:`~cutip.utils.exceptions.CutipError` listing all problems.
     """
-    pattern = re.compile(r"\{\{\s*vars\.(\w+)\s*\}\}")
+    pattern = re.compile(r"\{\{\s*(paths|secrets)\.(\w+)\s*\}\}")
     errors: list[str] = []
 
     def _check_field(card_name: str, field_name: str, text: str) -> None:
-        for key in pattern.findall(text):
-            if key in generated_keys:
-                continue  # auto-managed by CUTIP — always valid
-            if key not in vars:
-                errors.append(
-                    f"  [{card_name}] {field_name}: "
-                    f"'{{{{ vars.{key} }}}}' is not defined in cutip/vars.yaml"
-                )
-            elif not str(vars[key]).strip():
-                errors.append(
-                    f"  [{card_name}] {field_name}: "
-                    f"'{{{{ vars.{key} }}}}' is defined but empty in cutip/vars.yaml"
-                )
+        for namespace, key in pattern.findall(text):
+            if namespace == "paths":
+                if key in generated_keys:
+                    continue  # auto-managed by CUTIP — always valid
+                if key not in paths:
+                    errors.append(
+                        f"  [{card_name}] {field_name}: "
+                        f"'{{{{ paths.{key} }}}}' is not defined in cutip/paths.yaml"
+                    )
+                elif not str(paths[key]).strip():
+                    errors.append(
+                        f"  [{card_name}] {field_name}: "
+                        f"'{{{{ paths.{key} }}}}' is defined but empty in cutip/paths.yaml"
+                    )
+            else:  # secrets
+                if key not in secrets:
+                    errors.append(
+                        f"  [{card_name}] {field_name}: "
+                        f"'{{{{ secrets.{key} }}}}' is not defined in cutip/secrets.yaml"
+                    )
+                elif not str(secrets[key]).strip():
+                    errors.append(
+                        f"  [{card_name}] {field_name}: "
+                        f"'{{{{ secrets.{key} }}}}' is defined but empty in cutip/secrets.yaml"
+                    )
 
     for card in ctx.resolved_cards.values():
         if not isinstance(card, ContainerCard):
@@ -230,9 +276,9 @@ def _validate_vars(
 
     if errors:
         raise CutipError(
-            "cutip/vars.yaml has missing or empty values required by your cards:\n"
+            "Missing or empty values required by your cards:\n"
             + "\n".join(errors)
-            + "\n\nFill in the values in cutip/vars.yaml and re-run."
+            + "\n\nFill in the values in cutip/paths.yaml / cutip/secrets.yaml and re-run."
         )
 
 
@@ -253,21 +299,24 @@ def _prepare_generated_dirs(
         logger.debug(f"Prepared generated directory [{key}]: {path}")
 
 
-def _resolve_vars_in_card(card: ContainerCard, vars: dict) -> ContainerCard:
-    """Return a copy of *card* with ``{{ vars.key }}`` resolved in mount paths.
+def _resolve_refs_in_card(
+    card: ContainerCard, paths: dict, secrets: dict,
+) -> ContainerCard:
+    """Return a copy of *card* with ``{{ paths.key }}`` / ``{{ secrets.key }}``
+    resolved in mount paths.
 
     Only mount ``source`` and ``target`` fields are interpolated.  Other
     string fields (command, workdir, etc.) are not touched.
     """
-    if not vars or not card.spec.mounts:
+    if (not paths and not secrets) or not card.spec.mounts:
         return card
 
     resolved_mounts = []
     for mount in card.spec.mounts:
         resolved_mounts.append(
             mount.model_copy(update={
-                "source": _resolve_vars_in_str(mount.source, vars),
-                "target": _resolve_vars_in_str(mount.target, vars),
+                "source": _resolve_refs_in_str(mount.source, paths, secrets),
+                "target": _resolve_refs_in_str(mount.target, paths, secrets),
             })
         )
 
@@ -284,7 +333,8 @@ def _build_context(
     project_root: Path,
     registry,
     runtime=None,
-    vars: dict | None = None,
+    paths: dict | None = None,
+    secrets: dict | None = None,
 ) -> CutipContext:
     """Assemble a CutipContext for the given group."""
     group = registry.get_group(group_name)
@@ -319,7 +369,8 @@ def _build_context(
         registry=registry,
         project_root=project_root,
         runtime=runtime,
-        vars=vars or {},
+        paths=paths or {},
+        secrets=secrets or {},
     )
 
 
@@ -327,12 +378,17 @@ def _build_context(
 # Lifecycle helpers — called by run() in order
 # ---------------------------------------------------------------------------
 
-def _prepare_host_dirs(ctx: CutipContext, project_root: Path, vars: dict | None = None) -> None:
+def _prepare_host_dirs(
+    ctx: CutipContext,
+    project_root: Path,
+    paths: dict | None = None,
+    secrets: dict | None = None,
+) -> None:
     """Create host-side directories for any mount with ``create_host_path: true``.
 
-    ``{{ vars.key }}`` placeholders in mount sources are resolved before the
-    path is created, so declarative YAML mounts with user-specific sources
-    work correctly without any Python in the workflow.
+    ``{{ paths.key }}`` / ``{{ secrets.key }}`` placeholders in mount sources
+    are resolved before the path is created, so declarative YAML mounts with
+    user-specific sources work correctly without any Python in the workflow.
     """
     for card in ctx.resolved_cards.values():
         if not isinstance(card, ContainerCard):
@@ -341,8 +397,8 @@ def _prepare_host_dirs(ctx: CutipContext, project_root: Path, vars: dict | None 
             if not mount.create_host_path:
                 continue
             source = mount.source
-            if vars and "{{" in source:
-                source = _resolve_vars_in_str(source, vars)
+            if (paths or secrets) and "{{" in source:
+                source = _resolve_refs_in_str(source, paths or {}, secrets or {})
             host_path = Path(source)
             if not host_path.is_absolute():
                 host_path = project_root / host_path
@@ -369,15 +425,17 @@ def _prepare_volumes(ctx: CutipContext, client) -> None:
 
 
 def _build_and_pull_images(
-    ctx: CutipContext, backend, project_root: Path, vars: dict
+    ctx: CutipContext, backend, project_root: Path, paths: dict, secrets: dict,
 ) -> None:
     """Build or pull every ImageCard resolved in the context."""
+    # Merge paths + secrets for build-time interpolation ({{ paths.key }} / {{ secrets.key }})
+    merged = {**paths, **secrets}
     for card in ctx.resolved_cards.values():
         if not isinstance(card, ImageCard):
             continue
         if card.spec.source == "build":
             logger.info(f"Building image: {card.metadata.name}")
-            backend.build_image(card, project_root=project_root, vars=vars)
+            backend.build_image(card, project_root=project_root, vars=merged)
         elif card.spec.source == "pull":
             logger.info(f"Pulling image: {card.metadata.name}")
             backend.pull_image(card)
@@ -390,8 +448,10 @@ def _ensure_networks(ctx: CutipContext, backend) -> None:
             backend.ensure_network(card)
 
 
-def _provision_containers(ctx: CutipContext, backend, vars: dict) -> None:
-    """Remove stale containers and create fresh ones with vars resolved."""
+def _provision_containers(
+    ctx: CutipContext, backend, paths: dict, secrets: dict,
+) -> None:
+    """Remove stale containers and create fresh ones with refs resolved."""
     for card in ctx.resolved_cards.values():
         if not isinstance(card, ContainerCard):
             continue
@@ -405,8 +465,8 @@ def _provision_containers(ctx: CutipContext, backend, vars: dict) -> None:
         except Exception:
             pass  # not found — nothing to clean up
 
-        # Resolve {{ vars.key }} in mount sources / targets
-        resolved_card = _resolve_vars_in_card(card, vars)
+        # Resolve {{ paths.key }} / {{ secrets.key }} in mount sources / targets
+        resolved_card = _resolve_refs_in_card(card, paths, secrets)
 
         # Derive the image alias from the resolved ImageCard
         img_ref = resolved_card.spec.imageRef.ref
@@ -478,7 +538,7 @@ def run(
     is responsible for starting containers and orchestrating across units.
 
     \b
-      1. Load cutip/vars.yaml (user-specific paths & credentials)
+      1. Load cutip/paths.yaml + cutip/secrets.yaml
       2. Create host directories for mounts with create_host_path: true
       3. Create named volumes declared in ContainerCard.spec.volumes
       4. Call pre_build(ctx) in each unit's startup.py (if defined)
@@ -524,35 +584,37 @@ def run(
     status = "failure"
     run_error: str | None = None
 
-    project_vars, generated_keys = _load_vars(project_root)
+    project_paths, generated_keys = _load_paths(project_root)
+    project_secrets = _load_secrets(project_root)
 
     # Create generated directories before any lifecycle step so they exist
     # when create_host_path mounts try to create sub-directories inside them.
-    _prepare_generated_dirs(project_vars, generated_keys)
+    _prepare_generated_dirs(project_paths, generated_keys)
 
     try:
         with run_lock(cutip_dir / "locks", group_name):
             ctx = _build_context(
                 group_name, project_root, registry,
                 runtime=_backend.client,
-                vars=project_vars,
+                paths=project_paths,
+                secrets=project_secrets,
             )
 
-            # Validate all {{ vars.X }} references are present and non-empty
+            # Validate all {{ paths.X }} / {{ secrets.X }} references
             # (generated keys are auto-managed and always valid — skip them)
-            _validate_vars(ctx, project_vars, generated_keys)
+            _validate_refs(ctx, project_paths, project_secrets, generated_keys)
 
             # Steps 1–2: host dirs + named volumes
-            _prepare_host_dirs(ctx, project_root, vars=project_vars)
+            _prepare_host_dirs(ctx, project_root, paths=project_paths, secrets=project_secrets)
             _prepare_volumes(ctx, _backend.client)
 
             # Step 3: per-unit pre_build hooks (stage build-context files)
             _run_unit_pre_builds(ctx, registry, project_root)
 
             # Steps 4–6: images → networks → create containers (no auto-start)
-            _build_and_pull_images(ctx, _backend, project_root, project_vars)
+            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets)
             _ensure_networks(ctx, _backend)
-            _provision_containers(ctx, _backend, project_vars)
+            _provision_containers(ctx, _backend, project_paths, project_secrets)
 
             # Step 7: group-level workflow main() — starts containers, orchestrates
             workflow_loader = WorkflowLoader(project_root)

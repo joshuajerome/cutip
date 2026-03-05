@@ -5,10 +5,11 @@ Mirrors the podwrap ``ImageBuilder._stage_resources`` pattern: before running
 are copied into a staging directory inside the build context so the Dockerfile
 can reference them with ``COPY`` instructions.
 
-``src`` paths in buildtime_resources support ``{{ vars.key }}`` interpolation
-when a ``vars`` dict is supplied (loaded from the project's ``vars.yaml``).
-This lets cards reference user-specific paths (e.g. a locally cloned repo)
-without hard-coding them.
+``src`` paths in buildtime_resources support ``{{ paths.key }}`` and
+``{{ secrets.key }}`` interpolation when a ``vars`` dict is supplied (merged
+from the project's ``paths.yaml`` and ``secrets.yaml``).  This lets cards
+reference user-specific paths (e.g. a locally cloned repo) without
+hard-coding them.
 """
 
 from __future__ import annotations
@@ -22,26 +23,30 @@ from loguru import logger
 from cutip.utils.exceptions import CutipError
 
 
-def _interpolate_vars(text: str, vars: dict) -> str:
-    """Resolve ``{{ vars.key }}`` placeholders in *text* using *vars*.
+def _interpolate_refs(text: str, vars: dict) -> str:
+    """Resolve ``{{ paths.key }}`` and ``{{ secrets.key }}`` placeholders in *text*.
+
+    The *vars* dict is the merged paths + secrets dict.
 
     Example::
 
-        _interpolate_vars("{{ vars.snf_repo }}/src/package.json", {"snf_repo": "/home/user/snf-gui"})
+        _interpolate_refs("{{ paths.snf_repo }}/src/package.json", {"snf_repo": "/home/user/snf-gui"})
         # → "/home/user/snf-gui/src/package.json"
 
     Raises:
         CutipError: If a referenced key is absent from *vars*.
     """
     def _replace(match: re.Match) -> str:
-        key = match.group(1).strip()
+        namespace = match.group(1)
+        key = match.group(2).strip()
         if key not in vars:
             raise CutipError(
-                f"buildtime_resources: variable '{{{{ vars.{key} }}}}' not found in vars.yaml"
+                f"buildtime_resources: '{{{{ {namespace}.{key} }}}}' not found "
+                f"in cutip/{namespace}.yaml"
             )
         return str(vars[key])
 
-    return re.sub(r"\{\{\s*vars\.(\w+)\s*\}\}", _replace, text)
+    return re.sub(r"\{\{\s*(paths|secrets)\.(\w+)\s*\}\}", _replace, text)
 
 
 def stage_buildtime_resources(
@@ -56,10 +61,9 @@ def stage_buildtime_resources(
                       ``spec.source == "build"``.
         project_root: Project root used to resolve relative paths.  Defaults
                       to the current working directory when *None*.
-        vars:         User variables from ``vars.yaml``.  When provided,
-                      ``{{ vars.key }}`` placeholders in ``src`` are resolved
-                      before the path is used.  Supports absolute paths from
-                      user-specific locations (e.g. cloned repos).
+        vars:         Merged paths + secrets dict.  When provided,
+                      ``{{ paths.key }}`` / ``{{ secrets.key }}`` placeholders
+                      in ``src`` are resolved before the path is used.
 
     Returns:
         The staging directory path (``card.spec.buildtime_dir`` or the default
@@ -94,10 +98,10 @@ def stage_buildtime_resources(
     logger.debug(f"Staging buildtime resources into {staging}")
 
     for resource in card.spec.buildtime_resources:
-        # Resolve {{ vars.key }} placeholders before treating as a path
+        # Resolve {{ paths.key }} / {{ secrets.key }} placeholders
         src_str = resource.src
         if vars:
-            src_str = _interpolate_vars(src_str, vars)
+            src_str = _interpolate_refs(src_str, vars)
 
         src_path = Path(src_str)
         if not src_path.is_absolute():

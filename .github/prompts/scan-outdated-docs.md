@@ -5,7 +5,8 @@ current state of the codebase:
 - Podman is the ONLY supported backend — Docker support was removed entirely.
 - Directory renamed: `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`
 - Group names changed: `main` → `snf-gui` or `snf-blueprint-manager`
-- `vars.yaml` now uses `required:` / `generated:` sections — the old flat format is gone.
+- `vars.yaml` has been split into `paths.yaml` (filesystem paths) + `secrets.yaml` (sensitive values).
+  Template syntax: `{{ paths.key }}` / `{{ secrets.key }}`. Context: `ctx.paths` / `ctx.secrets`.
 - The `--backend` CLI flag was removed.
 
 Current source code (key files):

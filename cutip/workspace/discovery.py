@@ -25,10 +25,12 @@ class WorkspaceDiscovery:
             )
 
         registry = CutipRegistry()
-        # Exclude vars.yaml — it holds user-specific values, not CUTIP artifacts.
+        # Exclude paths.yaml and secrets.yaml — they hold user-specific values,
+        # not CUTIP artifacts.
+        _excluded = {"paths.yaml", "secrets.yaml", "vars.yaml"}
         yaml_files = [
             f for f in sorted(cutip_dir.rglob("*.yaml")) + sorted(cutip_dir.rglob("*.yml"))
-            if f.name != "vars.yaml"
+            if f.name not in _excluded
         ]
 
         for path in yaml_files:

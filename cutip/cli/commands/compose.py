@@ -11,7 +11,8 @@ Generates:
     cutip/units/<service>/startup.py
     cutip/groups/<project>/group.yaml
     cutip/groups/<project>/workflow.py
-    cutip/vars.yaml                   (created or left untouched if it exists)
+    cutip/paths.yaml                  (non-sensitive env vars)
+    cutip/secrets.yaml                (sensitive env vars — passwords, tokens)
     resources/dockerfiles/            (directory)
     resources/buildtime/              (directory)
 """
@@ -53,9 +54,9 @@ from cutip.workspace.scaffold import _find_project_root, _write_file
 
 console = Console()
 
-# Env var key substrings that suggest a credential or sensitive path.
-# Values matching these patterns are replaced with {{ vars.<key> }} references
-# and placed in vars.yaml required: section for the user to fill in.
+# Env var key substrings that suggest a credential or sensitive value.
+# Values matching these patterns are replaced with {{ secrets.<key> }} references
+# and placed in secrets.yaml required: section for the user to fill in.
 _SENSITIVE_PATTERNS = frozenset(
     {
         "password",
@@ -287,7 +288,7 @@ def _container_yaml(
         for k, v in env.items():
             if _is_sensitive(k):
                 var_key = k.lower()
-                lines.append(f'    {k}: "{{{{ vars.{var_key} }}}}"')
+                lines.append(f'    {k}: "{{{{ secrets.{var_key} }}}}"')
                 sensitive_vars[var_key] = v
             else:
                 lines.append(f"    {k}: {_yaml_scalar(v)}")
@@ -589,15 +590,21 @@ def _topo_sort(services: dict[str, dict]) -> list[str]:
     return ordered
 
 
-# ── vars.yaml handling ────────────────────────────────────────────────────────
+# ── paths.yaml / secrets.yaml handling ────────────────────────────────────────
 
 
-def _vars_yaml_content(sensitive_vars: dict[str, str]) -> str:
+def _paths_yaml_content() -> str:
+    return textwrap.dedent("""\
+        required: {}
+
+        generated: {}
+        """)
+
+
+def _secrets_yaml_content(sensitive_vars: dict[str, str]) -> str:
     if not sensitive_vars:
         return textwrap.dedent("""\
             required: {}
-
-            generated: {}
             """)
 
     required_lines = "\n".join(
@@ -609,8 +616,6 @@ def _vars_yaml_content(sensitive_vars: dict[str, str]) -> str:
         # These were detected as sensitive environment variables in compose.
         required:
         {required_lines}
-
-        generated: {{}}
         """)
 
 
@@ -769,21 +774,28 @@ def from_compose(
     )
     generated_files.append(str(workflow_py_path.relative_to(project_root)))
 
-    # -- vars.yaml -------------------------------------------------------------
-    vars_path = project_root / "cutip" / "vars.yaml"
-    if vars_path.exists():
+    # -- paths.yaml + secrets.yaml ---------------------------------------------
+    paths_path = project_root / "cutip" / "paths.yaml"
+    if not paths_path.exists():
+        paths_path.parent.mkdir(parents=True, exist_ok=True)
+        paths_path.write_text(_paths_yaml_content(), encoding="utf-8")
+        generated_files.append("cutip/paths.yaml")
+        logger.debug("  created: cutip/paths.yaml")
+
+    secrets_path = project_root / "cutip" / "secrets.yaml"
+    if secrets_path.exists():
         if all_sensitive:
             console.print(
-                f"\n[yellow]cutip/vars.yaml already exists.[/yellow] "
+                f"\n[yellow]cutip/secrets.yaml already exists.[/yellow] "
                 f"Add these entries to the [bold]required:[/bold] section manually:"
             )
             for k in all_sensitive:
                 console.print(f"  [cyan]{k}[/cyan]: \"\"")
     else:
-        vars_path.parent.mkdir(parents=True, exist_ok=True)
-        vars_path.write_text(_vars_yaml_content(all_sensitive), encoding="utf-8")
-        generated_files.append("cutip/vars.yaml")
-        logger.debug("  created: cutip/vars.yaml")
+        secrets_path.parent.mkdir(parents=True, exist_ok=True)
+        secrets_path.write_text(_secrets_yaml_content(all_sensitive), encoding="utf-8")
+        generated_files.append("cutip/secrets.yaml")
+        logger.debug("  created: cutip/secrets.yaml")
 
     # -- cutip.yaml (project config) -------------------------------------------
     cutip_yaml_path = project_root / "cutip.yaml"
