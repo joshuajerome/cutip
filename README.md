@@ -121,7 +121,7 @@ cutip run dev
 | `cutip unit ls` | List all units in the workspace |
 | `cutip card ls` | List all cards in the workspace |
 
-`cutip run` uses Podman by default. Pass `--backend docker` (or set `CUTIP_BACKEND=docker`) to use Docker instead. For Docker, install the optional extra: `pip install cutip[docker]`. Pass `--local` for direct socket connection (CI / rootless setups).
+`cutip run` uses Docker by default. Pass `--backend podman` (or set `CUTIP_BACKEND=podman`) to use Podman instead. Set `project.backend` in `cutip.yaml` to persist the choice. Pass `--local` for direct socket connection (CI / rootless setups).
 
 ---
 

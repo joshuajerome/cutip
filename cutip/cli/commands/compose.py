@@ -807,7 +807,7 @@ def from_compose(
             "project": {
                 "name": project_root.name,
                 "version": "0.1.0",
-                "backend": "podman",
+                "backend": "docker",
             },
         }
         cutip_yaml_path.write_text(

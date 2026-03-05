@@ -1,6 +1,6 @@
 # Architecture: Backend Interface
 
-CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Two backends are supported: **Podman** (default) and **Docker** (optional, install with `pip install cutip[docker]`). The interface isolates backend-specific code and makes the execution layer testable independently of the runtime.
+CUTIP's execution layer is abstracted behind `CutipBackend`, an abstract base class in `cutip/backends/base.py`. Two backends are supported: **Docker** (default) and **Podman**. Both are core dependencies. The interface isolates backend-specific code and makes the execution layer testable independently of the runtime.
 
 ---
 
@@ -59,8 +59,8 @@ All `ensure_*` and `create_*` methods must be idempotent — calling them when t
 
 | Backend | Package | Connection | CLI flag |
 |---|---|---|---|
-| `PodmanBackend` | `podman>=4.0` (core dep) | SSH tunnel or local socket | `--backend podman` (default) |
-| `DockerBackend` | `docker>=6.0` (optional) | Local daemon via `docker.from_env()` | `--backend docker` |
+| `PodmanBackend` | `podman>=4.0` (core dep) | SSH tunnel or local socket | `--backend podman` |
+| `DockerBackend` | `docker>=6.0` (core dep) | Local daemon via `docker.from_env()` | `--backend docker` (default) |
 
 The `get_backend(name, local)` factory in `cutip/backends/__init__.py` routes the CLI `--backend` flag to the correct class.
 

@@ -173,20 +173,20 @@ cutip run <group> [--backend BACKEND] [--local] [--path PATH]
 
 CUTIP supports two container backends:
 
-| Backend | Install | Connection |
-|---|---|---|
-| **Podman** (default) | `pip install cutip` | SSH tunnel or local socket |
-| **Docker** | `pip install cutip[docker]` | Local daemon via `docker.from_env()` |
+| Backend | Connection |
+|---|---|
+| **Docker** (default) | Local daemon via `docker.from_env()` |
+| **Podman** | SSH tunnel or local socket |
 
 ```shell
-# Podman (default)
+# Docker (default)
 cutip run dev
 
-# Docker
-cutip run dev --backend docker
+# Podman
+cutip run dev --backend podman
 
 # Or via environment variable
-CUTIP_BACKEND=docker cutip run dev
+CUTIP_BACKEND=podman cutip run dev
 ```
 
 ### Podman connection modes
