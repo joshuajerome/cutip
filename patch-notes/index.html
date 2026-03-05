@@ -2445,6 +2445,7 @@
 <h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>cap012</strong> — Docker backend support: Use Docker as a container backend with <code>--backend docker</code> or <code>CUTIP_BACKEND=docker</code>; install with <code>pip install cutip[docker]</code></li>
+<li><strong>cap021</strong> — Rename vars.yaml → paths.yaml + add secrets.yaml: Split <code>cutip/vars.yaml</code> into <code>cutip/paths.yaml</code> (filesystem paths, safe to sync) and <code>cutip/secrets.yaml</code> (passwords, tokens, keys — never synced). Template syntax: <code>{{ paths.key }}</code> / <code>{{ secrets.key }}</code>. Context: <code>ctx.paths</code> / <code>ctx.secrets</code>. New CLI: <code>cutip secrets set/list/check</code></li>
 </ul>
 <hr />
 <h2 id="v016-2026-03-03">v0.1.6 (2026-03-03)<a class="headerlink" href="#v016-2026-03-03" title="Permanent link">&para;</a></h2>
