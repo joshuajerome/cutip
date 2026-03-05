@@ -800,7 +800,7 @@ class WorkspaceScaffold:
             "project": {
                 "name": project_name,
                 "version": "0.1.0",
-                "backend": "podman",
+                "backend": "docker",
             },
         }
         with config_path.open("w", encoding="utf-8") as fh:

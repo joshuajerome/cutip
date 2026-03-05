@@ -1,31 +1,44 @@
 # Guide: Docker Runtime
 
-Docker is an optional container backend. CUTIP also supports [Podman](podman.md) (the default).
+Docker is the default container backend. CUTIP also supports [Podman](podman.md).
 
 ---
 
 ## Installation
 
-Docker support requires the optional `docker` extra:
+Docker is included as a core dependency — no extras needed:
 
 ```shell
-pip install cutip[docker]
+pip install cutip
 ```
 
-This installs the `docker` Python SDK (`docker>=6.0`). You also need Docker Desktop or the Docker daemon running.
+You also need Docker Desktop or the Docker daemon running.
 
 ---
 
 ## Usage
 
-Pass `--backend docker` to `cutip run`, or set the environment variable:
+Docker is used by default. To be explicit, or to persist the choice per-project:
 
 ```shell
-# CLI flag
+# Default — just works
+cutip run dev
+
+# Explicit CLI flag
 cutip run dev --backend docker
 
 # Environment variable
 CUTIP_BACKEND=docker cutip run dev
+```
+
+Or set `backend: docker` in `cutip.yaml`:
+
+```yaml
+apiVersion: cutip/v1
+project:
+  name: my-project
+  version: 0.1.0
+  backend: docker
 ```
 
 Docker always connects to the local daemon via `docker.from_env()`. The `--local` flag is accepted but has no effect (Docker does not use SSH tunnels).
@@ -75,36 +88,33 @@ docker version
 
 ## CI usage (GitHub Actions)
 
-Docker is pre-installed on `ubuntu-latest` runners. Install CUTIP with the docker extra:
+Docker is pre-installed on `ubuntu-latest` runners:
 
 ```yaml
-- name: Install cutip with docker extra
+- name: Install cutip
   run: |
     uv venv .venv
-    uv pip install -e ".[docker]"
+    uv pip install -e .
 
 - name: Run E2E
-  run: uv run cutip run dev --path tests/e2e/simple --backend docker --local
+  run: uv run cutip run dev --path tests/e2e/simple --local
 ```
 
 ---
 
 ## Differences from Podman
 
-| | Podman | Docker |
+| | Docker (default) | Podman |
 |---|---|---|
-| **Connection** | SSH tunnel (default) or local socket | Local daemon only |
-| **Windows paths** | Translated to WSL2 format (`/mnt/c/...`) | Native — Docker Desktop handles translation |
-| **Network creation** | Raw IPAM dict | `docker.types.IPAMConfig` / `IPAMPool` |
-| **Image build** | `podman build` CLI | `docker build` CLI |
-| **Package** | `podman>=4.0` (core dependency) | `docker>=6.0` (optional extra) |
+| **Connection** | Local daemon only | SSH tunnel (default) or local socket |
+| **Windows paths** | Native — Docker Desktop handles translation | Translated to WSL2 format (`/mnt/c/...`) |
+| **Network creation** | `docker.types.IPAMConfig` / `IPAMPool` | Raw IPAM dict |
+| **Image build** | `docker build` CLI | `podman build` CLI |
+| **Package** | `docker>=6.0` (core dependency) | `podman>=4.0` (core dependency) |
 
 ---
 
 ## Troubleshooting
-
-**`The 'docker' package is required`**
-→ Install the optional extra: `pip install cutip[docker]`
 
 **`Could not connect to the Docker daemon`**
 → Docker Desktop or the Docker daemon is not running. Start it and retry.

@@ -2,7 +2,7 @@
 
 ## What is CUTIP
 
-**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments with structured YAML artifacts and Python workflows. **Podman (default) and Docker are supported backends.** Select with `--backend docker` or `CUTIP_BACKEND=docker`.
+**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments with structured YAML artifacts and Python workflows. **Docker (default) and Podman are supported backends.** Select with `--backend podman` or `CUTIP_BACKEND=podman`.
 
 ## Deliverables — End-to-End Mandate
 
@@ -226,7 +226,7 @@ integration → release/v{X}.{Y}.{Z} → GitHub Release
 ## Recent Work (this development cycle)
 
 - Renamed `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`
-- `podman>=4.0` is a core dep; `docker>=6.0` is an optional extra (`pip install cutip[docker]`)
+- Both `podman>=4.0` and `docker>=6.0` are core deps; docker is the default backend
 - Docker backend added (cap012): `--backend docker` / `CUTIP_BACKEND=docker`
 - Renamed groups: `main` → `snf-gui` / `snf-blueprint-manager`
 - Added `_validate_refs()` — checks `{{ paths.X }}` / `{{ secrets.X }}` refs are present + non-empty (skips generated keys)

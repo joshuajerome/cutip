@@ -252,9 +252,10 @@ toml = [
 
 [[package]]
 name = "cutip"
-version = "0.1.6"
+version = "0.1.8"
 source = { editable = "." }
 dependencies = [
+    { name = "docker" },
     { name = "loguru" },
     { name = "podman" },
     { name = "pydantic" },
@@ -267,9 +268,6 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
-]
-docker = [
-    { name = "docker" },
 ]
 docs = [
     { name = "mkdocs" },
@@ -285,7 +283,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "docker", marker = "extra == 'docker'", specifier = ">=6.0" },
+    { name = "docker", specifier = ">=6.0" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = "<2.0" },
     { name = "mkdocs-callouts", marker = "extra == 'docs'", specifier = ">=1.14" },
@@ -298,7 +296,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["docker", "docs", "dev"]
+provides-extras = ["docs", "dev"]
 
 [package.metadata.requires-dev]
 dev = [

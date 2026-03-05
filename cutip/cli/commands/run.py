@@ -544,8 +544,8 @@ def run(
         "--backend",
         "-b",
         envvar="CUTIP_BACKEND",
-        help="Container backend to use (podman or docker). "
-             "Defaults to project.backend in cutip.yaml, then podman.",
+        help="Container backend to use (docker or podman). "
+             "Defaults to project.backend in cutip.yaml, then docker.",
     ),
     local: bool = typer.Option(
         False,
@@ -596,11 +596,11 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
-    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → podman
+    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → docker
     backend_name = (
         backend.lower() if backend
         else _load_project_backend(project_root)
-        or "podman"
+        or "docker"
     )
     logger.debug(f"Using backend: {backend_name}")
 

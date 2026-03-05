@@ -30,13 +30,13 @@ Summary:
 - **macOS** — `brew install podman && podman machine init --now`
 - **Windows** — Download the MSI from the [Podman releases page](https://github.com/containers/podman/releases), then `podman machine init --now`
 
-### Docker (optional)
+### Docker (default)
 
-Install the Docker extra and have Docker Desktop or the Docker daemon running:
+Docker is included by default. Have Docker Desktop or the Docker daemon running:
 
 ```shell
-pip install cutip[docker]
-cutip run dev --backend docker
+pip install cutip
+cutip run dev
 ```
 
 See the full guide: [guides/runtimes/docker.md](../guides/runtimes/docker.md)

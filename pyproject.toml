@@ -31,6 +31,7 @@ dependencies = [
     "loguru>=0.7",
     "rich>=13.0",
     "podman>=4.0",
+    "docker>=6.0",
 ]
 
 [project.urls]
@@ -43,7 +44,6 @@ Repository = "https://github.com/joshuajerome/cutip"
 cutip = "cutip.cli.main:app"
 
 [project.optional-dependencies]
-docker = ["docker>=6.0"]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocs<2.0",              # MkDocs 2.0 is incompatible with mkdocs-material (Feb 2026)

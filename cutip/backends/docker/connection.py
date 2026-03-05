@@ -27,7 +27,7 @@ def connect_docker_client():
     except ImportError as exc:
         raise CutipError(
             "The 'docker' package is required for the Docker backend. "
-            "Run: uv pip install 'cutip[docker]'"
+            "Run: uv pip install docker"
         ) from exc
 
     try:
