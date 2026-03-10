@@ -6,6 +6,7 @@ import typer
 
 from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.init import app as init_app
+from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.upgrade import app as upgrade_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import plan
@@ -48,6 +49,7 @@ app.add_typer(group_app, name="group")
 app.add_typer(unit_app, name="unit")
 app.add_typer(card_app, name="card")
 app.add_typer(secrets_app, name="secrets")
+app.add_typer(issue_app, name="issue")
 app.command("plan")(plan)
 app.command("run")(run)
 app.command("from-compose")(from_compose)
