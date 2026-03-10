@@ -30,6 +30,7 @@ commit messages, and PR titles.
 | cap020 | Add from-compose E2E tests for 5 awesome-compose projects         | feat | merged | feat/cap020-e2e-from-compose-matrix  | #48 | 2026-03-03 |
 | cap021 | Rename vars.yaml → paths.yaml + add cutip/secrets.yaml            | feat | merged | feat/cap021-paths-secrets-split      | #53 | 2026-03-04 |
 | cap022 | Read backend from cutip.yaml project config                       | feat | merged | feat/cap022-yaml-backend             | #55 | 2026-03-04 |
+| cap023 | Add cutip upgrade command for workspace migration                 | bug  | open   | bug/cap023-upgrade-command           | —   | 2026-03-09 |
 
 ## ID Assignment
 
