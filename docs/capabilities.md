@@ -31,6 +31,10 @@ commit messages, and PR titles.
 | cap021 | Rename vars.yaml → paths.yaml + add cutip/secrets.yaml            | feat | merged | feat/cap021-paths-secrets-split      | #53 | 2026-03-04 |
 | cap022 | Read backend from cutip.yaml project config                       | feat | merged | feat/cap022-yaml-backend             | #55 | 2026-03-04 |
 | cap023 | Add cutip upgrade command for workspace migration                 | bug  | open   | bug/cap023-upgrade-command           | —   | 2026-03-09 |
+| cap024 | Reorganize .claude/ with github/ subdirectory                     | feat | open   | claude/cap024-claude-dir-reorg       | —   | 2026-03-09 |
+| cap025 | Bot identity for GitHub issue comments                            | feat | open   | gh/cap025-bot-identity               | —   | 2026-03-09 |
+| cap026 | Issue pipeline with approval gates                                | feat | open   | feat/cap026-issue-pipeline-gates     | —   | 2026-03-09 |
+| cap027 | Self-service issue CLI with local Claude API                      | feat | open   | feat/cap027-self-service-issues      | —   | 2026-03-09 |
 
 ## ID Assignment
 
