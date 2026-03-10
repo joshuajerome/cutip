@@ -50,6 +50,9 @@ ALL_SOURCE_FILES = [
     "cutip/workspace/discovery.py",
     "cutip/workspace/registry.py",
     "cutip/workspace/scaffold.py",
+    "cutip/cli/commands/issue.py",
+    "cutip/issue/template.py",
+    "cutip/issue/claude.py",
 ]
 
 

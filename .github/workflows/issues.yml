@@ -7,31 +7,64 @@ on:
     types: [created]
 
 jobs:
-  # ── Diagnose on claude-review label ─────────────────────────────────────────
-  diagnose:
-    name: Diagnose issue with Claude
+  # ── /continue — dispatches based on current label state ─────────────────────
+  handle-continue:
+    name: Handle /continue
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.label.name == 'claude-review'
+    if: |
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/continue')
 
     permissions:
       issues: write
-      contents: read
+      contents: write
+      pull-requests: write
 
     steps:
+      - name: Generate bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Ensure required labels exist
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
-          gh label create "claude-review"      --color "0075ca" --description "Needs Claude diagnosis"   --force --repo ${{ github.repository }}
-          gh label create "claude-diagnosing"  --color "e4e669" --description "Claude is diagnosing"     --force --repo ${{ github.repository }}
-          gh label create "claude-diagnosed"   --color "cfd3d7" --description "Claude diagnosis posted"  --force --repo ${{ github.repository }}
-          gh label create "claude-fixing"      --color "e4e669" --description "Claude is generating fix" --force --repo ${{ github.repository }}
-          gh label create "claude-fixed"       --color "0e8a16" --description "Claude fix ready"         --force --repo ${{ github.repository }}
-          gh label create "claude-staging"     --color "1d76db" --description "Fix PR opened to staging" --force --repo ${{ github.repository }}
+          gh label create "claude-review"        --color "0075ca" --description "Needs Claude diagnosis"        --force --repo ${{ github.repository }}
+          gh label create "claude-diagnosing"    --color "e4e669" --description "Claude is diagnosing"          --force --repo ${{ github.repository }}
+          gh label create "claude-diagnosed"     --color "cfd3d7" --description "Claude diagnosis posted"       --force --repo ${{ github.repository }}
+          gh label create "claude-acknowledged"  --color "c2e0c6" --description "User acknowledged diagnosis"   --force --repo ${{ github.repository }}
+          gh label create "claude-fixing"        --color "e4e669" --description "Claude is generating fix"      --force --repo ${{ github.repository }}
+          gh label create "claude-fixed"         --color "0e8a16" --description "Claude fix ready"              --force --repo ${{ github.repository }}
+          gh label create "claude-staging"       --color "1d76db" --description "Fix PR opened to staging"      --force --repo ${{ github.repository }}
 
-      - name: Apply claude-diagnosing label
+      - name: Determine current state
+        id: state
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --json labels --jq '.labels[].name' | tr '\n' ' ')
+          echo "Issue labels: $LABELS"
+
+          if echo "$LABELS" | grep -qw "claude-fixed"; then
+            echo "action=merge" >> "$GITHUB_OUTPUT"
+          elif echo "$LABELS" | grep -qw "claude-acknowledged"; then
+            echo "action=fix" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=diagnose" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Diagnose path (no claude label or claude-review) ──────────────────
+      - name: Apply claude-diagnosing label
+        if: steps.state.outputs.action == 'diagnose'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
@@ -53,6 +86,7 @@ jobs:
           uv pip install anthropic
 
       - name: Run Claude diagnosis
+        if: steps.state.outputs.action == 'diagnose'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -61,16 +95,18 @@ jobs:
         run: uv run python .github/scripts/diagnose-issue.py > /tmp/diagnosis.md
 
       - name: Post diagnosis comment
+        if: steps.state.outputs.action == 'diagnose'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --body-file /tmp/diagnosis.md
 
       - name: Update labels to claude-diagnosed
+        if: steps.state.outputs.action == 'diagnose'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
@@ -79,18 +115,19 @@ jobs:
             --repo ${{ github.repository }} \
             --remove-label "claude-diagnosing" 2>/dev/null || true
 
-      - name: Post follow-up prompt comment
+      - name: Post follow-up prompt
+        if: steps.state.outputs.action == 'diagnose'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --body "Reply \`/approve\` to proceed with the automated fix, or add more detail and re-apply \`claude-review\` for a fresh diagnosis."
+            --body "Reply \`/acknowledge\` to accept this diagnosis, or add more detail and comment \`/continue\` for a fresh diagnosis."
 
-      - name: Revert labels on failure
-        if: failure()
+      - name: Revert labels on diagnosis failure
+        if: failure() && steps.state.outputs.action == 'diagnose'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
@@ -100,56 +137,23 @@ jobs:
             --remove-label "claude-diagnosing" 2>/dev/null || true
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --body "Diagnosis failed (check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details). Re-applying \`claude-review\` to retry."
+            --body "Diagnosis failed (check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details). Re-apply \`claude-review\` and comment \`/continue\` to retry."
 
-  # ── /approve → generate fix, push branch ────────────────────────────────────
-  handle-approve:
-    name: Handle /approve
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'issue_comment' &&
-      !github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/approve')
-
-    permissions:
-      issues: write
-      contents: write
-      pull-requests: write
-
-    steps:
-      - name: Check claude-diagnosed label
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          LABELS=$(gh issue view ${{ github.event.issue.number }} \
-            --repo ${{ github.repository }} \
-            --json labels --jq '.labels[].name' | tr '\n' ' ')
-          echo "Issue labels: $LABELS"
-          if echo "$LABELS" | grep -qw "claude-diagnosed"; then
-            echo "valid=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "valid=false" >> "$GITHUB_OUTPUT"
-            echo "Issue does not have claude-diagnosed label — ignoring."
-          fi
-
+      # ── Fix path (claude-acknowledged → generate fix) ─────────────────────
       - name: Apply claude-fixing label
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --add-label "claude-fixing"
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --remove-label "claude-diagnosed" 2>/dev/null || true
-
-      - uses: actions/checkout@v4
-        if: steps.check.outputs.valid == 'true'
+            --remove-label "claude-acknowledged" 2>/dev/null || true
 
       - name: Determine next cap ID and branch name
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         id: cap
         run: |
           LAST_ID=$(grep -oP 'cap\d+' docs/capabilities.md | sort -V | tail -1)
@@ -169,31 +173,21 @@ jobs:
           echo "Cap ID: $NEXT_ID  Branch: $BRANCH"
 
       - name: Fetch Claude diagnosis from issue comments
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
-          gh issue view ${{ github.event.issue.number }} \
+          # Try bot comments first, fall back to github-actions[bot]
+          BOT_NAME="cutip-bot[bot]"
+          DIAGNOSIS=$(gh issue view ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --json comments \
-            --jq '.comments | map(select(.author.login == "github-actions[bot]")) | if length > 0 then first.body else "" end' \
-            > /tmp/diagnosis.md
+            --jq ".comments | map(select(.author.login == \"${BOT_NAME}\" or .author.login == \"github-actions[bot]\")) | map(select(.body | test(\"Claude Diagnosis\"))) | if length > 0 then last.body else \"\" end")
+          echo "$DIAGNOSIS" > /tmp/diagnosis.md
           echo "Diagnosis fetched: $(wc -c < /tmp/diagnosis.md) bytes"
 
-      - name: Install uv
-        if: steps.check.outputs.valid == 'true'
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
-
-      - name: Install script dependencies
-        if: steps.check.outputs.valid == 'true'
-        run: |
-          uv venv .venv
-          uv pip install anthropic
-
       - name: Generate fix via Claude
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -203,14 +197,23 @@ jobs:
           CAP_ID: ${{ steps.cap.outputs.cap_id }}
         run: uv run python .github/scripts/fix-issue.py > /tmp/fix-summary.md
 
+      - name: Build wheel and publish to TestPyPI
+        if: steps.state.outputs.action == 'fix'
+        continue-on-error: true
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish --publish-url https://test.pypi.org/legacy/ dist/*.whl || echo "TestPyPI publish skipped (token not set or version exists)"
+
       - name: Commit and push fix branch
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
           CAP_ID: ${{ steps.cap.outputs.cap_id }}
           BRANCH: ${{ steps.cap.outputs.branch }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "cutip-bot[bot]"
+          git config user.email "cutip-bot[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add cutip/
           if git diff --staged --quiet; then
@@ -221,9 +224,9 @@ jobs:
           git push origin "$BRANCH"
 
       - name: Apply claude-fixed label
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
@@ -233,9 +236,9 @@ jobs:
             --remove-label "claude-fixing" 2>/dev/null || true
 
       - name: Post fix comment
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'fix'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
           CAP_ID: ${{ steps.cap.outputs.cap_id }}
           BRANCH: ${{ steps.cap.outputs.branch }}
         run: |
@@ -248,117 +251,59 @@ jobs:
             echo ""
             echo "**Branch:** \`${BRANCH}\`"
             echo ""
-            echo "**Try the fix:** Once this PR merges to staging → integration, install the dev build from Test PyPI:"
+            echo "**Try the fix:** Install the dev build from Test PyPI:"
             echo '```bash'
             echo "pip install --index-url https://test.pypi.org/simple/ \\"
             echo "  --extra-index-url https://pypi.org/simple/ \\"
             echo "  \"cutip>=0.1.5.dev0\""
             echo '```'
-            echo "(The \`--extra-index-url\` flag lets pip resolve dependencies from the main PyPI registry.)"
             echo ""
-            echo "Reply \`/acknowledge\` to open a PR from \`${BRANCH}\` to \`staging\` for release."
+            echo "Reply \`/approve\` to accept this fix, or \`/deny\` to reject and provide feedback."
           } > /tmp/fix-comment.md
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --body-file /tmp/fix-comment.md
 
-      - name: Revert labels on failure
-        if: failure() && steps.check.outputs.valid == 'true'
+      - name: Revert labels on fix failure
+        if: failure() && steps.state.outputs.action == 'fix'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --add-label "claude-diagnosed" 2>/dev/null || true
+            --add-label "claude-acknowledged" 2>/dev/null || true
           gh issue edit ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --remove-label "claude-fixing" 2>/dev/null || true
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --body "Fix generation failed. Issue reset to \`claude-diagnosed\`. Check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Reply \`/approve\` to retry."
+            --body "Fix generation failed. Issue reset to \`claude-acknowledged\`. Check [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Comment \`/continue\` to retry."
 
-  # ── /reject → keep claude-diagnosed, ask for more detail ────────────────────
-  handle-reject:
-    name: Handle /reject
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'issue_comment' &&
-      !github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/reject')
-
-    permissions:
-      issues: write
-
-    steps:
-      - name: Check claude-diagnosed label
-        id: check
+      # ── Merge path (claude-fixed + /approve received → open PR) ───────────
+      - name: Check for prior /approve
+        if: steps.state.outputs.action == 'merge'
+        id: check-approve
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
-          LABELS=$(gh issue view ${{ github.event.issue.number }} \
+          APPROVED=$(gh issue view ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --json labels --jq '.labels[].name' | tr '\n' ' ')
-          if echo "$LABELS" | grep -qw "claude-diagnosed"; then
-            echo "valid=true" >> "$GITHUB_OUTPUT"
+            --json comments \
+            --jq '[.comments[] | select(.body | startswith("/approve"))] | length')
+          if [ "$APPROVED" -gt 0 ]; then
+            echo "approved=true" >> "$GITHUB_OUTPUT"
           else
-            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            gh issue comment ${{ github.event.issue.number }} \
+              --repo ${{ github.repository }} \
+              --body "The fix needs user approval before opening a PR. Waiting for \`/approve\` comment."
           fi
-
-      - name: Post rejection comment
-        if: steps.check.outputs.valid == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue comment ${{ github.event.issue.number }} \
-            --repo ${{ github.repository }} \
-            --body "Diagnosis rejected. Please add more detail to the issue description, then re-apply the \`claude-review\` label to trigger a fresh diagnosis."
-
-  # ── /acknowledge → open PR from fix branch to staging ───────────────────────
-  handle-acknowledge:
-    name: Handle /acknowledge
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'issue_comment' &&
-      !github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/acknowledge')
-
-    permissions:
-      issues: write
-      pull-requests: write
-
-    steps:
-      - name: Check claude-fixed label
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          LABELS=$(gh issue view ${{ github.event.issue.number }} \
-            --repo ${{ github.repository }} \
-            --json labels --jq '.labels[].name' | tr '\n' ' ')
-          if echo "$LABELS" | grep -qw "claude-fixed"; then
-            echo "valid=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "valid=false" >> "$GITHUB_OUTPUT"
-            echo "Issue does not have claude-fixed label — ignoring."
-          fi
-
-      - name: Apply claude-staging label
-        if: steps.check.outputs.valid == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue edit ${{ github.event.issue.number }} \
-            --repo ${{ github.repository }} \
-            --add-label "claude-staging"
-          gh issue edit ${{ github.event.issue.number }} \
-            --repo ${{ github.repository }} \
-            --remove-label "claude-fixed" 2>/dev/null || true
 
       - name: Find fix branch for this issue
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'merge' && steps.check-approve.outputs.approved == 'true'
         id: find-branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           BRANCH=$(gh api "repos/${{ github.repository }}/git/refs/heads" \
@@ -376,20 +321,34 @@ jobs:
           echo "cap_id=$CAP_ID"   >> "$GITHUB_OUTPUT"
           echo "Found branch: $BRANCH"
 
+      - name: Apply claude-staging label
+        if: steps.state.outputs.action == 'merge' && steps.check-approve.outputs.approved == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-staging"
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-fixed" 2>/dev/null || true
+
       - name: Open PR to staging
-        if: steps.check.outputs.valid == 'true'
+        if: steps.state.outputs.action == 'merge' && steps.check-approve.outputs.approved == 'true'
         id: open-pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.find-branch.outputs.branch }}
           CAP_ID: ${{ steps.find-branch.outputs.cap_id }}
         run: |
           {
-            echo "Automated fix for issue #${{ github.event.issue.number }}, acknowledged by @${{ github.event.comment.user.login }}."
+            echo "Automated fix for issue #${{ github.event.issue.number }}, approved by user and continued by code owner @${{ github.event.comment.user.login }}."
             echo ""
             echo "## Summary"
             echo "- Branch: \`${BRANCH}\`"
-            echo "- Triggered by: \`/acknowledge\` comment on issue #${{ github.event.issue.number }}"
+            echo "- Triggered by: \`/approve\` + \`/continue\` on issue #${{ github.event.issue.number }}"
+            echo ""
+            echo "Closes #${{ github.event.issue.number }}"
             echo ""
             echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
           } > /tmp/pr-body.md
@@ -404,12 +363,174 @@ jobs:
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "PR opened: $PR_URL"
 
-      - name: Post acknowledgement comment
-        if: steps.check.outputs.valid == 'true'
+      - name: Post merge comment
+        if: steps.state.outputs.action == 'merge' && steps.check-approve.outputs.approved == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.open-pr.outputs.pr_url }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --body "PR opened to staging: ${PR_URL}. The fix will be released in the next version once the PR is reviewed and merged."
+
+  # ── /acknowledge — user accepts diagnosis, waits for code owner /continue ──
+  handle-acknowledge:
+    name: Handle /acknowledge
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/acknowledge')
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Generate bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check claude-diagnosed label
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --json labels --jq '.labels[].name' | tr '\n' ' ')
+          if echo "$LABELS" | grep -qw "claude-diagnosed"; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "Issue does not have claude-diagnosed label — ignoring."
+          fi
+
+      - name: Move to claude-acknowledged
+        if: steps.check.outputs.valid == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-acknowledged"
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-diagnosed" 2>/dev/null || true
+
+      - name: Post waiting comment
+        if: steps.check.outputs.valid == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "Diagnosis acknowledged. Waiting for a code owner to comment \`/continue\` to generate the automated fix."
+
+  # ── /approve — user approves the fix (still needs code owner /continue) ────
+  handle-approve:
+    name: Handle /approve
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/approve')
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Generate bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check claude-fixed label
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --json labels --jq '.labels[].name' | tr '\n' ' ')
+          if echo "$LABELS" | grep -qw "claude-fixed"; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "Issue does not have claude-fixed label — ignoring."
+          fi
+
+      - name: Post approval confirmation
+        if: steps.check.outputs.valid == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "Fix approved by @${{ github.event.comment.user.login }}. Waiting for a code owner to comment \`/continue\` to open the PR to staging."
+
+  # ── /deny — reject fix, post re-entry template ────────────────────────────
+  handle-deny:
+    name: Handle /deny
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/deny')
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Generate bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check claude-fixed label
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --json labels --jq '.labels[].name' | tr '\n' ' ')
+          if echo "$LABELS" | grep -qw "claude-fixed"; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "Issue does not have claude-fixed label — ignoring."
+          fi
+
+      - name: Reset to claude-diagnosed
+        if: steps.check.outputs.valid == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "claude-diagnosed"
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "claude-fixed" 2>/dev/null || true
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.valid == 'true'
+
+      - name: Post re-entry template
+        if: steps.check.outputs.valid == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body-file .github/scripts/deny-template.md
