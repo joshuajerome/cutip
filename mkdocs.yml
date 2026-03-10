@@ -119,5 +119,6 @@ nav:
   - Development:
     - Branching Guide: development/branching.md
     - CI/CD Workflows: development/workflows.md
+    - Repository Setup: development/repo-setup.md
     - Capabilities: capabilities.md
     - Patch Notes: patch-notes.md

@@ -16,10 +16,29 @@ from cutip.cli.commands.show import app as show_app
 from cutip.cli.commands.tree import app as tree_app
 from cutip.cli.commands.validate import app as validate_app
 
+_EPILOG = (
+    "[bold]Getting Started[/bold]: "
+    "cutip init · cutip from-compose FILE · cutip validate · cutip run GROUP\n\n"
+    "[bold]Updating[/bold]: "
+    "pip install --upgrade cutip · cutip upgrade --apply\n\n"
+    "[bold]AI Issues[/bold] (requires cutip\\[ai]): "
+    "pip install cutip\\[ai] · export ANTHROPIC_API_KEY=... · cutip issue diagnose\n\n"
+    "[bold]GitHub[/bold]: "
+    "gh auth login (required for cutip issue push)\n\n"
+    "[bold]Docs[/bold]: https://joshuajerome.github.io/cutip"
+)
+
 app = typer.Typer(
     name="cutip",
-    help="CUTIP — Container Unit Templates in Python",
+    help=(
+        "CUTIP — Container Unit Templates in Python.\n\n"
+        "Define container environments with YAML artifacts, "
+        "validate statically, and orchestrate with Python workflows. "
+        "Supports Docker (default) and Podman backends."
+    ),
     no_args_is_help=True,
+    rich_markup_mode="rich",
+    epilog=_EPILOG,
 )
 
 
@@ -41,19 +60,31 @@ def _main(
 ) -> None:
     pass
 
-app.add_typer(init_app, name="init")
-app.add_typer(tree_app, name="tree")
-app.add_typer(validate_app, name="validate")
-app.add_typer(show_app, name="show")
-app.add_typer(group_app, name="group")
-app.add_typer(unit_app, name="unit")
-app.add_typer(card_app, name="card")
-app.add_typer(secrets_app, name="secrets")
-app.add_typer(issue_app, name="issue")
-app.command("plan")(plan)
-app.command("run")(run)
-app.command("from-compose")(from_compose)
-app.add_typer(upgrade_app, name="upgrade")
+
+# ── Workflow ─────────────────────────────────────────────────────────────────
+_WF = "Workflow"
+app.add_typer(init_app, name="init", rich_help_panel=_WF)
+app.command("run", rich_help_panel=_WF)(run)
+app.command("plan", rich_help_panel=_WF)(plan)
+app.command("from-compose", rich_help_panel=_WF)(from_compose)
+
+# ── Inspect ──────────────────────────────────────────────────────────────────
+_IN = "Inspect"
+app.add_typer(tree_app, name="tree", rich_help_panel=_IN)
+app.add_typer(validate_app, name="validate", rich_help_panel=_IN)
+app.add_typer(show_app, name="show", rich_help_panel=_IN)
+app.add_typer(group_app, name="group", rich_help_panel=_IN)
+app.add_typer(unit_app, name="unit", rich_help_panel=_IN)
+app.add_typer(card_app, name="card", rich_help_panel=_IN)
+
+# ── Configuration ────────────────────────────────────────────────────────────
+_CF = "Configuration"
+app.add_typer(secrets_app, name="secrets", rich_help_panel=_CF)
+app.add_typer(upgrade_app, name="upgrade", rich_help_panel=_CF)
+
+# ── AI & Issues ──────────────────────────────────────────────────────────────
+_AI = "AI & Issues"
+app.add_typer(issue_app, name="issue", rich_help_panel=_AI)
 
 
 if __name__ == "__main__":

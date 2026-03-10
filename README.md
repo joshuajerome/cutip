@@ -106,20 +106,48 @@ cutip run dev
 
 ## CLI
 
+### Workflow
+
 | Command | Description |
 |---|---|
 | `cutip init [--path]` | Scaffold workspace directories and `cutip.yaml` |
 | `cutip from-compose <file> [--output-dir]` | Convert a `docker-compose.yaml` into a CUTIP workspace |
+| `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
+| `cutip run <group> [-b backend] [--local] [--path]` | Validate → connect → execute workflow |
+
+### Inspect
+
+| Command | Description |
+|---|---|
 | `cutip tree [--path]` | Print discovered cards, units, and groups |
 | `cutip validate [--path]` | Full schema + graph validation (no backend required) |
 | `cutip show card <ref>` | Dump a resolved card as YAML |
 | `cutip show unit <name>` | Show a unit's resolved card graph |
 | `cutip show group <name>` | Show a group's units and workflow status |
-| `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
-| `cutip run <group> [-b backend] [--local] [--path]` | Validate → connect → execute workflow |
-| `cutip group ls` | List all groups in the workspace |
-| `cutip unit ls` | List all units in the workspace |
-| `cutip card ls` | List all cards in the workspace |
+| `cutip group ls` / `cutip unit ls` / `cutip card ls` | List workspace artifacts |
+
+### Configuration
+
+| Command | Description |
+|---|---|
+| `cutip secrets set <key> <value>` | Set a secret in `cutip/secrets.yaml` |
+| `cutip secrets list` | List secret keys (values masked) |
+| `cutip secrets check` | Validate all `{{ secrets.key }}` refs are defined and non-empty |
+| `cutip upgrade [--apply]` | Detect and apply workspace migrations for newer CUTIP versions |
+
+### AI & Issues
+
+| Command | Description |
+|---|---|
+| `cutip issue create -t "title"` | Create a local issue YAML from template |
+| `cutip issue list` | List local issues with status |
+| `cutip issue push <slug>` | Push issue to GitHub via `gh` CLI |
+| `cutip issue diagnose <slug>` | Run Claude diagnosis locally (requires `ANTHROPIC_API_KEY`) |
+| `cutip issue fix <slug>` | Generate fix locally (requires `ANTHROPIC_API_KEY`) |
+
+> [!NOTE]
+> AI commands require the optional `anthropic` dependency: `pip install cutip[ai]`
+> Set `ANTHROPIC_API_KEY` in your environment. For `cutip issue push`, run `gh auth login` first.
 
 `cutip run` uses Docker by default. Pass `--backend podman` (or set `CUTIP_BACKEND=podman`) to use Podman instead. Set `project.backend` in `cutip.yaml` to persist the choice. Pass `--local` for direct socket connection (CI / rootless setups).
 
