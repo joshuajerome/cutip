@@ -110,6 +110,16 @@ Respond with a structured diagnosis in **exactly** this format (use the exact he
     return message.content[0].text
 
 
+def _is_low_confidence(diagnosis: str) -> bool:
+    """Check if the diagnosis indicates low confidence or needs more info."""
+    lower = diagnosis.lower()
+    if "**confidence:** low" in lower:
+        return True
+    if "need more information" in lower or "needs more info" in lower:
+        return True
+    return False
+
+
 def main() -> None:
     issue_number = _env("ISSUE_NUMBER")
     issue_title = _env("ISSUE_TITLE")
@@ -129,6 +139,18 @@ def main() -> None:
         issue_body=issue_body,
         source_context=source_context,
     )
+
+    if _is_low_confidence(diagnosis):
+        print(
+            "LOW CONFIDENCE: diagnosis may need more info from the reporter.",
+            file=sys.stderr,
+        )
+        diagnosis += (
+            "\n\n---\n\n"
+            "⚠️ **Low confidence diagnosis.** "
+            "Please provide more details (logs, reproduction steps, expected behavior) "
+            "and comment `/continue` for a fresh diagnosis."
+        )
 
     print(diagnosis)
 
