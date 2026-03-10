@@ -15,6 +15,14 @@ Do not stop at writing code. Do not stop at opening a PR. Finish when every comp
 | Release | `.claude/workflows/release.md` | `.claude/templates/github-release-notes.md` |
 | Resolve issues | `.claude/skills/resolve-issues.md` | `.claude/templates/pr-body.md` |
 
+### GitHub Orchestration Docs
+
+| Doc | Purpose |
+|-----|---------|
+| `.claude/github/issues.md` | Issue pipeline stages, label state machine, slash commands |
+| `.claude/github/prs.md` | PR conventions, branch naming, label rules, CI expectations |
+| `.claude/github/releases.md` | Release pipeline, asset cleanup, release notes format |
+
 **Always read the playbook before starting. Always use the template for PRs and release notes.**
 
 The only valid stopping points before completion are:
