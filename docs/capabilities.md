@@ -37,7 +37,7 @@ commit messages, and PR titles.
 | cap027 | Self-service issue CLI with local Claude API                      | feat | merged | feat/cap027-self-service-issues      | #62 | 2026-03-09 |
 | cap028 | CLI help grouping + repo setup documentation                     | feat | merged | feat/cap028-cli-help-repo-docs       | #64 | 2026-03-09 |
 | cap029 | Backend default prompt + status display                           | feat | merged | feat/cap029-backend-default-prompt   | #70 | 2026-03-14 |
-| cap030 | cutip stop command for graceful group teardown                    | feat | open   | feat/cap030-stop-command             | —   | 2026-03-15 |
+| cap030 | cutip stop command for graceful group teardown                    | feat | merged | feat/cap030-stop-command             | #71 | 2026-03-15 |
 
 ## ID Assignment
 
