@@ -15,6 +15,7 @@ from cutip.cli.commands.upgrade import app as upgrade_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import plan
 from cutip.cli.commands.run import run
+from cutip.cli.commands.stop import stop
 from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
 from cutip.cli.commands.tree import app as tree_app
@@ -219,6 +220,7 @@ complete -o default -F _cutip_completion cutip'''
 _WF = "Workflow"
 app.add_typer(init_app, name="init", rich_help_panel=_WF)
 app.command("run", rich_help_panel=_WF)(run)
+app.command("stop", rich_help_panel=_WF)(stop)
 app.command("plan", rich_help_panel=_WF)(plan)
 app.command("from-compose", rich_help_panel=_WF)(from_compose)
 
