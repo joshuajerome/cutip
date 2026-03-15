@@ -9,32 +9,35 @@ How CUTIP handles automated issue diagnosis and resolution via GitHub Actions.
 Issues progress through labels that represent pipeline stages:
 
 ```
-(new issue)
+(new issue opened)
     │
-    ▼ code owner adds `claude-review` label
-claude-review
+    ▼ bot posts welcome message + commands table
     │
-    ▼ workflow runs diagnosis
+    ├── repo owner → auto-triggers diagnosis
+    │
+    └── external user → reply `@claude continue`
+            │
+            ▼ bot acknowledges, runs diagnosis
 claude-diagnosing  (transient — while Claude is working)
     │
     ▼ diagnosis posted as comment
 claude-diagnosed
     │
-    ▼ user comments `/acknowledge`
+    ▼ user replies `@claude acknowledge`
 claude-acknowledged
     │
-    ▼ code owner comments `/continue`
+    ▼ user or code owner replies `@claude continue`
 claude-fixing  (transient — while Claude generates fix)
     │
     ▼ fix branch pushed + TestPyPI published
 claude-fixed
     │
-    ├─▶ user comments `/approve` → waits for code owner `/continue`
+    ├─▶ `@claude approve` → waits for `@claude continue`
     │       │
     │       ▼ PR opened to staging
     │   claude-staging
     │
-    └─▶ user comments `/deny` → resets to claude-diagnosed
+    └─▶ `@claude deny` → resets to claude-diagnosed
             (re-entry template posted)
 ```
 
@@ -50,20 +53,38 @@ claude-fixed
 | `claude-fixed` | `#0e8a16` | Claude fix ready for review | No |
 | `claude-staging` | `#1d76db` | Fix PR opened to staging | No |
 
-## Slash Commands
+## Commands
 
-| Command | Who | When (required label) | Effect |
-|---------|-----|-----------------------|--------|
-| `/continue` | Code owner | `claude-review` (no label) | Start diagnosis |
-| `/continue` | Code owner | `claude-acknowledged` | Start fix generation |
-| `/continue` | Code owner | `claude-fixed` + `/approve` | Open PR to staging |
-| `/acknowledge` | User | `claude-diagnosed` | Accept diagnosis, wait for code owner |
-| `/approve` | User | `claude-fixed` | Approve the fix (needs code owner `/continue`) |
-| `/deny` | User | `claude-fixed` | Reject fix, post re-entry template |
+All commands use `@claude <command>` syntax in issue comments.
 
-## Workflow File
+| Command | Description | Valid when |
+|---------|-------------|-----------|
+| `@claude continue` | Advance to the next pipeline stage | Any non-transient state |
+| `@claude acknowledge` | Accept the diagnosis | `claude-diagnosed` |
+| `@claude approve` | Approve the generated fix | `claude-fixed` |
+| `@claude deny` | Reject fix, post re-entry template | `claude-fixed` |
+| `@claude status` | Show current pipeline state and next action | Any state |
+| `@claude retry` | Re-run the current stage (re-diagnose or re-fix) | `claude-diagnosed`, `claude-acknowledged`, `claude-fixed` |
 
-`.github/workflows/issues.yml` — triggered by `issues: [labeled]` and `issue_comment: [created]`.
+Invalid commands or commands in the wrong state produce a warning with guidance.
+
+## Workflow Triggers
+
+| Event | Job | Effect |
+|-------|-----|--------|
+| `issues: [opened]` | `welcome` | Post welcome message with commands table. Auto-diagnose for repo owner. |
+| `issue_comment: [created]` containing `@claude` | `handle-command` | Parse command and dispatch based on current label state. |
+
+## Repo Owner Fast Path
+
+When the repository owner opens an issue, the bot:
+1. Posts the welcome message (noting auto-diagnosis)
+2. Immediately posts `@claude continue` on behalf of the owner
+3. Diagnosis starts without manual intervention
+
+## Bot Identity
+
+Comments are posted by `cutip-bot` (GitHub App). Falls back to `github-actions[bot]` if the App is not configured. See cap025 for setup.
 
 ## Scripts
 
@@ -72,10 +93,6 @@ claude-fixed
 | `.github/scripts/diagnose-issue.py` | Calls Claude API to diagnose root cause |
 | `.github/scripts/fix-issue.py` | Calls Claude API to generate minimal fix |
 | `.github/scripts/deny-template.md` | Re-entry template for rejected fixes |
-
-## Bot Identity
-
-Comments are posted by `cutip-bot` (GitHub App). Falls back to `github-actions[bot]` if the App is not configured. See cap025 for setup.
 
 ## Self-Service Mode
 
