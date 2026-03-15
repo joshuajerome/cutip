@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from importlib.metadata import version as _pkg_version
+from pathlib import Path
 
 import typer
 
@@ -59,6 +63,125 @@ def _main(
     ),
 ) -> None:
     pass
+
+
+_SHELLS = {"bash", "zsh", "fish", "powershell", "pwsh"}
+
+_RC_FILES = {
+    "bash": "~/.bashrc",
+    "zsh": "~/.zshrc",
+    "fish": "~/.config/fish/completions/cutip.fish",
+}
+
+
+@app.command("install-completion", rich_help_panel="Configuration")
+def install_completion(
+    shell: str = typer.Argument(
+        None,
+        help="Shell to install completion for (bash, zsh, fish). Auto-detected if omitted.",
+    ),
+) -> None:
+    """Install shell tab-completion for cutip."""
+    if shell is None:
+        shell = _detect_shell()
+    shell = shell.lower()
+    if shell not in _SHELLS:
+        typer.echo(f"Unsupported shell: {shell}. Supported: {', '.join(sorted(_SHELLS))}", err=True)
+        raise typer.Exit(1)
+
+    env_var = "_CUTIP_COMPLETE"
+    script = _get_completion_script(shell, env_var)
+
+    if shell == "fish":
+        comp_dir = Path("~/.config/fish/completions").expanduser()
+        comp_dir.mkdir(parents=True, exist_ok=True)
+        comp_path = comp_dir / "cutip.fish"
+        comp_path.write_text(script, encoding="utf-8")
+        typer.echo(f"Completion installed: {comp_path}")
+        typer.echo(f"Restart your shell or run: source {comp_path}")
+    else:
+        rc_file = Path(_RC_FILES.get(shell, f"~/.{shell}rc")).expanduser()
+        marker = "# cutip shell completion"
+        block = f"\n{marker}\n{script}\n"
+
+        if rc_file.exists():
+            content = rc_file.read_text(encoding="utf-8")
+            if marker in content:
+                typer.echo(f"Completion already installed in {rc_file}")
+                raise typer.Exit(0)
+        else:
+            content = ""
+
+        rc_file.write_text(content + block, encoding="utf-8")
+        typer.echo(f"Completion installed in {rc_file}")
+        typer.echo(f"Restart your shell or run: source {rc_file}")
+
+
+def _detect_shell() -> str:
+    """Detect the current shell, with fallbacks."""
+    try:
+        import shellingham
+        name, _ = shellingham.detect_shell()
+        return name
+    except Exception:
+        pass
+
+    shell_env = os.environ.get("SHELL", "")
+    if shell_env:
+        return Path(shell_env).name
+
+    typer.echo(
+        "Could not detect your shell. Please specify it explicitly:\n"
+        "  cutip install-completion bash\n"
+        "  cutip install-completion zsh\n"
+        "  cutip install-completion fish",
+        err=True,
+    )
+    raise typer.Exit(1)
+
+
+def _get_completion_script(shell: str, env_var: str) -> str:
+    """Generate the completion script for the given shell."""
+    source_key = f"source_{shell}"
+    result = subprocess.run(
+        [sys.executable, "-c", f"""
+import os
+os.environ["{env_var}"] = "{source_key}"
+import sys
+sys.argv = ["cutip"]
+from cutip.cli.main import app
+try:
+    app(standalone_mode=False)
+except SystemExit:
+    pass
+"""],
+        capture_output=True,
+        text=True,
+        env={**os.environ, env_var: source_key},
+    )
+    if result.stdout.strip():
+        return result.stdout.strip()
+    # Fallback: generate script directly via Click's env var mechanism
+    complete_var = f"_{env_var.rstrip('_COMPLETE')}" if not env_var.endswith("_COMPLETE") else env_var
+    if shell == "zsh":
+        return f'''#compdef cutip
+
+_cutip_completion() {{
+  eval $(env _TYPER_COMPLETE_ARGS="${{words[1,$CURRENT]}}" {env_var}=complete_zsh cutip)
+}}
+
+compdef _cutip_completion cutip'''
+    elif shell == "bash":
+        return f'''_cutip_completion() {{
+  local IFS=$'\\n'
+  COMPREPLY=( $(env _TYPER_COMPLETE_ARGS="${{COMP_WORDS[*]}}" {env_var}=complete_bash cutip) )
+  return 0
+}}
+
+complete -o default -F _cutip_completion cutip'''
+    elif shell == "fish":
+        return f'''complete -c cutip -f -a "(env _TYPER_COMPLETE_ARGS=(commandline -cp) {env_var}=complete_fish cutip)"'''
+    return ""
 
 
 # ── Workflow ─────────────────────────────────────────────────────────────────

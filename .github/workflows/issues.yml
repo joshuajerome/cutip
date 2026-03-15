@@ -177,12 +177,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
-          # Try bot comments first, fall back to github-actions[bot]
-          BOT_NAME="cutip-bot[bot]"
+          # Match bot comments from cutip-bot (GitHub App) or github-actions[bot] (fallback)
           DIAGNOSIS=$(gh issue view ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
             --json comments \
-            --jq ".comments | map(select(.author.login == \"${BOT_NAME}\" or .author.login == \"github-actions[bot]\")) | map(select(.body | test(\"Claude Diagnosis\"))) | if length > 0 then last.body else \"\" end")
+            --jq '.comments | map(select(.author.login == "cutip-bot" or .author.login == "github-actions[bot]")) | map(select(.body | test("Claude Diagnosis"))) | if length > 0 then last.body else "" end')
           echo "$DIAGNOSIS" > /tmp/diagnosis.md
           echo "Diagnosis fetched: $(wc -c < /tmp/diagnosis.md) bytes"
 
