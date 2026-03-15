@@ -20,6 +20,36 @@ from cutip.cli.commands.show import app as show_app
 from cutip.cli.commands.tree import app as tree_app
 from cutip.cli.commands.validate import app as validate_app
 
+def _backend_status() -> str:
+    """Detect available backends and the current default."""
+    available = []
+    for name, mod in [("docker", "docker"), ("podman", "podman")]:
+        try:
+            __import__(mod)
+            available.append(name)
+        except ImportError:
+            pass
+
+    if not available:
+        return "[bold]Backends[/bold]: none installed (pip install docker / podman)"
+
+    # Try to read configured default from cutip.yaml in cwd
+    default = None
+    try:
+        from cutip.workspace.scaffold import _find_project_root
+        from cutip.cli.commands.run import _load_project_backend
+        default = _load_project_backend(_find_project_root())
+    except Exception:
+        pass
+
+    default = default or "docker"
+    parts = []
+    for name in available:
+        label = f"[bold green]{name}[/bold green] (default)" if name == default else name
+        parts.append(label)
+    return "[bold]Backends[/bold]: " + ", ".join(parts)
+
+
 _EPILOG = (
     "[bold]Getting Started[/bold]: "
     "cutip init · cutip from-compose FILE · cutip validate · cutip run GROUP\n\n"
@@ -62,7 +92,8 @@ def _main(
         help="Show version and exit.",
     ),
 ) -> None:
-    pass
+    # Inject live backend status into the epilog
+    app.info.epilog = _EPILOG + "\n\n" + _backend_status()
 
 
 _SHELLS = {"bash", "zsh", "fish", "powershell", "pwsh"}

@@ -529,6 +529,23 @@ def _load_project_backend(project_root: Path) -> str | None:
     return None
 
 
+def _save_project_backend(project_root: Path, backend_name: str) -> None:
+    """Write ``project.backend`` to ``cutip.yaml``."""
+    import yaml as _yaml
+
+    config_path = project_root / "cutip.yaml"
+    if not config_path.exists():
+        return
+
+    data = _yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if "project" not in data:
+        data["project"] = {}
+    data["project"]["backend"] = backend_name
+
+    with config_path.open("w", encoding="utf-8") as fh:
+        _yaml.dump(data, fh, default_flow_style=False, sort_keys=False)
+
+
 # ---------------------------------------------------------------------------
 # CLI command
 # ---------------------------------------------------------------------------
@@ -663,6 +680,21 @@ def run(
         run_error = str(exc)
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
+    else:
+        # Prompt to save backend as default if user explicitly passed -b
+        # and it differs from the currently configured default.
+        if backend and status == "success":
+            configured = _load_project_backend(project_root)
+            if configured != backend_name:
+                save = typer.confirm(
+                    f"Use '{backend_name}' as the default backend in cutip.yaml?",
+                    default=False,
+                )
+                if save:
+                    _save_project_backend(project_root, backend_name)
+                    console.print(
+                        f"[green]Default backend set to '{backend_name}' in cutip.yaml[/green]"
+                    )
     finally:
         write_run_record(
             cutip_dir / "runs",
