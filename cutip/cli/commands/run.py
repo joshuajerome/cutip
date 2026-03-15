@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 import typer
@@ -683,7 +684,8 @@ def run(
     else:
         # Prompt to save backend as default if user explicitly passed -b
         # and it differs from the currently configured default.
-        if backend and status == "success":
+        # Skip when stdin is not a TTY (CI, pipes, etc.).
+        if backend and status == "success" and sys.stdin.isatty():
             configured = _load_project_backend(project_root)
             if configured != backend_name:
                 save = typer.confirm(
