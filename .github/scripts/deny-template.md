@@ -1,6 +1,6 @@
 ## Fix Denied — Please Provide Feedback
 
-The automated fix was rejected. To help Claude generate a better fix, please fill in the details below and comment `/acknowledge` followed by a code owner `/continue` to retry.
+The automated fix was rejected. To help Claude generate a better fix, please fill in the details below.
 
 ### What went wrong with the fix?
 
@@ -16,4 +16,5 @@ The automated fix was rejected. To help Claude generate a better fix, please fil
 
 ---
 
-*The issue has been reset to `claude-diagnosed`. After adding feedback above, comment `/acknowledge` to accept the updated diagnosis, then a code owner can comment `/continue` to generate a new fix.*
+> [!NOTE]
+> The issue has been reset to `claude-diagnosed`. After adding feedback above, reply `@claude acknowledge` to accept the updated diagnosis, then `@claude continue` to generate a new fix.
