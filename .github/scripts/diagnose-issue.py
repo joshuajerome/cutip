@@ -149,7 +149,7 @@ def main() -> None:
             "\n\n---\n\n"
             "⚠️ **Low confidence diagnosis.** "
             "Please provide more details (logs, reproduction steps, expected behavior) "
-            "and comment `/continue` for a fresh diagnosis."
+            "and reply `@claude continue` for a fresh diagnosis."
         )
 
     print(diagnosis)
