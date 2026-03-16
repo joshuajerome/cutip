@@ -9,6 +9,7 @@ from pathlib import Path
 import typer
 
 from cutip.cli.commands.compose import from_compose
+from cutip.cli.commands.desktop import desktop
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.upgrade import app as upgrade_app
@@ -223,6 +224,7 @@ app.command("run", rich_help_panel=_WF)(run)
 app.command("stop", rich_help_panel=_WF)(stop)
 app.command("plan", rich_help_panel=_WF)(plan)
 app.command("from-compose", rich_help_panel=_WF)(from_compose)
+app.command("desktop", rich_help_panel=_WF)(desktop)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
