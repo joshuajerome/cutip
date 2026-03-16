@@ -259,33 +259,56 @@ def startup(ctx: CutipContext) -> None:
 _SIMPLE_WORKFLOW_PY = """\
 \"\"\"simple group workflow.
 
-workflow.main() is responsible for starting containers and any cross-unit
-orchestration.  For most single-unit projects, it simply starts the container
-and lets startup.py handle the rest.
+Demonstrates CUTIP's @action/@orchestrator decorators for self-describing
+workflows.  Each action carries a name, description, and optional container
+hint — enabling static analysis and visualization by external tools.
 
-Unit-specific logic (pre_build, post-start tasks, health checks) lives in
-each unit's startup.py, not here.
+Unit-specific logic (pre_build, post-start tasks) lives in each unit's
+startup.py, not here.
 \"\"\"
 
 from __future__ import annotations
 
+import time
+
 from loguru import logger
 
 from cutip.context.workflow import CutipContext
+from cutip.workflow import action, orchestrator
 
 
-def main(ctx: CutipContext) -> None:
-    \"\"\"Start the simple container and exec a greeting.
+@action(name="Start Container", description="Start the simple container", container="cutip-simple")
+def start_container(ctx: CutipContext) -> None:
+    ctx.container(\"cutip-simple\").start()
+    logger.info(\"Container cutip-simple started\")
 
-    The container runs ``tail -f /dev/null`` so it stays alive — you can
-    ``podman exec -it cutip-simple /bin/sh`` into it at any time.  Here we
-    exec a one-shot echo on every ``cutip run simple`` to show the exec API.
-    \"\"\"
+
+@action(name="Health Check", description="Verify the container is responding")
+def health_check(ctx: CutipContext) -> None:
     container = ctx.container(\"cutip-simple\")
-    container.start()
+    for attempt in range(1, 11):
+        exit_code, _ = container.exec_run([\"sh\", \"-c\", \"echo ok\"])
+        if exit_code == 0:
+            logger.success(f\"Health check passed after {attempt} attempt(s)\")
+            return
+        logger.debug(f\"  attempt {attempt}/10 — not ready yet\")
+        time.sleep(1)
+    raise RuntimeError(\"Container did not become ready within 10 seconds\")
 
-    _, output = container.exec_run([\"sh\", \"-c\", \"echo 'hello from container'\"])
+
+@action(name="Run Greeting", description="Execute a one-shot greeting in the container")
+def run_greeting(ctx: CutipContext) -> None:
+    _, output = ctx.container(\"cutip-simple\").exec_run(
+        [\"sh\", \"-c\", \"echo 'hello from container'\"]
+    )
     logger.info(output.decode(\"utf-8\", errors=\"replace\").strip())
+
+
+@orchestrator
+def main(ctx: CutipContext) -> None:
+    start_container(ctx)
+    health_check(ctx)
+    run_greeting(ctx)
 """
 
 # =============================================================================
@@ -561,11 +584,14 @@ spec:
 _COMPLEX_WORKFLOW_PY = """\
 \"\"\"complex group workflow.
 
-Starts PostgreSQL, waits for it to accept connections, then starts the web app.
+Demonstrates multi-container orchestration with @action/@orchestrator decorators.
+Each action is self-describing — external tools can extract the execution graph
+without importing this module.
 
 This is the key demonstration of CUTIP vs docker-compose: startup ordering
 is expressed as Python, not as a healthcheck declaration.  You can log
-progress, branch on failure, or take corrective action — all in one function.
+progress, branch on failure, or take corrective action — all in decorated
+action functions.
 \"\"\"
 
 from __future__ import annotations
@@ -575,19 +601,20 @@ import time
 from loguru import logger
 
 from cutip.context.workflow import CutipContext
+from cutip.workflow import action, orchestrator
 
 
-def main(ctx: CutipContext) -> None:
-    \"\"\"Start the database, confirm it is ready, then start the web app.\"\"\"
+@action(name="Start Database", description="Start PostgreSQL container", container="cutip-db")
+def start_database(ctx: CutipContext) -> None:
+    ctx.container(\"cutip-db\").start()
+    logger.info(\"PostgreSQL container started\")
+
+
+@action(name="Wait for Database", description="Poll until PostgreSQL accepts connections", container="cutip-db")
+def wait_for_database(ctx: CutipContext) -> None:
     db = ctx.container(\"cutip-db\")
-    web = ctx.container(\"cutip-web\")
-
-    # --- Step 1: Start the database -------------------------------------------
-    db.start()
-    logger.info(\"Waiting for postgres to accept connections...\")
-
-    # --- Step 2: Health-check loop (exec psql into the running container) ------
     db_password = ctx.secrets[\"db_password\"]
+
     for attempt in range(1, 31):
         exit_code, _ = db.exec_run(
             [\"psql\", \"-U\", \"appuser\", \"-d\", \"appdb\", \"-c\", \"SELECT 1\"],
@@ -595,18 +622,64 @@ def main(ctx: CutipContext) -> None:
         )
         if exit_code == 0:
             logger.success(f\"Postgres ready after {attempt} attempt(s)\")
-            break
+            return
         logger.debug(f\"  attempt {attempt}/30 — postgres not ready yet\")
         time.sleep(1)
-    else:
-        raise RuntimeError(
-            \"Postgres did not become ready within 30 seconds. \"
-            \"Check 'podman logs cutip-db' for details.\"
-        )
 
-    # --- Step 3: Database confirmed ready — start the web app -----------------
-    web.start()
-    logger.info(\"Web app started\")
+    raise RuntimeError(
+        \"Postgres did not become ready within 30 seconds. \"
+        \"Check 'podman logs cutip-db' for details.\"
+    )
+
+
+@action(name="Run Migrations", description="Apply database schema migrations", container="cutip-db")
+def run_migrations(ctx: CutipContext) -> None:
+    db = ctx.container(\"cutip-db\")
+    db_password = ctx.secrets[\"db_password\"]
+
+    exit_code, output = db.exec_run(
+        [
+            \"psql\", \"-U\", \"appuser\", \"-d\", \"appdb\", \"-c\",
+            \"CREATE TABLE IF NOT EXISTS app_migrations (id SERIAL PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW())\",
+        ],
+        environment={\"PGPASSWORD\": db_password},
+    )
+    if exit_code == 0:
+        logger.success(\"Database migrations applied\")
+    else:
+        logger.warning(f\"Migration returned exit code {exit_code}\")
+
+
+@action(name="Start Web App", description="Start the web application container", container="cutip-web")
+def start_web(ctx: CutipContext) -> None:
+    ctx.container(\"cutip-web\").start()
+    logger.info(\"Web app container started\")
+
+
+@action(name="Verify Web App", description="Confirm web app is serving", container="cutip-web")
+def verify_web(ctx: CutipContext) -> None:
+    web = ctx.container(\"cutip-web\")
+
+    for attempt in range(1, 11):
+        exit_code, _ = web.exec_run(
+            [\"curl\", \"-sf\", \"http://localhost:8080/health\"]
+        )
+        if exit_code == 0:
+            logger.success(f\"Web app healthy after {attempt} attempt(s)\")
+            return
+        logger.debug(f\"  attempt {attempt}/10 — web app not ready yet\")
+        time.sleep(1)
+
+    logger.warning(\"Web app health check did not pass — container may still be starting\")
+
+
+@orchestrator
+def main(ctx: CutipContext) -> None:
+    start_database(ctx)
+    wait_for_database(ctx)
+    run_migrations(ctx)
+    start_web(ctx)
+    verify_web(ctx)
 """
 
 _COMPLEX_WEB_DOCKERFILE = """\

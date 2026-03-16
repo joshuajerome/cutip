@@ -14,16 +14,18 @@ import time
 from loguru import logger
 
 from cutip.context.workflow import CutipContext
+from cutip.workflow import action, orchestrator
 
 
-def main(ctx: CutipContext) -> None:
-    db = ctx.container("cutip-db")
-    web = ctx.container("cutip-web")
-
-    # Start the database
-    db.start()
+@action(name="Start Database", description="Start PostgreSQL", container="cutip-db")
+def start_database(ctx: CutipContext) -> None:
+    ctx.container("cutip-db").start()
     logger.info("Waiting for postgres to accept connections...")
 
+
+@action(name="Wait for Database", description="Poll until DB accepts connections", container="cutip-db")
+def wait_for_database(ctx: CutipContext) -> None:
+    db = ctx.container("cutip-db")
     db_password = ctx.secrets["db_password"]
     for attempt in range(1, 31):
         exit_code, _ = db.exec_run(
@@ -32,16 +34,25 @@ def main(ctx: CutipContext) -> None:
         )
         if exit_code == 0:
             logger.success(f"Postgres ready after {attempt} attempt(s)")
-            break
+            return
         logger.debug(f"  attempt {attempt}/30 — postgres not ready yet")
         time.sleep(1)
-    else:
-        db.remove(force=True)
-        raise RuntimeError(
-            "Postgres did not become ready within 30 seconds. "
-            "Check 'podman logs cutip-db' for details."
-        )
 
-    # Database confirmed ready — start the web container
-    web.start()
+    db.remove(force=True)
+    raise RuntimeError(
+        "Postgres did not become ready within 30 seconds. "
+        "Check 'podman logs cutip-db' for details."
+    )
+
+
+@action(name="Start Web", description="Start the web container", container="cutip-web")
+def start_web(ctx: CutipContext) -> None:
+    ctx.container("cutip-web").start()
     logger.info("Web container started")
+
+
+@orchestrator
+def main(ctx: CutipContext) -> None:
+    start_database(ctx)
+    wait_for_database(ctx)
+    start_web(ctx)
