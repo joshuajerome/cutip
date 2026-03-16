@@ -41,6 +41,7 @@ commit messages, and PR titles.
 | cap031 | @claude commands, welcome message, auto-diagnose for owner        | feat | open   | feat/cap031-claude-commands          | —   | 2026-03-15 |
 | cap032 | @action/@orchestrator workflow decorators + introspection         | feat | open   | feat/cap032-workflow-decorators      | —   | 2026-03-15 |
 | cap033 | cutip desktop command for workspace registration                  | feat | open   | feat/cap033-desktop-command           | —   | 2026-03-15 |
+| cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | open   | feat/cap034-scaffold-decorators      | —   | 2026-03-15 |
 
 ## ID Assignment
 
