@@ -122,6 +122,26 @@ class WorkflowLoader:
         module, workflow_path = self._load_module(group, registry)
 
         if not hasattr(module, "main"):
+            # Fallback: check for @orchestrator-decorated function
+            from cutip.workflow.decorators import _ORCHESTRATOR_ATTR
+
+            orch = next(
+                (
+                    fn
+                    for fn in vars(module).values()
+                    if callable(fn) and getattr(fn, _ORCHESTRATOR_ATTR, False)
+                ),
+                None,
+            )
+            if orch is not None:
+                try:
+                    orch(ctx)
+                except Exception as exc:
+                    raise CutipWorkflowError(
+                        f"Error executing workflow '{workflow_path}': {exc}"
+                    ) from exc
+                return
+
             from loguru import logger as _logger
             _logger.debug(
                 f"Workflow '{workflow_path}' has no main() — skipping group-level execution."
