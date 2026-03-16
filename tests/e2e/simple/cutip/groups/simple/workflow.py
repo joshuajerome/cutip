@@ -7,7 +7,14 @@ and removes the container.
 from __future__ import annotations
 
 from cutip.context.workflow import CutipContext
+from cutip.workflow import action, orchestrator
 
 
-def main(ctx: CutipContext) -> None:
+@action(name="Start Container", description="Start the simple container", container="cutip-simple")
+def start_container(ctx: CutipContext) -> None:
     ctx.container("cutip-simple").start()
+
+
+@orchestrator
+def main(ctx: CutipContext) -> None:
+    start_container(ctx)
