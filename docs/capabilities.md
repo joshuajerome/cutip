@@ -38,10 +38,10 @@ commit messages, and PR titles.
 | cap028 | CLI help grouping + repo setup documentation                     | feat | merged | feat/cap028-cli-help-repo-docs       | #64 | 2026-03-09 |
 | cap029 | Backend default prompt + status display                           | feat | merged | feat/cap029-backend-default-prompt   | #70 | 2026-03-14 |
 | cap030 | cutip stop command for graceful group teardown                    | feat | merged | feat/cap030-stop-command             | #71 | 2026-03-15 |
-| cap031 | @claude commands, welcome message, auto-diagnose for owner        | feat | open   | feat/cap031-claude-commands          | —   | 2026-03-15 |
-| cap032 | @action/@orchestrator workflow decorators + introspection         | feat | open   | feat/cap032-workflow-decorators      | —   | 2026-03-15 |
-| cap033 | cutip desktop command for workspace registration                  | feat | open   | feat/cap033-desktop-command           | —   | 2026-03-15 |
-| cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | open   | feat/cap034-scaffold-decorators      | —   | 2026-03-15 |
+| cap031 | @claude commands, welcome message, auto-diagnose for owner        | feat | merged | feat/cap031-claude-commands          | #73 | 2026-03-15 |
+| cap032 | @action/@orchestrator workflow decorators + introspection         | feat | merged | feat/cap032-workflow-decorators      | #74 | 2026-03-17 |
+| cap033 | cutip desktop command for workspace registration                  | feat | merged | feat/cap033-desktop-command           | #75 | 2026-03-17 |
+| cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | merged | feat/cap034-scaffold-decorators      | #76 | 2026-03-17 |
 
 ## ID Assignment
 
