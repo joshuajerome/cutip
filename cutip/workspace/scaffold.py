@@ -709,7 +709,21 @@ CMD ["python", "-c", "import time; print('cutip-web started'); time.sleep(86400)
 
 
 def _find_project_root() -> Path:
-    """Return the git root if inside a repo, otherwise cwd."""
+    """Find the CUTIP project root.
+
+    Strategy (first match wins):
+    1. Walk up from cwd looking for ``cutip.yaml`` — supports multiple
+       CUTIP projects inside a single git repo.
+    2. Fall back to the git root (``git rev-parse --show-toplevel``).
+    3. Fall back to cwd.
+    """
+    # 1. Walk up looking for cutip.yaml
+    current = Path.cwd().resolve()
+    for parent in [current, *current.parents]:
+        if (parent / "cutip.yaml").is_file():
+            return parent
+
+    # 2. Fall back to git root
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -719,7 +733,10 @@ def _find_project_root() -> Path:
         )
         return Path(result.stdout.strip())
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return Path.cwd()
+        pass
+
+    # 3. Fall back to cwd
+    return Path.cwd()
 
 
 def _write_file(path: Path, content: str, label: str) -> None:

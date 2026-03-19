@@ -15,17 +15,25 @@ app = typer.Typer()
 
 @app.callback(invoke_without_command=True)
 def init(
-    path: Path = typer.Option(
+    path: Path = typer.Argument(
         None,
-        "--path",
-        "-p",
-        help="Project root directory. Defaults to git root or cwd.",
+        help="Project root directory. Defaults to nearest cutip.yaml, git root, or cwd.",
         show_default=False,
     ),
 ) -> None:
-    """Initialize a CUTIP workspace in the current project."""
+    """Initialize a CUTIP workspace.
+
+    Usage: cutip init [PATH]
+
+    Examples:
+      cutip init          # initialize in auto-detected project root
+      cutip init .        # initialize in current directory
+      cutip init ../foo   # initialize in ../foo
+    """
     setup_logging()
-    scaffold = WorkspaceScaffold(project_root=path)
+    # Resolve the path argument relative to cwd
+    resolved = Path(path).resolve() if path is not None else None
+    scaffold = WorkspaceScaffold(project_root=resolved)
     scaffold.init()
 
     root = scaffold.project_root

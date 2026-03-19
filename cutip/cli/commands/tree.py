@@ -20,7 +20,7 @@ def tree(
         None,
         "--path",
         "-p",
-        help="Project root. Defaults to git root or cwd.",
+        help="Project root. Defaults to nearest cutip.yaml, git root, or cwd.",
         show_default=False,
     ),
 ) -> None:
