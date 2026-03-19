@@ -42,6 +42,7 @@ commit messages, and PR titles.
 | cap032 | @action/@orchestrator workflow decorators + introspection         | feat | merged | feat/cap032-workflow-decorators      | #74 | 2026-03-17 |
 | cap033 | cutip desktop command for workspace registration                  | feat | merged | feat/cap033-desktop-command           | #75 | 2026-03-17 |
 | cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | merged | feat/cap034-scaffold-decorators      | #76 | 2026-03-17 |
+| cap035 | Fix project root discovery to anchor on cutip.yaml               | bug  | open   | bug/cap035-project-root-discovery    | —   | 2026-03-18 |
 
 ## ID Assignment
 

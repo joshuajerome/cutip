@@ -31,7 +31,7 @@ def _get_registry(path: Path | None):
 @group_app.command("ls")
 def group_ls(
     path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to git root or cwd."),
+                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
 ) -> None:
     """List all groups discovered in the workspace."""
     try:
@@ -61,7 +61,7 @@ def group_ls(
 @unit_app.command("ls")
 def unit_ls(
     path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to git root or cwd."),
+                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
 ) -> None:
     """List all units discovered in the workspace."""
     try:
@@ -89,7 +89,7 @@ def unit_ls(
 @card_app.command("ls")
 def card_ls(
     path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to git root or cwd."),
+                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
 ) -> None:
     """List all cards (images, containers, networks) discovered in the workspace."""
     try:
