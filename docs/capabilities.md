@@ -44,6 +44,7 @@ commit messages, and PR titles.
 | cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | merged | feat/cap034-scaffold-decorators      | #76 | 2026-03-17 |
 | cap035 | Fix project root discovery to anchor on cutip.yaml               | bug  | merged | bug/cap035-project-root-discovery    | #79 | 2026-03-18 |
 | cap036 | cutip info command for version and workspace status              | feat | merged | feat/cap036-info-command             | #81 | 2026-03-18 |
+| cap037 | Dynamic SSH tunnel port for concurrent Podman workspaces        | bug  | open   | bug/cap037-dynamic-tunnel-port       | —   | 2026-03-18 |
 
 ## ID Assignment
 

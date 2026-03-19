@@ -15,7 +15,7 @@ from loguru import logger
 
 from cutip.backends.base import CutipBackend
 from cutip.backends.podman.connection import (
-    PODMAN_TCP_URL,
+    TunnelInfo,
     close_ssh_tunnel,
     get_default_connection,
     local_socket_url,
@@ -49,9 +49,9 @@ def _win_to_wsl(path: str) -> str:
 class PodmanBackend(CutipBackend):
     """Podman backend — communicates via PodmanClient (SSH tunnel or local socket)."""
 
-    def __init__(self, client, tunnel_process: subprocess.Popen | None = None) -> None:
+    def __init__(self, client, tunnel: TunnelInfo | None = None) -> None:
         self._client = client
-        self._tunnel = tunnel_process
+        self._tunnel = tunnel
 
     @property
     def client(self):
@@ -65,7 +65,7 @@ class PodmanBackend(CutipBackend):
         """Open an SSH port-forward tunnel and return a connected backend.
 
         Reads the default Podman connection from ``podman system connection ls``
-        and forwards ``localhost:{PODMAN_TCP_PORT}`` to the Podman socket inside
+        and forwards a dynamic localhost port to the Podman socket inside
         the VM.  No daemon service is started inside the guest.
         """
         try:
@@ -78,13 +78,13 @@ class PodmanBackend(CutipBackend):
         conn = get_default_connection()
         tunnel = open_ssh_tunnel(conn)
 
-        client = PodmanClient(base_url=PODMAN_TCP_URL)
+        client = PodmanClient(base_url=tunnel.url)
         if not client.ping():
             close_ssh_tunnel(tunnel)
             raise CutipError("Podman ping failed after opening SSH tunnel.")
 
-        logger.info("Podman connected (SSH tunnel).")
-        return cls(client=client, tunnel_process=tunnel)
+        logger.info(f"Podman connected (SSH tunnel on port {tunnel.port}).")
+        return cls(client=client, tunnel=tunnel)
 
     @classmethod
     def connect_local(cls) -> "PodmanBackend":
@@ -106,7 +106,7 @@ class PodmanBackend(CutipBackend):
             )
 
         logger.info(f"Podman connected (local socket: {url}).")
-        return cls(client=client, tunnel_process=None)
+        return cls(client=client, tunnel=None)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 

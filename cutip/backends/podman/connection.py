@@ -16,19 +16,36 @@ from __future__ import annotations
 
 import os
 import shlex
+import socket
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from loguru import logger
 
 from cutip.utils.exceptions import CutipError
 
-# ── Constants ──────────────────────────────────────────────────────────────────
 
-PODMAN_TCP_PORT: int = 8080
-PODMAN_TCP_URL: str = f"tcp://localhost:{PODMAN_TCP_PORT}"
+# ── Tunnel result ─────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class TunnelInfo:
+    """Result of opening an SSH tunnel — holds the process and the allocated port."""
+    process: subprocess.Popen
+    port: int
+
+    @property
+    def url(self) -> str:
+        return f"tcp://localhost:{self.port}"
+
+
+def _find_free_port() -> int:
+    """Ask the OS for an available TCP port on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("localhost", 0))
+        return s.getsockname()[1]
 
 
 # ── Connection enumeration ─────────────────────────────────────────────────────
@@ -94,12 +111,11 @@ def get_default_connection(connections: list[dict[str, str]] | None = None) -> d
 
 # ── SSH tunnel (used by PodmanBackend.connect()) ───────────────────────────────
 
-def open_ssh_tunnel(connection: dict[str, str]) -> subprocess.Popen:
-    """Forward ``localhost:{PODMAN_TCP_PORT}`` → the Podman Unix socket inside the VM.
+def open_ssh_tunnel(connection: dict[str, str]) -> TunnelInfo:
+    """Forward a dynamic localhost port → the Podman Unix socket inside the VM.
 
-    Uses SSH local port forwarding (``-L``), so no ``podman system service``
-    process needs to run inside the guest — SSH holds the port open and
-    transparently proxies HTTP requests to the Podman socket.
+    Uses SSH local port forwarding (``-L``) with an OS-assigned free port,
+    so multiple CUTIP workspaces can run simultaneously without collisions.
 
     Requires OpenSSH ≥ 6.7 (ships with macOS 10.12+ and modern Linux distros).
 
@@ -107,9 +123,8 @@ def open_ssh_tunnel(connection: dict[str, str]) -> subprocess.Popen:
         connection: A connection dict as returned by :func:`get_default_connection`.
 
     Returns:
-        The running SSH :class:`subprocess.Popen` object.
-        Keep this alive for the lifetime of the session; close with
-        :func:`close_ssh_tunnel` when done.
+        A :class:`TunnelInfo` with the running SSH process and allocated port.
+        Keep alive for the session lifetime; close with :func:`close_ssh_tunnel`.
 
     Raises:
         CutipError: If the tunnel exits immediately (bad key, wrong host, etc.).
@@ -134,12 +149,12 @@ def open_ssh_tunnel(connection: dict[str, str]) -> subprocess.Popen:
         else (host_port, "22")
     )
 
-    # -L local_port:remote_unix_socket  →  maps tcp://localhost:8080 on the
-    # host to the Podman REST API socket inside the VM.
+    local_port = _find_free_port()
+
     ssh_cmd = [
         "ssh",
         "-N",                                       # port-forward only, no shell
-        "-L", f"{PODMAN_TCP_PORT}:{socket_path}",
+        "-L", f"{local_port}:{socket_path}",
         "-i", identity,
         "-p", port,
         f"{user}@{host}",
@@ -162,18 +177,22 @@ def open_ssh_tunnel(connection: dict[str, str]) -> subprocess.Popen:
             "Ensure 'podman machine start' has been run and the machine is healthy."
         )
 
-    logger.info(f"SSH tunnel established: {PODMAN_TCP_URL} -> {socket_path}")
-    return process
+    tunnel = TunnelInfo(process=process, port=local_port)
+    logger.info(f"SSH tunnel established: {tunnel.url} -> {socket_path}")
+    return tunnel
 
 
-def close_ssh_tunnel(process: subprocess.Popen, timeout: int = 5) -> None:
+def close_ssh_tunnel(tunnel: TunnelInfo | subprocess.Popen | None, timeout: int = 5) -> None:
     """Terminate the SSH tunnel process gracefully.
 
     Args:
-        process: The :class:`subprocess.Popen` returned by :func:`open_ssh_tunnel`.
+        tunnel: A :class:`TunnelInfo` or raw :class:`subprocess.Popen`.
         timeout: Seconds to wait for graceful termination before force-killing.
     """
-    if process is None or process.poll() is not None:
+    if tunnel is None:
+        return
+    process = tunnel.process if isinstance(tunnel, TunnelInfo) else tunnel
+    if process.poll() is not None:
         return
     logger.debug("Closing SSH tunnel...")
     process.terminate()
@@ -296,9 +315,10 @@ if __name__ == "__main__":
             logger.error("podman-py not installed. Run: uv add podman")
             sys.exit(1)
 
-        process = open_ssh_tunnel(conn)
+        tunnel = open_ssh_tunnel(conn)
+        logger.info(f"Tunnel port: {tunnel.port}")
         try:
-            client = PodmanClient(base_url=PODMAN_TCP_URL)
+            client = PodmanClient(base_url=tunnel.url)
             ok = client.ping()
             if not ok:
                 logger.error("Ping failed — tunnel is up but Podman is not responding.")
@@ -310,4 +330,4 @@ if __name__ == "__main__":
             for img in images[:5]:
                 logger.info(f"  {img.tags}")
         finally:
-            close_ssh_tunnel(process)
+            close_ssh_tunnel(tunnel)
