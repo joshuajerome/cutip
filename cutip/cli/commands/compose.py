@@ -635,7 +635,7 @@ def from_compose(
         None,
         "--output-dir",
         "-o",
-        help="Output directory. Defaults to git root or cwd.",
+        help="Output directory. Defaults to nearest cutip.yaml, git root, or cwd.",
         show_default=False,
     ),
 ) -> None:
