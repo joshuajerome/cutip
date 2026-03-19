@@ -530,6 +530,66 @@ def _load_project_backend(project_root: Path) -> str | None:
     return None
 
 
+def _detect_available_backends() -> list[str]:
+    """Return list of installed backend names."""
+    available = []
+    for name, mod in [("docker", "docker"), ("podman", "podman")]:
+        try:
+            __import__(mod)
+            available.append(name)
+        except ImportError:
+            pass
+    return available
+
+
+def _resolve_backend_interactive(project_root: Path) -> str:
+    """Prompt user to select a backend when project.backend is not set in cutip.yaml.
+
+    In non-interactive mode (CI, pipes), falls back to docker silently.
+    """
+    if not sys.stdin.isatty():
+        return "docker"
+
+    available = _detect_available_backends()
+
+    if not available:
+        console.print(
+            "[yellow]No container backends installed.[/yellow]\n"
+            "  Install one: pip install docker  (or: pip install podman)"
+        )
+        raise typer.Exit(1)
+
+    if len(available) == 1:
+        choice = available[0]
+        console.print(
+            f"[yellow]cutip.yaml has no backend configured.[/yellow] "
+            f"Only [bold]{choice}[/bold] is installed."
+        )
+        save = typer.confirm(f"Use '{choice}' and save to cutip.yaml?", default=True)
+        if save:
+            _save_project_backend(project_root, choice)
+            console.print(f"[green]Saved backend '{choice}' to cutip.yaml[/green]")
+        return choice
+
+    # Multiple backends available — let user pick
+    console.print(
+        "[yellow]cutip.yaml has no backend configured.[/yellow]\n"
+        f"  Available backends: {', '.join(available)}"
+    )
+    choice = ""
+    while choice not in available:
+        choice = typer.prompt(
+            f"Select backend ({'/'.join(available)})",
+            default=available[0],
+        ).lower()
+
+    save = typer.confirm(f"Save '{choice}' as default in cutip.yaml?", default=True)
+    if save:
+        _save_project_backend(project_root, choice)
+        console.print(f"[green]Saved backend '{choice}' to cutip.yaml[/green]")
+    return choice
+
+
 def _save_project_backend(project_root: Path, backend_name: str) -> None:
     """Write ``project.backend`` to ``cutip.yaml``."""
     import yaml as _yaml
@@ -614,12 +674,15 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
-    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → docker
-    backend_name = (
-        backend.lower() if backend
-        else _load_project_backend(project_root)
-        or "docker"
-    )
+    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → prompt/detect
+    if backend:
+        backend_name = backend.lower()
+    else:
+        configured = _load_project_backend(project_root)
+        if configured:
+            backend_name = configured
+        else:
+            backend_name = _resolve_backend_interactive(project_root)
     logger.debug(f"Using backend: {backend_name}")
 
     # Connect backend
