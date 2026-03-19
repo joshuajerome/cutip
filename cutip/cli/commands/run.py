@@ -425,8 +425,18 @@ def _prepare_volumes(ctx: CutipContext, client) -> None:
                 logger.debug(f"Created volume: {vol_name}")
 
 
+def _remove_group_images(ctx: CutipContext, backend) -> None:
+    """Remove all images for the group (used by --no-cache)."""
+    for card in ctx.resolved_cards.values():
+        if not isinstance(card, ImageCard):
+            continue
+        alias = image_alias(card)
+        backend.remove_image(alias)
+
+
 def _build_and_pull_images(
     ctx: CutipContext, backend, project_root: Path, paths: dict, secrets: dict,
+    no_cache: bool = False,
 ) -> None:
     """Build or pull every ImageCard resolved in the context."""
     # Merge paths + secrets for build-time interpolation ({{ paths.key }} / {{ secrets.key }})
@@ -436,7 +446,7 @@ def _build_and_pull_images(
             continue
         if card.spec.source == "build":
             logger.info(f"Building image: {card.metadata.name}")
-            backend.build_image(card, project_root=project_root, vars=merged)
+            backend.build_image(card, project_root=project_root, vars=merged, no_cache=no_cache)
         elif card.spec.source == "pull":
             logger.info(f"Pulling image: {card.metadata.name}")
             backend.pull_image(card)
@@ -625,6 +635,12 @@ def run(
         help="Container backend to use (docker or podman). "
              "Defaults to project.backend in cutip.yaml, then docker.",
     ),
+    no_cache: bool = typer.Option(
+        False,
+        "--no-cache",
+        help="Remove existing containers and images for the group, "
+             "then rebuild from scratch (no layer cache).",
+    ),
     local: bool = typer.Option(
         False,
         "--local",
@@ -724,8 +740,13 @@ def run(
             # Step 3: per-unit pre_build hooks (stage build-context files)
             _run_unit_pre_builds(ctx, registry, project_root)
 
+            # --no-cache: remove existing images before rebuilding
+            if no_cache:
+                logger.info("--no-cache: removing existing images for clean rebuild")
+                _remove_group_images(ctx, _backend)
+
             # Steps 4–6: images → networks → create containers (no auto-start)
-            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets)
+            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets, no_cache=no_cache)
             _ensure_networks(ctx, _backend)
             _provision_containers(ctx, _backend, project_paths, project_secrets)
 
