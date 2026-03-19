@@ -39,8 +39,12 @@ class CutipBackend(ABC):
         card: ImageCard,
         project_root: Path | None = None,
         vars: dict | None = None,
+        no_cache: bool = False,
     ) -> None:
         """Build an image from a local Dockerfile context."""
+
+    def remove_image(self, name: str) -> None:
+        """Remove an image by name/tag. No-op if not found."""
 
     # ── Network operations ────────────────────────────────────────────────────
 

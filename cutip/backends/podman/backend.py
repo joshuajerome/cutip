@@ -145,6 +145,7 @@ class PodmanBackend(CutipBackend):
         card: ImageCard,
         project_root: Path | None = None,
         vars: dict | None = None,
+        no_cache: bool = False,
     ) -> None:
         context = Path(card.spec.context or "")
         if not context.is_absolute() and project_root:
@@ -161,6 +162,8 @@ class PodmanBackend(CutipBackend):
             "--tag", tag,
             "--file", str(context / card.spec.dockerfile),
         ]
+        if no_cache:
+            cmd.append("--no-cache")
         for k, v in card.spec.build_args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         cmd.append(str(build_ctx))
@@ -181,6 +184,13 @@ class PodmanBackend(CutipBackend):
         rc = process.wait()
         if rc != 0:
             raise CutipError(f"Image build failed for '{tag}'")
+
+    def remove_image(self, name: str) -> None:
+        try:
+            self._client.images.remove(name, force=True)
+            logger.info(f"Removed image: {name}")
+        except Exception:
+            logger.debug(f"remove_image: '{name}' not found.")
 
     # ── Network / volume operations ───────────────────────────────────────────
 
