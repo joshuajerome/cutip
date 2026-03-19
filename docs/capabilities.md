@@ -46,7 +46,8 @@ commit messages, and PR titles.
 | cap036 | cutip info command for version and workspace status              | feat | merged | feat/cap036-info-command             | #81 | 2026-03-18 |
 | cap037 | Dynamic SSH tunnel port for concurrent Podman workspaces        | bug  | merged | bug/cap037-dynamic-tunnel-port       | #83 | 2026-03-18 |
 | cap038 | cutip run --no-cache for clean rebuild                          | feat | merged | feat/cap038-no-cache-fresh           | #84 | 2026-03-19 |
-| cap039 | Backend reconciliation prompt when project.backend is unset    | feat | open   | feat/cap039-backend-prompt           | —   | 2026-03-19 |
+| cap039 | Backend reconciliation prompt when project.backend is unset    | feat | merged | feat/cap039-backend-prompt           | #85 | 2026-03-19 |
+| cap040 | Timestamped log files with retention                            | feat | open   | feat/cap040-timestamped-logs          | —   | 2026-03-19 |
 
 ## ID Assignment
 
