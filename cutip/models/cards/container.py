@@ -39,8 +39,8 @@ class ContainerSpec(BaseModel):
     imageRef: Ref
 
     # -- Network ---------------------------------------------------------------
-    # Exactly one of networkRef (bridge to a named NetworkCard) or
-    # network_mode (e.g. "host", "none", "bridge", "slirp4netns") must be given.
+    # At most one of networkRef or network_mode may be given.
+    # If neither is set, CUTIP creates a default bridge network for the group.
     networkRef: Ref | None = None
     network_mode: str | None = None
 
@@ -74,15 +74,11 @@ class ContainerSpec(BaseModel):
 
     @model_validator(mode="after")
     def _validate_network(self) -> "ContainerSpec":
-        if self.networkRef is None and self.network_mode is None:
-            raise ValueError(
-                "Either 'networkRef' (bridge to a named NetworkCard) "
-                "or 'network_mode' (e.g. 'bridge', 'host') must be provided"
-            )
         if self.networkRef is not None and self.network_mode is not None:
             raise ValueError(
                 "Only one of 'networkRef' or 'network_mode' may be provided, not both"
             )
+        # Neither set → CUTIP will create a default bridge at run time
         return self
 
 
