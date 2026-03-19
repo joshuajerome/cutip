@@ -69,6 +69,11 @@ class ImageSpec(BaseModel):
     # Defaults to "{context}/buildtime" if not set.
     buildtime_dir: str | None = None
 
+    # Network mode for the build (e.g. "host", "none", "default").
+    # Maps to --network flag on docker/podman build.
+    # If not set, the builder's default network is used.
+    network_mode: str | None = None
+
     @model_validator(mode="after")
     def _validate_source_fields(self) -> "ImageSpec":
         if self.source == "pull":
