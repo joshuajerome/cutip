@@ -49,7 +49,7 @@ commit messages, and PR titles.
 | cap039 | Backend reconciliation prompt when project.backend is unset    | feat | merged | feat/cap039-backend-prompt           | #85 | 2026-03-19 |
 | cap040 | Timestamped log files with retention                            | feat | merged | feat/cap040-timestamped-logs          | #86 | 2026-03-19 |
 | cap041 | Default bridge network when no networkRef or network_mode set  | feat | merged | feat/cap041-default-bridge-network    | #87 | 2026-03-19 |
-| cap042 | Build-time network mode for image builds                       | feat | open   | feat/cap042-build-network-mode        | —   | 2026-03-19 |
+| cap042 | Build-time network mode for image builds                       | feat | merged | feat/cap042-build-network-mode        | #89 | 2026-03-19 |
 
 ## ID Assignment
 
