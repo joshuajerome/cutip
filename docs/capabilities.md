@@ -43,7 +43,7 @@ commit messages, and PR titles.
 | cap033 | cutip desktop command for workspace registration                  | feat | merged | feat/cap033-desktop-command           | #75 | 2026-03-17 |
 | cap034 | Scaffold rewrite with @action/@orchestrator decorators            | feat | merged | feat/cap034-scaffold-decorators      | #76 | 2026-03-17 |
 | cap035 | Fix project root discovery to anchor on cutip.yaml               | bug  | merged | bug/cap035-project-root-discovery    | #79 | 2026-03-18 |
-| cap036 | cutip info command for version and workspace status              | feat | open   | feat/cap036-info-command             | —   | 2026-03-18 |
+| cap036 | cutip info command for version and workspace status              | feat | merged | feat/cap036-info-command             | #81 | 2026-03-18 |
 
 ## ID Assignment
 
