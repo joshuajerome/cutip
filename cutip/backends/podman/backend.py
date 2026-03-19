@@ -164,6 +164,8 @@ class PodmanBackend(CutipBackend):
         ]
         if no_cache:
             cmd.append("--no-cache")
+        if card.spec.network_mode:
+            cmd += ["--network", card.spec.network_mode]
         for k, v in card.spec.build_args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         cmd.append(str(build_ctx))
