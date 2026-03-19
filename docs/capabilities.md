@@ -48,6 +48,7 @@ commit messages, and PR titles.
 | cap038 | cutip run --no-cache for clean rebuild                          | feat | merged | feat/cap038-no-cache-fresh           | #84 | 2026-03-19 |
 | cap039 | Backend reconciliation prompt when project.backend is unset    | feat | merged | feat/cap039-backend-prompt           | #85 | 2026-03-19 |
 | cap040 | Timestamped log files with retention                            | feat | open   | feat/cap040-timestamped-logs          | —   | 2026-03-19 |
+| cap041 | Default bridge network when no networkRef or network_mode set  | feat | open   | feat/cap041-default-bridge-network    | —   | 2026-03-19 |
 
 ## ID Assignment
 

@@ -144,12 +144,24 @@ class DockerBackend(CutipBackend):
         self._client.networks.create(name, driver=card.spec.driver, ipam=ipam_config)
         logger.info(f"Created network: {name}")
 
+    def ensure_default_network(self, name: str) -> None:
+        """Create a default bridge network by name if it does not exist."""
+        try:
+            self._client.networks.get(name)
+            logger.info(f"Default network already exists: {name}")
+            return
+        except Exception:
+            pass
+        self._client.networks.create(name, driver="bridge")
+        logger.info(f"Created default bridge network: {name}")
+
     # ── Container operations ──────────────────────────────────────────────────
 
     def create_container(
         self,
         card: ContainerCard,
         image_name: str | None = None,
+        default_network: str | None = None,
     ) -> str:
         """Create (but do not start) a container. Returns the container name."""
         name = card.metadata.name
@@ -178,6 +190,8 @@ class DockerBackend(CutipBackend):
             kwargs["network_mode"] = card.spec.network_mode
         elif card.spec.networkRef:
             kwargs["network"] = card.spec.networkRef.ref.split("/")[-1]
+        elif default_network:
+            kwargs["network"] = default_network
 
         if card.spec.command:
             kwargs["command"] = shlex.split(card.spec.command)

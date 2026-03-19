@@ -452,15 +452,34 @@ def _build_and_pull_images(
             backend.pull_image(card)
 
 
-def _ensure_networks(ctx: CutipContext, backend) -> None:
-    """Create any NetworkCard-backed networks that do not already exist."""
+def _ensure_networks(ctx: CutipContext, backend, group_name: str) -> None:
+    """Create any NetworkCard-backed networks that do not already exist.
+
+    Also creates a default bridge network (``cutip-{group_name}``) when at
+    least one container has neither ``networkRef`` nor ``network_mode`` set.
+    Returns the default network name if one was created, else ``None``.
+    """
     for card in ctx.resolved_cards.values():
         if isinstance(card, NetworkCard):
             backend.ensure_network(card)
 
+    # Check if any container needs a default bridge network
+    needs_default = any(
+        isinstance(card, ContainerCard)
+        and card.spec.networkRef is None
+        and card.spec.network_mode is None
+        for card in ctx.resolved_cards.values()
+    )
+    if needs_default:
+        default_name = f"cutip-{group_name}"
+        backend.ensure_default_network(default_name)
+        return default_name
+    return None
+
 
 def _provision_containers(
     ctx: CutipContext, backend, paths: dict, secrets: dict,
+    default_network: str | None = None,
 ) -> None:
     """Remove stale containers and create fresh ones with refs resolved."""
     for card in ctx.resolved_cards.values():
@@ -484,7 +503,7 @@ def _provision_containers(
         img_card = ctx.resolved_cards.get(img_ref)
         img_name = image_alias(img_card) if isinstance(img_card, ImageCard) else None
 
-        backend.create_container(resolved_card, image_name=img_name)
+        backend.create_container(resolved_card, image_name=img_name, default_network=default_network)
 
 
 def _run_unit_pre_builds(
@@ -747,8 +766,8 @@ def run(
 
             # Steps 4–6: images → networks → create containers (no auto-start)
             _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets, no_cache=no_cache)
-            _ensure_networks(ctx, _backend)
-            _provision_containers(ctx, _backend, project_paths, project_secrets)
+            default_net = _ensure_networks(ctx, _backend, group_name)
+            _provision_containers(ctx, _backend, project_paths, project_secrets, default_network=default_net)
 
             # Step 7: group-level workflow main() — starts containers, orchestrates
             workflow_loader = WorkflowLoader(project_root)
