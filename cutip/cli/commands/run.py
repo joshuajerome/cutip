@@ -425,8 +425,18 @@ def _prepare_volumes(ctx: CutipContext, client) -> None:
                 logger.debug(f"Created volume: {vol_name}")
 
 
+def _remove_group_images(ctx: CutipContext, backend) -> None:
+    """Remove all images for the group (used by --no-cache)."""
+    for card in ctx.resolved_cards.values():
+        if not isinstance(card, ImageCard):
+            continue
+        alias = image_alias(card)
+        backend.remove_image(alias)
+
+
 def _build_and_pull_images(
     ctx: CutipContext, backend, project_root: Path, paths: dict, secrets: dict,
+    no_cache: bool = False,
 ) -> None:
     """Build or pull every ImageCard resolved in the context."""
     # Merge paths + secrets for build-time interpolation ({{ paths.key }} / {{ secrets.key }})
@@ -436,7 +446,7 @@ def _build_and_pull_images(
             continue
         if card.spec.source == "build":
             logger.info(f"Building image: {card.metadata.name}")
-            backend.build_image(card, project_root=project_root, vars=merged)
+            backend.build_image(card, project_root=project_root, vars=merged, no_cache=no_cache)
         elif card.spec.source == "pull":
             logger.info(f"Pulling image: {card.metadata.name}")
             backend.pull_image(card)
@@ -530,6 +540,66 @@ def _load_project_backend(project_root: Path) -> str | None:
     return None
 
 
+def _detect_available_backends() -> list[str]:
+    """Return list of installed backend names."""
+    available = []
+    for name, mod in [("docker", "docker"), ("podman", "podman")]:
+        try:
+            __import__(mod)
+            available.append(name)
+        except ImportError:
+            pass
+    return available
+
+
+def _resolve_backend_interactive(project_root: Path) -> str:
+    """Prompt user to select a backend when project.backend is not set in cutip.yaml.
+
+    In non-interactive mode (CI, pipes), falls back to docker silently.
+    """
+    if not sys.stdin.isatty():
+        return "docker"
+
+    available = _detect_available_backends()
+
+    if not available:
+        console.print(
+            "[yellow]No container backends installed.[/yellow]\n"
+            "  Install one: pip install docker  (or: pip install podman)"
+        )
+        raise typer.Exit(1)
+
+    if len(available) == 1:
+        choice = available[0]
+        console.print(
+            f"[yellow]cutip.yaml has no backend configured.[/yellow] "
+            f"Only [bold]{choice}[/bold] is installed."
+        )
+        save = typer.confirm(f"Use '{choice}' and save to cutip.yaml?", default=True)
+        if save:
+            _save_project_backend(project_root, choice)
+            console.print(f"[green]Saved backend '{choice}' to cutip.yaml[/green]")
+        return choice
+
+    # Multiple backends available — let user pick
+    console.print(
+        "[yellow]cutip.yaml has no backend configured.[/yellow]\n"
+        f"  Available backends: {', '.join(available)}"
+    )
+    choice = ""
+    while choice not in available:
+        choice = typer.prompt(
+            f"Select backend ({'/'.join(available)})",
+            default=available[0],
+        ).lower()
+
+    save = typer.confirm(f"Save '{choice}' as default in cutip.yaml?", default=True)
+    if save:
+        _save_project_backend(project_root, choice)
+        console.print(f"[green]Saved backend '{choice}' to cutip.yaml[/green]")
+    return choice
+
+
 def _save_project_backend(project_root: Path, backend_name: str) -> None:
     """Write ``project.backend`` to ``cutip.yaml``."""
     import yaml as _yaml
@@ -564,6 +634,12 @@ def run(
         envvar="CUTIP_BACKEND",
         help="Container backend to use (docker or podman). "
              "Defaults to project.backend in cutip.yaml, then docker.",
+    ),
+    no_cache: bool = typer.Option(
+        False,
+        "--no-cache",
+        help="Remove existing containers and images for the group, "
+             "then rebuild from scratch (no layer cache).",
     ),
     local: bool = typer.Option(
         False,
@@ -614,12 +690,15 @@ def run(
     # Honour env-var shortcut in addition to the CLI flag
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
 
-    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → docker
-    backend_name = (
-        backend.lower() if backend
-        else _load_project_backend(project_root)
-        or "docker"
-    )
+    # Resolve backend: -b / CUTIP_BACKEND → cutip.yaml → prompt/detect
+    if backend:
+        backend_name = backend.lower()
+    else:
+        configured = _load_project_backend(project_root)
+        if configured:
+            backend_name = configured
+        else:
+            backend_name = _resolve_backend_interactive(project_root)
     logger.debug(f"Using backend: {backend_name}")
 
     # Connect backend
@@ -661,8 +740,13 @@ def run(
             # Step 3: per-unit pre_build hooks (stage build-context files)
             _run_unit_pre_builds(ctx, registry, project_root)
 
+            # --no-cache: remove existing images before rebuilding
+            if no_cache:
+                logger.info("--no-cache: removing existing images for clean rebuild")
+                _remove_group_images(ctx, _backend)
+
             # Steps 4–6: images → networks → create containers (no auto-start)
-            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets)
+            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets, no_cache=no_cache)
             _ensure_networks(ctx, _backend)
             _provision_containers(ctx, _backend, project_paths, project_secrets)
 
