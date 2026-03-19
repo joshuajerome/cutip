@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
@@ -15,8 +16,18 @@ DEFAULT_LOGURU_SINK_FORMAT = (
 # Subprocess output (e.g. podman build lines) — grey in console, plain in file
 SUBPROCESS_FMT = "<light-black>{message}</light-black>"
 
+# Maximum number of timestamped log files to retain
+LOG_RETENTION_COUNT = 10
 
-def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> None:
+
+def _prune_old_logs(log_dir: Path, keep: int = LOG_RETENTION_COUNT) -> None:
+    """Delete oldest cutip-*.log files, keeping the most recent *keep*."""
+    logs = sorted(log_dir.glob("cutip-*.log"), key=lambda p: p.name)
+    for old in logs[:-keep]:
+        old.unlink(missing_ok=True)
+
+
+def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> str | None:
     """Configure loguru sinks for CUTIP.
 
     Four sinks are registered:
@@ -27,6 +38,10 @@ def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> None:
     4. File    — standard CUTIP lines with full DEFAULT_LOGURU_SINK_FORMAT
 
     Sinks 2 and 4 are only added when *log_dir* is provided.
+    Each run creates a new timestamped log file (e.g. ``cutip-20260319T143052.log``).
+    Old log files beyond :data:`LOG_RETENTION_COUNT` are pruned automatically.
+
+    Returns the log file path if file logging was set up, else None.
     """
     logger.remove()
 
@@ -53,7 +68,10 @@ def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> None:
 
     if log_dir is not None:
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / "cutip.log"
+
+        # Timestamped log file per run
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        log_file = log_dir / f"cutip-{ts}.log"
 
         # 2) File: subprocess lines as plain text (no decoration)
         logger.add(
@@ -70,8 +88,13 @@ def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> None:
             colorize=False,
             format=DEFAULT_LOGURU_SINK_FORMAT,
             level="DEBUG",
-            rotation="10 MB",
-            retention=5,
             encoding="utf-8",
             filter=is_standard,
         )
+
+        # Prune old log files
+        _prune_old_logs(log_dir)
+
+        return str(log_file)
+
+    return None
