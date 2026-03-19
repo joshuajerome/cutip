@@ -52,10 +52,19 @@ class CutipBackend(ABC):
     def ensure_network(self, card: NetworkCard) -> None:
         """Create a network if it does not already exist."""
 
+    @abstractmethod
+    def ensure_default_network(self, name: str) -> None:
+        """Create a default bridge network by name if it does not exist."""
+
     # ── Container operations ──────────────────────────────────────────────────
 
     @abstractmethod
-    def create_container(self, card: ContainerCard, image_name: str | None = None) -> str:
+    def create_container(
+        self,
+        card: ContainerCard,
+        image_name: str | None = None,
+        default_network: str | None = None,
+    ) -> str:
         """Create (but do not start) a container. Returns the container name."""
 
     @abstractmethod
