@@ -10,6 +10,7 @@ import typer
 
 from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.desktop import desktop
+from cutip.cli.commands.info import app as info_app
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.upgrade import app as upgrade_app
@@ -225,6 +226,8 @@ app.command("stop", rich_help_panel=_WF)(stop)
 app.command("plan", rich_help_panel=_WF)(plan)
 app.command("from-compose", rich_help_panel=_WF)(from_compose)
 app.command("desktop", rich_help_panel=_WF)(desktop)
+
+app.add_typer(info_app, name="info", rich_help_panel=_WF)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
