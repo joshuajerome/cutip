@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cutip"
-version = "0.1.12"
+version = "0.1.13"
 description = "Container Unit Templates in Python — a deterministic framework for building container workloads"
 readme = "README.md"
 license = { text = "MIT" }
