@@ -10,7 +10,8 @@ from cutip.models.cards.container import Ref
 
 class GroupSpec(BaseModel):
     units: list[Ref]
-    workflow: str
+    workflow: str = "workflow.py"
+    orchestrator: str = "orchestrator.py"
 
 
 class Group(CutipBaseModel):
