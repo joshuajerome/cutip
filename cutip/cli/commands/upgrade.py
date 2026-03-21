@@ -26,6 +26,7 @@ app = typer.Typer(
 # Migration checks
 # ---------------------------------------------------------------------------
 
+
 def _check_vars_yaml(project_root: Path) -> dict | None:
     """Detect cutip/vars.yaml that should be split into paths.yaml + secrets.yaml."""
     old = project_root / "cutip" / "vars.yaml"
@@ -89,16 +90,18 @@ def _check_startup_ctx_vars(project_root: Path) -> list[dict]:
     for startup in units_dir.rglob("startup.py"):
         text = startup.read_text(encoding="utf-8")
         if "ctx.vars" in text:
-            findings.append({
-                "id": "ctx-vars-renamed",
-                "severity": "breaking",
-                "message": (
-                    f"{startup.relative_to(project_root)}: "
-                    f"ctx.vars was renamed to ctx.paths in v0.1.8.\n"
-                    f"  Replace ctx.vars with ctx.paths."
-                ),
-                "file": startup,
-            })
+            findings.append(
+                {
+                    "id": "ctx-vars-renamed",
+                    "severity": "breaking",
+                    "message": (
+                        f"{startup.relative_to(project_root)}: "
+                        f"ctx.vars was renamed to ctx.paths in v0.1.8.\n"
+                        f"  Replace ctx.vars with ctx.paths."
+                    ),
+                    "file": startup,
+                }
+            )
     return findings
 
 
@@ -113,16 +116,18 @@ def _check_card_vars_refs(project_root: Path) -> list[dict]:
     for yaml_file in cards_dir.rglob("*.yaml"):
         text = yaml_file.read_text(encoding="utf-8")
         if pattern.search(text):
-            findings.append({
-                "id": "vars-ref-renamed",
-                "severity": "breaking",
-                "message": (
-                    f"{yaml_file.relative_to(project_root)}: "
-                    f"{{{{ vars.X }}}} was renamed to {{{{ paths.X }}}} in v0.1.8.\n"
-                    f"  Update all {{{{ vars.X }}}} references to {{{{ paths.X }}}}."
-                ),
-                "file": yaml_file,
-            })
+            findings.append(
+                {
+                    "id": "vars-ref-renamed",
+                    "severity": "breaking",
+                    "message": (
+                        f"{yaml_file.relative_to(project_root)}: "
+                        f"{{{{ vars.X }}}} was renamed to {{{{ paths.X }}}} in v0.1.8.\n"
+                        f"  Update all {{{{ vars.X }}}} references to {{{{ paths.X }}}}."
+                    ),
+                    "file": yaml_file,
+                }
+            )
     return findings
 
 
@@ -130,12 +135,13 @@ def _check_card_vars_refs(project_root: Path) -> list[dict]:
 # Apply logic
 # ---------------------------------------------------------------------------
 
+
 def _apply_vars_to_paths(project_root: Path) -> None:
     """Rename cutip/vars.yaml → cutip/paths.yaml."""
     old = project_root / "cutip" / "vars.yaml"
     new = project_root / "cutip" / "paths.yaml"
     old.rename(new)
-    logger.info(f"Renamed: cutip/vars.yaml → cutip/paths.yaml")
+    logger.info("Renamed: cutip/vars.yaml → cutip/paths.yaml")
 
 
 def _apply_missing_backend(project_root: Path, backend: str) -> None:
@@ -175,6 +181,7 @@ def _apply_vars_ref_rename(file_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # CLI command
 # ---------------------------------------------------------------------------
+
 
 @app.callback()
 def upgrade(
@@ -232,9 +239,7 @@ def upgrade(
     console.print(Panel.fit("\n".join(lines), title="cutip upgrade"))
 
     if not apply:
-        console.print(
-            "\nRun [bold]cutip upgrade --apply[/bold] to fix automatically."
-        )
+        console.print("\nRun [bold]cutip upgrade --apply[/bold] to fix automatically.")
         raise typer.Exit(1 if breaking else 0)
 
     # Apply migrations

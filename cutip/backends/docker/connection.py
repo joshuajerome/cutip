@@ -26,8 +26,7 @@ def connect_docker_client():
         import docker
     except ImportError as exc:
         raise CutipError(
-            "The 'docker' package is required for the Docker backend. "
-            "Run: uv pip install docker"
+            "The 'docker' package is required for the Docker backend. Run: uv pip install docker"
         ) from exc
 
     try:
@@ -53,6 +52,7 @@ if __name__ == "__main__":
         python -m cutip.backends.docker.connection
     """
     from cutip.utils.logging import setup_logging
+
     setup_logging(level="DEBUG")
 
     try:

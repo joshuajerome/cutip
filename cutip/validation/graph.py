@@ -36,9 +36,7 @@ class GraphValidator:
         n_cards = len(self.registry.cards)
         n_units = len(self.registry.units)
         n_groups = len(self.registry.groups)
-        logger.info(
-            f"Discovered {n_cards} card(s), {n_units} unit(s), {n_groups} group(s)"
-        )
+        logger.info(f"Discovered {n_cards} card(s), {n_units} unit(s), {n_groups} group(s)")
         logger.info(f"Validating {n_cards} card(s) ...")
         self._validate_units(result)
         logger.info(f"Validating {n_groups} group(s) ...")
@@ -109,8 +107,7 @@ class GraphValidator:
                 workflow_path = group_dir / group.spec.workflow
                 if not workflow_path.is_file():
                     result.add(
-                        f"[WorkflowPath] {group_name}: workflow file not found: "
-                        f"'{workflow_path}'"
+                        f"[WorkflowPath] {group_name}: workflow file not found: '{workflow_path}'"
                     )
                     logger.warning(f"  ✗ {group_name}: workflow not found: '{workflow_path}'")
                 else:

@@ -1,14 +1,18 @@
 name: Release
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
-      - "release/**"
+      - integration
 
 jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +31,9 @@ jobs:
   smoke-test:
     name: Smoke Test
     runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +57,9 @@ jobs:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     env:
       PYTHONUTF8: "1"
@@ -133,6 +143,9 @@ jobs:
     name: E2E Docker · Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     env:
       PYTHONUTF8: "1"
@@ -210,6 +223,9 @@ jobs:
     name: E2E Podman · Windows
     runs-on: windows-latest
     timeout-minutes: 45
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     env:
       PYTHONUTF8: "1"
@@ -309,14 +325,12 @@ jobs:
           uv run cutip validate --path "$env:TEMP\fc-angular"
 
   install-validate-macos:
-    # GitHub Actions free macOS runners report VZErrorDomain Code=2
-    # ("Virtualization is not available on this hardware") — the Apple
-    # Hypervisor Framework is not exposed to runner processes, so podman machine
-    # cannot start. Container runtime E2E is tested locally on a developer Mac
-    # or via a self-hosted runner. This job validates install + schema only.
     name: Install & Validate · macOS
     runs-on: macos-14
     timeout-minutes: 15
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
 
     env:
       PYTHONUTF8: "1"
@@ -361,11 +375,11 @@ jobs:
         with:
           version: "latest"
 
-      - name: Extract version from branch name
+      - name: Extract version from PR head branch
         id: version
         run: |
-          BRANCH="${GITHUB_REF#refs/heads/release/}"
-          VERSION="${BRANCH#v}"
+          BRANCH="${{ github.head_ref }}"
+          VERSION="${BRANCH#release/v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 

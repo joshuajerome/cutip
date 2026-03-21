@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 import yaml
 from typer.testing import CliRunner
 
@@ -25,7 +23,9 @@ def test_desktop_connection_refused(tmp_path):
     config = {"apiVersion": "cutip/v1", "project": {"name": "test-proj"}}
     (tmp_path / "cutip.yaml").write_text(yaml.dump(config))
 
-    result = runner.invoke(app, ["desktop", "--path", str(tmp_path), "--url", "http://localhost:19999"])
+    result = runner.invoke(
+        app, ["desktop", "--path", str(tmp_path), "--url", "http://localhost:19999"]
+    )
     assert result.exit_code != 0
     assert "Could not connect" in result.output
 

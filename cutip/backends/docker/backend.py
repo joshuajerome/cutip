@@ -37,7 +37,7 @@ class DockerBackend(CutipBackend):
     # ── Constructor ───────────────────────────────────────────────────────────
 
     @classmethod
-    def connect(cls) -> "DockerBackend":
+    def connect(cls) -> DockerBackend:
         """Connect to the local Docker daemon and return a backend instance."""
         client = connect_docker_client()
         return cls(client=client)
@@ -55,7 +55,7 @@ class DockerBackend(CutipBackend):
 
     def pull_image(self, card: ImageCard) -> None:
         alias = image_alias(card)
-        ref   = image_ref(card)
+        ref = image_ref(card)
 
         # Idempotent: skip if the alias already exists locally.
         all_tags = {t for img in self._client.images.list() for t in (img.tags or [])}
@@ -89,9 +89,12 @@ class DockerBackend(CutipBackend):
 
         tag = image_alias(card)
         cmd = [
-            "docker", "build",
-            "--tag", tag,
-            "--file", str(context / card.spec.dockerfile),
+            "docker",
+            "build",
+            "--tag",
+            tag,
+            "--file",
+            str(context / card.spec.dockerfile),
         ]
         if no_cache:
             cmd.append("--no-cache")
@@ -137,6 +140,7 @@ class DockerBackend(CutipBackend):
             pass
 
         import ipaddress
+
         import docker.types
 
         network = ipaddress.IPv4Network(card.spec.subnet, strict=False)
@@ -213,8 +217,7 @@ class DockerBackend(CutipBackend):
             kwargs["mounts"] = mounts
         if card.spec.volumes:
             kwargs["volumes"] = {
-                vol: {"bind": path, "mode": "rw"}
-                for vol, path in card.spec.volumes.items()
+                vol: {"bind": path, "mode": "rw"} for vol, path in card.spec.volumes.items()
             }
 
         self._client.containers.create(**kwargs)

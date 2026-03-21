@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from cutip.models.cards.image import ImageCard
 
 
-def image_alias(card: "ImageCard") -> str:
+def image_alias(card: ImageCard) -> str:
     """Canonical local tag for an image card: ``<name>:<tag>``.
 
     This is the tag that backends write after a pull or build so that
@@ -20,7 +20,7 @@ def image_alias(card: "ImageCard") -> str:
     return f"{card.metadata.name}:{card.spec.tag}"
 
 
-def image_ref(card: "ImageCard") -> str:
+def image_ref(card: ImageCard) -> str:
     """Full registry reference: ``<image>:<tag>``.
 
     Example: ``docker.io/library/alpine:3.20``

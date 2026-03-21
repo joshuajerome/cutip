@@ -14,7 +14,7 @@ class NetworkSpec(BaseModel):
     gateway: str | None = None
 
     @model_validator(mode="after")
-    def _validate_network(self) -> "NetworkSpec":
+    def _validate_network(self) -> NetworkSpec:
         try:
             network = ipaddress.IPv4Network(self.subnet, strict=False)
         except ValueError as exc:
@@ -26,9 +26,7 @@ class NetworkSpec(BaseModel):
             except ValueError as exc:
                 raise ValueError(f"'gateway' is not a valid IPv4 address: {self.gateway}") from exc
             if gw not in network:
-                raise ValueError(
-                    f"'gateway' {self.gateway} is not within subnet {self.subnet}"
-                )
+                raise ValueError(f"'gateway' {self.gateway} is not within subnet {self.subnet}")
         return self
 
 

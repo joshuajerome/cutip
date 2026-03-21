@@ -48,9 +48,7 @@ def startup(ctx: CutipContext) -> None:
     )
     logger.info(f"Container logs:\n{logs}")
 
-    assert "CUTIP_OK" in logs, (
-        f"Sentinel 'CUTIP_OK' not found in container logs.\nGot:\n{logs}"
-    )
+    assert "CUTIP_OK" in logs, f"Sentinel 'CUTIP_OK' not found in container logs.\nGot:\n{logs}"
     logger.success("CUTIP_OK confirmed in logs.")
 
     # Cleanup

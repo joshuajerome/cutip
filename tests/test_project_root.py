@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 from cutip.workspace.scaffold import _find_project_root
 
 

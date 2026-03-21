@@ -26,9 +26,7 @@ def startup(ctx: CutipContext) -> None:
         time.sleep(0.5)
     else:
         _cleanup(client)
-        raise RuntimeError(
-            f"cutip-web did not exit within 15 seconds (last status: {web.status})"
-        )
+        raise RuntimeError(f"cutip-web did not exit within 15 seconds (last status: {web.status})")
 
     # Verify web container output
     raw_logs = web.logs(stdout=True, stderr=True)

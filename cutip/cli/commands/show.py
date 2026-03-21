@@ -42,7 +42,7 @@ def show_card(
     """Show a resolved card definition."""
     setup_logging()
     try:
-        registry, resolver, _ = _get_registry_and_resolver(path)
+        _registry, resolver, _ = _get_registry_and_resolver(path)
         card = resolver.resolve(ref)
         _print_yaml(card)
     except (CutipRefError, Exception) as exc:
@@ -88,13 +88,9 @@ def show_unit(
                 network_ref = container_card.spec.networkRef.ref
                 try:
                     network_card: NetworkCard = resolver.resolve_card(network_ref, NetworkCard)
-                    c_branch.add(
-                        f"[bold]NetworkCard:[/bold] [green]{network_card.name}[/green]"
-                    )
+                    c_branch.add(f"[bold]NetworkCard:[/bold] [green]{network_card.name}[/green]")
                 except CutipRefError:
-                    c_branch.add(
-                        f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({network_ref})[/red]"
-                    )
+                    c_branch.add(f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({network_ref})[/red]")
 
         except CutipRefError:
             tree.add(f"[bold]ContainerCard:[/bold] [red]UNRESOLVED ({container_ref})[/red]")
@@ -126,7 +122,9 @@ def show_group(
 
         # Workflow path
         group_source = registry.source_of(f"groups/{name}")
-        group_dir = group_source.parent if group_source else project_root / "cutip" / "groups" / name
+        group_dir = (
+            group_source.parent if group_source else project_root / "cutip" / "groups" / name
+        )
         workflow_path = group_dir / group.spec.workflow
         status = "[green]OK[/green]" if workflow_path.is_file() else "[red]MISSING[/red]"
         tree.add(f"[bold]Workflow:[/bold] {group.spec.workflow} {status}")
@@ -163,9 +161,7 @@ def show_group(
                             net: NetworkCard = resolver.resolve_card(
                                 cc.spec.networkRef.ref, NetworkCard
                             )
-                            cc_branch.add(
-                                f"[bold]NetworkCard:[/bold] [green]{net.name}[/green]"
-                            )
+                            cc_branch.add(f"[bold]NetworkCard:[/bold] [green]{net.name}[/green]")
                         except CutipRefError:
                             cc_branch.add(
                                 f"[bold]NetworkCard:[/bold] [red]UNRESOLVED ({cc.spec.networkRef.ref})[/red]"

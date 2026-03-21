@@ -12,8 +12,7 @@ def _get_api_key() -> str:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not key:
         print(
-            "ERROR: ANTHROPIC_API_KEY not set. "
-            "Set it in your environment or install cutip[ai].",
+            "ERROR: ANTHROPIC_API_KEY not set. Set it in your environment or install cutip[ai].",
             file=sys.stderr,
         )
         sys.exit(1)

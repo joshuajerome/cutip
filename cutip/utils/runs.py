@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import json
 import os
-import sys
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Generator
 
 from cutip.utils.exceptions import CutipError
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def iso_now() -> str:
     """Return the current UTC time as an ISO-8601 string (seconds precision)."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _pid_alive(pid: int) -> bool:
@@ -25,16 +24,17 @@ def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
-        return False   # No such process
+        return False  # No such process
     except PermissionError:
-        return True    # Process exists but we lack permission to signal it
+        return True  # Process exists but we lack permission to signal it
     except OSError:
-        return False   # Catch-all (e.g. Windows quirks)
+        return False  # Catch-all (e.g. Windows quirks)
     else:
         return True
 
 
 # ── Lock ───────────────────────────────────────────────────────────────────────
+
 
 @contextmanager
 def run_lock(locks_dir: Path, group_name: str) -> Generator[None, None, None]:
@@ -72,13 +72,14 @@ def run_lock(locks_dir: Path, group_name: str) -> Generator[None, None, None]:
 
 # ── Run records ────────────────────────────────────────────────────────────────
 
+
 def write_run_record(
     runs_dir: Path,
     *,
     group: str,
     backend: str,
     started_at: str,
-    status: str,          # "success" | "failure"
+    status: str,  # "success" | "failure"
     finished_at: str | None = None,
     error: str | None = None,
 ) -> Path:

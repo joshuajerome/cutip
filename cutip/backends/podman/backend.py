@@ -61,7 +61,7 @@ class PodmanBackend(CutipBackend):
     # ── Constructors ──────────────────────────────────────────────────────────
 
     @classmethod
-    def connect(cls) -> "PodmanBackend":
+    def connect(cls) -> PodmanBackend:
         """Open an SSH port-forward tunnel and return a connected backend.
 
         Reads the default Podman connection from ``podman system connection ls``
@@ -71,9 +71,7 @@ class PodmanBackend(CutipBackend):
         try:
             from podman import PodmanClient
         except ImportError as exc:
-            raise CutipError(
-                "The 'podman' package is required. Run: uv add podman"
-            ) from exc
+            raise CutipError("The 'podman' package is required. Run: uv add podman") from exc
 
         conn = get_default_connection()
         tunnel = open_ssh_tunnel(conn)
@@ -87,22 +85,19 @@ class PodmanBackend(CutipBackend):
         return cls(client=client, tunnel=tunnel)
 
     @classmethod
-    def connect_local(cls) -> "PodmanBackend":
+    def connect_local(cls) -> PodmanBackend:
         """Connect directly to the local Podman socket (CI / ``--local`` mode)."""
         try:
             from podman import PodmanClient
         except ImportError as exc:
-            raise CutipError(
-                "The 'podman' package is required. Run: uv add podman"
-            ) from exc
+            raise CutipError("The 'podman' package is required. Run: uv add podman") from exc
 
         url = local_socket_url()
         client = PodmanClient(base_url=url)
 
         if not client.ping():
             raise CutipError(
-                f"Podman local socket ping failed at {url}. "
-                "Is the Podman socket/service running?"
+                f"Podman local socket ping failed at {url}. Is the Podman socket/service running?"
             )
 
         logger.info(f"Podman connected (local socket: {url}).")
@@ -122,7 +117,7 @@ class PodmanBackend(CutipBackend):
 
     def pull_image(self, card: ImageCard) -> None:
         alias = image_alias(card)
-        ref   = image_ref(card)
+        ref = image_ref(card)
 
         # Idempotent: skip if the alias already exists locally.
         all_tags = {t for img in self._client.images.list() for t in (img.tags or [])}
@@ -158,9 +153,12 @@ class PodmanBackend(CutipBackend):
 
         tag = image_alias(card)
         cmd = [
-            "podman", "build",
-            "--tag", tag,
-            "--file", str(context / card.spec.dockerfile),
+            "podman",
+            "build",
+            "--tag",
+            tag,
+            "--file",
+            str(context / card.spec.dockerfile),
         ]
         if no_cache:
             cmd.append("--no-cache")
@@ -206,6 +204,7 @@ class PodmanBackend(CutipBackend):
             pass
 
         import ipaddress
+
         network = ipaddress.IPv4Network(card.spec.subnet, strict=False)
         gateway = card.spec.gateway or str(next(network.hosts()))
         ipam = {
@@ -286,8 +285,7 @@ class PodmanBackend(CutipBackend):
             kwargs["mounts"] = mounts
         if card.spec.volumes:
             kwargs["volumes"] = {
-                vol: {"bind": path, "mode": "rw"}
-                for vol, path in card.spec.volumes.items()
+                vol: {"bind": path, "mode": "rw"} for vol, path in card.spec.volumes.items()
             }
 
         self._client.containers.create(**kwargs)
