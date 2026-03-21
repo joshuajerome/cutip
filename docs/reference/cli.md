@@ -220,6 +220,46 @@ Connects directly to the local Podman socket. Socket URL is resolved in priority
 
 ---
 
+## `cutip stop`
+
+Gracefully stop all containers in a group.
+
+```shell
+cutip stop <group> [--backend BACKEND] [--local] [--path PATH]
+```
+
+Stops all containers belonging to the group. Containers are stopped in reverse unit order.
+
+---
+
+## `cutip info`
+
+Display version, workspace status, and backend configuration.
+
+```shell
+cutip info [--path PATH]
+```
+
+---
+
+## `cutip from-compose`
+
+Convert an existing `docker-compose.yaml` into a full CUTIP workspace.
+
+```shell
+cutip from-compose <compose-file> [--output-dir DIR]
+```
+
+Generates ImageCards, ContainerCards, NetworkCards, Units, a Group, and a workflow stub. Sensitive environment variables are automatically extracted as `{{ secrets.<key> }}` references.
+
+---
+
+## `cutip compile` (Planned)
+
+Produce a visual representation of the artifact graph. See [Compile Reference](compile.md).
+
+---
+
 ## Global options
 
 | Option | Description |

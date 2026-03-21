@@ -1,7 +1,7 @@
 site_name: CUTIP
 site_description: >
-  Container Unit Templates in Python — a deterministic framework for defining,
-  validating, and orchestrating container environments.
+  Container Unit Templates in Python — an automation tool for defining,
+  validating, and orchestrating containerized workflows.
 site_url: https://joshuajerome.github.io/cutip
 repo_url: https://github.com/joshuajerome/cutip
 repo_name: joshuajerome/cutip
@@ -85,10 +85,13 @@ nav:
     - Cards: concepts/cards.md
     - Units: concepts/units.md
     - Groups: concepts/groups.md
+    - Lifecycle: concepts/lifecycle.md
+    - Annotations: concepts/annotations.md
     - Graph Resolution: concepts/graph-resolution.md
 
   - Reference:
     - CLI: reference/cli.md
+    - Compile: reference/compile.md
     - Workflow Contract: reference/workflow-contract.md
     - Exceptions: reference/exceptions.md
     - Cards:

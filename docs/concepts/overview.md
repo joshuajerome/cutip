@@ -2,14 +2,15 @@
 
 ## Why CUTIP exists
 
-Most container tooling conflates *definition* and *execution*. A `docker-compose.yml` is both a schema and a runtime instruction — there's no clean separation between "what the container looks like" and "what to do with it."
+Most container tooling conflates *definition* and *execution*. A `docker-compose.yml` is both a schema and a runtime instruction --- there is no clean separation between "what the container looks like" and "what to do with it."
 
-CUTIP separates these concerns explicitly:
+CUTIP is an automation tool that separates these concerns explicitly:
 
-- **Cards** — immutable, validated definitions of container resources
-- **Workflow** — arbitrary Python that operates on those definitions at runtime
+- **Cards** --- immutable, validated definitions of container resources
+- **Workflow** --- Python that operates on those definitions at runtime, with optional `@action`/`@orchestrator` annotations for self-describing steps
+- **Lifecycle** --- a three-phase execution model (pre-build, orchestration, post-start) that gives you control over every stage
 
-This means you can validate your entire container graph statically (no daemon, no network) and only contact a runtime when you've verified the graph is correct.
+This means you can validate your entire container graph statically (no daemon, no network) and only contact a runtime when you have verified the graph is correct.
 
 ---
 
@@ -44,9 +45,11 @@ A **Group** collects one or more Units and attaches a Python `workflow.py`. A gr
 
 ### Layer 4: Workflow (Python orchestration)
 
-The workflow is a plain Python file with a single function: `main(ctx: CutipContext)`. CUTIP injects a `CutipContext` that gives the workflow access to all resolved cards, units, the backend handle, and the project root. There is no DSL — just Python.
+The workflow is a Python file with an entry point function: `main(ctx: CutipContext)`. CUTIP injects a `CutipContext` that gives the workflow access to all resolved cards, units, the backend handle, and the project root. There is no DSL --- just Python.
 
-→ [reference/workflow-contract.md](../reference/workflow-contract.md)
+Workflows can optionally use `@action` and `@orchestrator` decorators to make steps self-describing. See [Annotations](annotations.md) for details.
+
+-> [reference/workflow-contract.md](../reference/workflow-contract.md)
 
 ---
 
@@ -60,6 +63,14 @@ Every `cutip run` begins with a full graph validation pass:
 4. **Only then** — the backend is connected and the workflow runs
 
 → [concepts/graph-resolution.md](graph-resolution.md)
+
+---
+
+## Unit lifecycle
+
+Each unit follows a three-phase lifecycle: **pre-build** (generate files and stage build context), **orchestration** (start containers and run health checks), and **post-start** (verify the deployment is healthy). This lifecycle is the core of CUTIP's automation model.
+
+-> [concepts/lifecycle.md](lifecycle.md)
 
 ---
 

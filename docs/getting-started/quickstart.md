@@ -167,7 +167,9 @@ Plan for group: dev
 
 ## Next steps
 
-- [Workspace layout](workspace-layout.md) — understand the full directory structure
-- [Concepts: Cards](../concepts/cards.md) — the full card type system
-- [Reference: CLI](../reference/cli.md) — all commands and flags
-- [Guides: Writing workflows](../guides/workflows/writing-workflows.md) — patterns and best practices
+- [Workspace layout](workspace-layout.md) --- understand the full directory structure
+- [Concepts: Cards](../concepts/cards.md) --- the full card type system
+- [Concepts: Lifecycle](../concepts/lifecycle.md) --- the three-phase unit lifecycle (pre-build, orchestration, post-start)
+- [Concepts: Annotations](../concepts/annotations.md) --- `@action` and `@orchestrator` decorators
+- [Reference: CLI](../reference/cli.md) --- all commands and flags
+- [Guides: Writing workflows](../guides/workflows/writing-workflows.md) --- patterns and best practices
