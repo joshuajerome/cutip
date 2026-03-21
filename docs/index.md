@@ -5,9 +5,9 @@
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
 [![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-892ca0)](getting-started/installation.md)
 
-**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
+**Container Unit Templates in Python** — an automation tool for defining, validating, and orchestrating containerized workflows using structured YAML artifacts and Python.
 
-CUTIP is not a wrapper around `docker-compose`. It is an opinionated engineering layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function.
+CUTIP is not a wrapper around `docker-compose`. It is an opinionated automation layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function. You define the structure in YAML, write the orchestration in Python, and CUTIP handles the lifecycle --- from pre-build file generation through container startup to post-deployment verification.
 
 ---
 
@@ -25,7 +25,7 @@ NetworkCard ─┘──▶  ContainerCard  ──▶  Unit  ──▶  Group  �
 | **Card** | One atomic container resource (image, network, or container configuration) |
 | **Unit** | One running container instance — a ContainerCard reference |
 | **Group** | A collection of Units + a Python `workflow.py` — the executable artifact |
-| **Workflow** | A plain Python function `main(ctx: CutipContext)` — full control, no magic |
+| **Workflow** | A Python function `main(ctx: CutipContext)` with optional `@action`/`@orchestrator` annotations --- full control, no magic |
 
 Every artifact is a versioned YAML file. Every ref is validated before any backend is contacted.
 

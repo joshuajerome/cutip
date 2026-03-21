@@ -1,8 +1,8 @@
 # Workflow Contract
 
-A CUTIP workflow is a plain Python file (`workflow.py`) containing exactly one function: `main(ctx: CutipContext)`. CUTIP discovers and imports this file dynamically at runtime and calls `main(ctx)`.
+A CUTIP workflow is a Python file (`workflow.py`) with an entry point function `main(ctx: CutipContext)`. CUTIP discovers and imports this file dynamically at runtime and calls `main(ctx)`.
 
-There is no base class to inherit, no decorator to apply, no registration step. If the file exists and exports `main`, it runs.
+There is no base class to inherit, no registration step. If the file exists and exports `main`, it runs. Workflows can optionally use `@action` and `@orchestrator` decorators to add structured metadata for introspection and planning --- see [Annotations](../concepts/annotations.md).
 
 ---
 

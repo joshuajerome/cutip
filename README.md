@@ -7,188 +7,37 @@
 [![CI](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml/badge.svg)](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-github%20pages-0969da)](https://joshuajerome.github.io/cutip)
 
-**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments using structured YAML artifacts and Python workflows.
-
-CUTIP is not a replacement for `docker-compose`. It is designed for a different use case: environments where the startup sequence is imperative, not declarative.
+An automation tool for containerized workflows with deterministic Python hooks
+at every stage of a container's lifecycle. Define infrastructure as structured
+YAML cards, wire them into units and groups, then orchestrate with plain Python.
 
 | | docker-compose | CUTIP |
 |---|---|---|
-| **Startup ordering** | `depends_on` with condition polling | Python loop — exec into container, branch on result |
-| **Post-start hooks** | None native | `startup(ctx)` per unit — full container API |
-| **Pre-build file staging** | None | `pre_build(ctx)` — generate config, copy deps before build |
-| **Config variables** | `.env` flat substitution | `paths.yaml` + `secrets.yaml` with required/generated sections + fail-fast validation |
-| **Validation** | Runtime only | Static graph validation — no backend required |
+| **Startup ordering** | `depends_on` with condition polling | Python loop -- exec into container, branch on result |
+| **Post-start hooks** | None native | `startup(ctx)` per unit -- full container API |
+| **Pre-build file staging** | None | `pre_build(ctx)` -- generate config, copy deps before build |
+| **Config variables** | `.env` flat substitution | `paths.yaml` + `secrets.yaml` with fail-fast validation |
+| **Validation** | Runtime only | Static graph validation -- no backend required |
 | **Orchestration logic** | Shell scripts outside compose | First-class Python in `workflow.py` |
-| **Migration from compose** | — | `cutip from-compose` — convert any compose file to a CUTIP workspace |
-
-> **[When to use each →](https://joshuajerome.github.io/cutip/getting-started/why-cutip/)**
-
----
-
-## The Model
-
-Container infrastructure is organized into four composable layers:
-
-```
-ImageCard   ─┐
-NetworkCard ─┘──▶  ContainerCard  ──▶  Unit  ──▶  Group  ──▶  workflow.py
-```
-
-| Layer | What it represents |
-|---|---|
-| **Card** | One atomic container resource (image, network, or container configuration) |
-| **Unit** | One running container instance — a ContainerCard reference |
-| **Group** | A collection of Units + a Python `workflow.py` — the executable artifact |
-| **Workflow** | A plain Python function `main(ctx: CutipContext)` — full control, no magic |
-
-Every artifact is a versioned YAML file. Every ref is validated before any backend is contacted.
-
----
+| **Migration from compose** | -- | `cutip from-compose` converts any compose file |
 
 ## Install
 
 ```shell
 pip install cutip
-cutip --help
 ```
 
-> **Contributing?** Clone the repo and use `uv pip install -e .` for an editable install — see the [installation guide](https://joshuajerome.github.io/cutip/getting-started/installation/).
-
-> [!NOTE]
-> `cutip init`, `cutip from-compose`, `cutip tree`, `cutip validate`, `cutip show`, and `cutip plan` run without any container runtime installed. Only `cutip run` requires a container backend (Podman or Docker).
-
----
-
-## Quick Look
-
-```yaml
-# cutip/cards/images/app.yaml
-apiVersion: cutip/v1
-kind: ImageCard
-metadata:
-  name: app
-spec:
-  source: build
-  context: resources/buildtime
-  dockerfile: resources/dockerfiles/app.dockerfile
-  tag: latest
-```
-
-```yaml
-# cutip/cards/containers/app.yaml
-apiVersion: cutip/v1
-kind: ContainerCard
-metadata:
-  name: app
-spec:
-  imageRef:
-    ref: images/app
-  networkRef:
-    ref: networks/dev
-  environment:
-    ENV: production
-  workdir: /app
-```
-
-```python
-# cutip/groups/dev/workflow.py
-def main(ctx):
-    ctx.container("app").start()
-```
+## Getting Started
 
 ```shell
+cutip init
 cutip validate
-cutip plan dev
-cutip run dev
+cutip run hello-world
 ```
-
----
-
-## CLI
-
-### Workflow
-
-| Command | Description |
-|---|---|
-| `cutip init [--path]` | Scaffold workspace directories and `cutip.yaml` |
-| `cutip from-compose <file> [--output-dir]` | Convert a `docker-compose.yaml` into a CUTIP workspace |
-| `cutip plan <group> [--path]` | Dry-run: print execution table, start nothing |
-| `cutip run <group> [-b backend] [--local] [--path]` | Validate → connect → execute workflow |
-
-### Inspect
-
-| Command | Description |
-|---|---|
-| `cutip tree [--path]` | Print discovered cards, units, and groups |
-| `cutip validate [--path]` | Full schema + graph validation (no backend required) |
-| `cutip show card <ref>` | Dump a resolved card as YAML |
-| `cutip show unit <name>` | Show a unit's resolved card graph |
-| `cutip show group <name>` | Show a group's units and workflow status |
-| `cutip group ls` / `cutip unit ls` / `cutip card ls` | List workspace artifacts |
-
-### Configuration
-
-| Command | Description |
-|---|---|
-| `cutip secrets set <key> <value>` | Set a secret in `cutip/secrets.yaml` |
-| `cutip secrets list` | List secret keys (values masked) |
-| `cutip secrets check` | Validate all `{{ secrets.key }}` refs are defined and non-empty |
-| `cutip upgrade [--apply]` | Detect and apply workspace migrations for newer CUTIP versions |
-
-### AI & Issues
-
-| Command | Description |
-|---|---|
-| `cutip issue create -t "title"` | Create a local issue YAML from template |
-| `cutip issue list` | List local issues with status |
-| `cutip issue push <slug>` | Push issue to GitHub via `gh` CLI |
-| `cutip issue diagnose <slug>` | Run Claude diagnosis locally (requires `ANTHROPIC_API_KEY`) |
-| `cutip issue fix <slug>` | Generate fix locally (requires `ANTHROPIC_API_KEY`) |
-
-> [!NOTE]
-> AI commands require the optional `anthropic` dependency: `pip install cutip[ai]`
-> Set `ANTHROPIC_API_KEY` in your environment. For `cutip issue push`, run `gh auth login` first.
-
-`cutip run` uses Docker by default. Pass `--backend podman` (or set `CUTIP_BACKEND=podman`) to use Podman instead. Set `project.backend` in `cutip.yaml` to persist the choice. Pass `--local` for direct socket connection (CI / rootless setups).
-
----
-
-## paths.yaml + secrets.yaml
-
-Workspace configuration is split into two files:
-
-**`cutip/paths.yaml`** — filesystem paths (safe to sync):
-```yaml
-required:
-  my_repo: ""           # must be filled in — cutip fails fast if empty
-
-generated:
-  data_dir: ".my-data"  # cutip creates this directory automatically
-```
-
-**`cutip/secrets.yaml`** — sensitive values (never synced, always gitignored):
-```yaml
-required:
-  ssh_private_key: ""   # passwords, tokens, keys
-  db_password: ""
-```
-
-CUTIP validates all `{{ paths.key }}` and `{{ secrets.key }}` references in cards before any container backend is contacted — missing or empty required values surface as a clear error, not a runtime failure.
-
----
 
 ## Documentation
 
-Full documentation at **[joshuajerome.github.io/cutip](https://joshuajerome.github.io/cutip)**
-
-| Section | Contents |
-|---|---|
-| [Getting Started](https://joshuajerome.github.io/cutip/getting-started/installation/) | Installation, quickstart, workspace layout |
-| [Concepts](https://joshuajerome.github.io/cutip/concepts/overview/) | The 4-layer model, cards, units, groups, graph resolution |
-| [Reference](https://joshuajerome.github.io/cutip/reference/cli/) | CLI flags, card schemas, workflow contract, exceptions |
-| [Guides](https://joshuajerome.github.io/cutip/guides/runtimes/podman/) | Podman/Docker setup, writing workflows, CI/CD |
-
----
+**[joshuajerome.github.io/cutip](https://joshuajerome.github.io/cutip)**
 
 ## License
 
