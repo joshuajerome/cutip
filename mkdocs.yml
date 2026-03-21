@@ -9,21 +9,24 @@ edit_uri: edit/integration/docs/
 
 docs_dir: docs
 
+extra_css:
+  - stylesheets/cutip.css
+
 theme:
   name: material
   palette:
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Dark mode
     - scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
   features:
     - navigation.tabs           # top sections render as header tabs
     - navigation.sections       # subsections shown as groups in the sidebar
@@ -91,6 +94,7 @@ nav:
     - CLI: reference/cli.md
     - Workflow Contract: reference/workflow-contract.md
     - Exceptions: reference/exceptions.md
+    - Design Tokens: reference/themes.md
     - Cards:
       - ImageCard: reference/cards/image-card.md
       - ContainerCard: reference/cards/container-card.md
