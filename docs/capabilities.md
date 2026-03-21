@@ -64,6 +64,7 @@ commit messages, and PR titles.
 | cap054 | cutip export/import for portable group archives                 | feat | merged | feat/cap054-import-export             | #108 | 2026-03-21 |
 | cap055 | Hello-world scaffold rewrite + --blank flag                     | feat | merged | feat/cap055-hello-world-scaffold      | #109 | 2026-03-21 |
 | cap056 | Optional config.yaml support in CutipContext                    | feat | merged | feat/cap056-project-config            | #110 | 2026-03-21 |
+| cap057 | Validate orchestrator.py alongside workflow.py                  | bug  | merged | bug/cap057-validate-orchestrator      | #113 | 2026-03-21 |
 
 ## ID Assignment
 
