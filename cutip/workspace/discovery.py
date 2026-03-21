@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from loguru import logger
@@ -41,7 +42,20 @@ class WorkspaceDiscovery:
             f"{len(registry.units)} unit(s), "
             f"{len(registry.groups)} group(s)."
         )
+        self._update_completion_cache(registry)
         return registry
+
+    def _update_completion_cache(self, registry: CutipRegistry) -> None:
+        """Write group names to .cutip/cache/groups.json for fast tab completion."""
+        try:
+            cache_dir = self.project_root / ".cutip" / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file = cache_dir / "groups.json"
+            cache_file.write_text(
+                json.dumps(sorted(registry.groups.keys())), encoding="utf-8"
+            )
+        except Exception:
+            pass  # completion cache is best-effort
 
     def _load_file(self, path: Path, registry: CutipRegistry) -> None:
         try:

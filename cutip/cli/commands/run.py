@@ -74,9 +74,19 @@ def _resolve_group_name(name: str, registry) -> str:
 
 
 def _complete_group_name(incomplete: str) -> list[str]:
-    """Return group names that match *incomplete* (used by shell completion)."""
+    """Return group names that match *incomplete* (used by shell completion).
+
+    Reads from .cutip/cache/groups.json for speed, falling back to full
+    workspace discovery if the cache is missing or stale.
+    """
+    import json
+
     try:
         project_root = _find_project_root()
+        cache_file = project_root / ".cutip" / "cache" / "groups.json"
+        if cache_file.is_file():
+            group_names = json.loads(cache_file.read_text(encoding="utf-8"))
+            return _match_group_name(incomplete, group_names)
         registry = WorkspaceDiscovery(project_root).discover()
         return _match_group_name(incomplete, list(registry.groups))
     except Exception:
