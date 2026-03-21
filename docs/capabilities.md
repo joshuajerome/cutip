@@ -50,6 +50,8 @@ commit messages, and PR titles.
 | cap040 | Timestamped log files with retention                            | feat | merged | feat/cap040-timestamped-logs          | #86 | 2026-03-19 |
 | cap041 | Default bridge network when no networkRef or network_mode set  | feat | merged | feat/cap041-default-bridge-network    | #87 | 2026-03-19 |
 | cap042 | Build-time network mode for image builds                       | feat | merged | feat/cap042-build-network-mode        | #89 | 2026-03-19 |
+| cap043 | Semantic versioning convention                                 | feat | merged | feat/cap043-semver-convention          | #92 | 2026-03-21 |
+| cap044 | ruff linter/formatter + ty type checker                        | feat | merged | feat/cap044-ruff-ty                   | #91 | 2026-03-21 |
 
 ## ID Assignment
 
