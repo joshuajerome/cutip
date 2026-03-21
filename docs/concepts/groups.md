@@ -57,14 +57,16 @@ cutip run staging
 
 ## The workflow contract
 
-The attached `workflow.py` must export a single function:
+The attached `workflow.py` must export an entry point function:
 
 ```python
 def main(ctx: CutipContext) -> None:
     ...
 ```
 
-CUTIP dynamically imports the file, calls `main(ctx)`, and propagates any exception as a `CutipWorkflowError`.
+CUTIP dynamically imports the file, calls `main(ctx)`, and propagates any exception as a `CutipWorkflowError`. Workflows can use `@action` and `@orchestrator` decorators for self-describing steps --- see [Annotations](annotations.md).
+
+The workflow runs as Phase 2 of the unit lifecycle (pre-build -> orchestration -> post-start). See [Lifecycle](lifecycle.md) for the full execution model.
 
 Full reference: [Workflow Contract](../reference/workflow-contract.md)
 

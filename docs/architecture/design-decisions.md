@@ -28,7 +28,7 @@ Several container orchestration tools (Pulumi, CDK for Terraform) use a Python D
 
 ---
 
-## Why `main(ctx)` instead of a class or decorator
+## Why `main(ctx)` with optional decorators
 
 A simple function contract is harder to break than a framework interface. It has one entry point, one argument, and returns nothing. This makes workflows trivially testable:
 
@@ -44,6 +44,8 @@ ctx.runtime.create_container.assert_called_once()
 ```
 
 Compare this to a base class that requires `super().__init__()`, registering methods, or implementing abstract properties.
+
+The `@action` and `@orchestrator` decorators layer metadata on top of this contract without changing it. A decorated function executes identically to an undecorated one --- the decorators exist purely for introspection, planning output, and tooling. This means you can adopt them incrementally: start with a plain `main(ctx)`, add `@action` when your workflow grows complex enough to benefit from named steps.
 
 ---
 

@@ -1,6 +1,6 @@
 # Guide: Writing Workflows
 
-A CUTIP workflow is a plain Python file with a single function. There is no DSL, no base class, no decorator — just:
+A CUTIP workflow is a Python file with a single entry point. There is no DSL, no base class --- just:
 
 ```python
 def main(ctx):
@@ -8,6 +8,8 @@ def main(ctx):
 ```
 
 CUTIP injects a fully-populated `CutipContext` and calls your function. What happens next is entirely up to you.
+
+For larger workflows, you can use `@action` and `@orchestrator` decorators to make steps self-describing --- see [Annotations](../../concepts/annotations.md). For the lifecycle context (pre-build, orchestration, post-start), see [Lifecycle](../../concepts/lifecycle.md).
 
 ---
 
