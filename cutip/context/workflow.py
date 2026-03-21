@@ -29,6 +29,9 @@ class CutipContext:
                         Safe to sync via ``cutip push``.  Empty dict if absent.
         secrets:        Sensitive values loaded from ``cutip/secrets.yaml``.
                         Never synced, always gitignored.  Empty dict if absent.
+        config:         Project configuration loaded from ``config.yaml``
+                        (path set in ``cutip.yaml`` under ``project.config``).
+                        Empty dict if absent.
     """
 
     group: Group
@@ -39,6 +42,7 @@ class CutipContext:
     runtime: Any = None
     paths: dict = field(default_factory=dict)
     secrets: dict = field(default_factory=dict)
+    config: dict = field(default_factory=dict)
 
     def container(self, name: str):
         """Return the live container object for the given container name.

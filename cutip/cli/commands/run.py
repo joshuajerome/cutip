@@ -200,6 +200,35 @@ def _load_secrets(project_root: Path) -> dict:
     return flat
 
 
+def _load_config(project_root: Path) -> dict:
+    """Load optional ``config.yaml`` referenced by ``cutip.yaml``.
+
+    Returns an empty dict if no config path is set or file doesn't exist.
+    """
+    import yaml as _yaml
+
+    cutip_yaml = project_root / "cutip.yaml"
+    if not cutip_yaml.exists():
+        return {}
+
+    data = _yaml.safe_load(cutip_yaml.read_text(encoding="utf-8")) or {}
+    config_path_str = (data.get("project") or {}).get("config")
+    if not config_path_str:
+        return {}
+
+    config_path = project_root / config_path_str
+    if not config_path.is_file():
+        logger.debug(f"Config file '{config_path}' not found — skipping")
+        return {}
+
+    config = _yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(config, dict):
+        raise CutipError(f"Config file '{config_path}' must be a YAML mapping")
+
+    logger.debug(f"Loaded project config from {config_path}")
+    return config
+
+
 def _resolve_refs_in_str(text: str, paths: dict, secrets: dict) -> str:
     """Resolve ``{{ paths.key }}`` and ``{{ secrets.key }}`` placeholders in *text*.
 
@@ -345,6 +374,7 @@ def _build_context(
     runtime=None,
     paths: dict | None = None,
     secrets: dict | None = None,
+    config: dict | None = None,
 ) -> CutipContext:
     """Assemble a CutipContext for the given group."""
     group = registry.get_group(group_name)
@@ -381,6 +411,7 @@ def _build_context(
         runtime=runtime,
         paths=paths or {},
         secrets=secrets or {},
+        config=config or {},
     )
 
 
@@ -747,6 +778,7 @@ def run(
 
     project_paths, generated_keys = _load_paths(project_root)
     project_secrets = _load_secrets(project_root)
+    project_config = _load_config(project_root)
 
     # Create generated directories before any lifecycle step so they exist
     # when create_host_path mounts try to create sub-directories inside them.
@@ -761,6 +793,7 @@ def run(
                 runtime=_backend.client,
                 paths=project_paths,
                 secrets=project_secrets,
+                config=project_config,
             )
 
             # Validate all {{ paths.X }} / {{ secrets.X }} references
