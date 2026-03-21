@@ -8,6 +8,7 @@ import typer
 import yaml
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 from cutip.workspace.scaffold import _find_project_root
 
@@ -17,7 +18,7 @@ app = typer.Typer()
 
 @app.callback(invoke_without_command=True)
 def info() -> None:
-    """Show CUTIP version, active workspace, and backend info."""
+    """Show CUTIP version, active workspace, backend info, and discovered artifacts."""
     ver = _pkg_version("cutip")
     lines = [f"[bold]Version[/bold]: {ver}"]
 
@@ -43,10 +44,10 @@ def info() -> None:
 
     # Available backends
     available = []
-    for name, mod in [("docker", "docker"), ("podman", "podman")]:
+    for be_name, mod in [("docker", "docker"), ("podman", "podman")]:
         try:
             __import__(mod)
-            available.append(name)
+            available.append(be_name)
         except ImportError:
             pass
 
@@ -55,6 +56,25 @@ def info() -> None:
     else:
         lines.append("[bold]Available backends[/bold]: [yellow]none installed[/yellow]")
 
+    # Discover artifacts
+    cutip_dir = project_root / "cutip"
+    if cutip_dir.is_dir():
+        try:
+            from cutip.workspace.discovery import WorkspaceDiscovery
+
+            registry = WorkspaceDiscovery(project_root).discover()
+            lines.append("")
+            lines.append(
+                f"[bold]Artifacts[/bold]: "
+                f"{len(registry.groups)} group(s), "
+                f"{len(registry.units)} unit(s), "
+                f"{len(registry.cards)} card(s)"
+            )
+            if registry.groups:
+                lines.append(f"[bold]Groups[/bold]: {', '.join(sorted(registry.groups.keys()))}")
+        except Exception:
+            pass
+
     console.print(
         Panel.fit(
             "\n".join(lines),
@@ -62,3 +82,35 @@ def info() -> None:
             border_style="blue",
         )
     )
+
+    # Per-unit hook status table
+    if cutip_dir.is_dir():
+        try:
+            from cutip.workspace.discovery import WorkspaceDiscovery
+
+            registry = WorkspaceDiscovery(project_root).discover()
+            if registry.units:
+                table = Table(title="Unit Hook Status", show_lines=True)
+                table.add_column("Unit", style="bold")
+                table.add_column("prehook.py")
+                table.add_column("workflow.py")
+                table.add_column("posthook.py")
+                table.add_column("startup.py", style="dim")
+
+                for unit_name in sorted(registry.units):
+                    unit_source = registry.source_of(f"units/{unit_name}")
+                    if unit_source:
+                        unit_dir = unit_source.parent
+                    else:
+                        unit_dir = cutip_dir / "units" / unit_name
+
+                    row = [unit_name]
+                    for hook_file in ("prehook.py", "workflow.py", "posthook.py", "startup.py"):
+                        exists = (unit_dir / hook_file).is_file()
+                        row.append("[green]yes[/green]" if exists else "[dim]—[/dim]")
+                    table.add_row(*row)
+
+                console.print()
+                console.print(table)
+        except Exception:
+            pass
