@@ -1,8 +1,0 @@
-apiVersion: cutip/v1
-kind: ImageCard
-metadata:
-  name: db
-spec:
-  source: pull
-  image: docker.io/library/postgres
-  tag: "16"
