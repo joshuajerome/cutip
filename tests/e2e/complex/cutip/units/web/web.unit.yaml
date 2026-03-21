@@ -1,7 +1,0 @@
-apiVersion: cutip/v1
-kind: Unit
-metadata:
-  name: web
-spec:
-  containerRef:
-    ref: containers/cutip-web

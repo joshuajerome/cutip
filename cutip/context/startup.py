@@ -10,60 +10,44 @@ from cutip.utils.exceptions import CutipWorkflowError
 from cutip.workspace.registry import CutipRegistry
 
 
-class UnitStartupLoader:
-    """Dynamically imports a unit's ``startup.py`` and calls its hooks.
+class UnitHookLoader:
+    """Dynamically imports a unit's hook files and calls their entry points.
 
-    ``startup.py`` lives alongside the unit's YAML file::
+    Hook resolution order per unit:
 
-        cutip/units/<project-name>/startup.py
+    **Prehook** (before image build):
+        1. ``unit.spec.hooks.prehook`` (explicit filename from YAML)
+        2. ``prehook.py`` in the unit directory
+        3. ``startup.py`` with ``pre_build(ctx)`` (legacy fallback, deprecation warning)
 
-    Two optional hooks are supported:
+    **Posthook** (after orchestration):
+        1. ``unit.spec.hooks.posthook`` (explicit filename from YAML)
+        2. ``posthook.py`` in the unit directory
+        3. ``startup.py`` with ``startup(ctx)`` (legacy fallback, deprecation warning)
 
-    ``pre_build(ctx)``
-        Called *before* that unit's image is built or pulled.  Use this to
-        stage files into the build context — e.g. resolving local npm
-        ``file:`` dependencies that must be present when ``podman build`` runs.
-        CUTIP calls this per-unit in declaration order before any images are
-        built.
-
-    ``startup(ctx)``
-        Called *after* the group's ``workflow.main(ctx)`` returns.  Use this
-        for post-start tasks: health checks, printing connection instructions,
-        running initialization commands via exec, etc.
-
-    Either hook is silently skipped when ``startup.py`` is absent or when the
-    file does not define the corresponding function.
+    All hooks are silently skipped when the file or function does not exist.
     """
 
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
         self._module_cache: dict[str, tuple[ModuleType, Path]] = {}
 
-    def _startup_path(self, unit: Unit, registry: CutipRegistry) -> Path | None:
-        """Return the path to startup.py for *unit*, or None if it doesn't exist.
-
-        The loader first tries the path registered in the registry (next to the
-        unit YAML), then falls back to the conventional location::
-
-            <project_root>/cutip/units/<unit-name>/startup.py
-        """
+    def _unit_dir(self, unit: Unit, registry: CutipRegistry) -> Path:
+        """Return the directory containing the unit's YAML and hook files."""
         unit_source = registry.source_of(f"units/{unit.name}")
         if unit_source is not None:
-            candidate = unit_source.parent / "startup.py"
-        else:
-            candidate = self.project_root / "cutip" / "units" / unit.name / "startup.py"
+            return unit_source.parent
+        return self.project_root / "cutip" / "units" / unit.name
 
-        return candidate if candidate.is_file() else None
+    def _load_module(self, name: str, file_path: Path) -> ModuleType:
+        """Import a Python file (cached by name)."""
+        if name in self._module_cache:
+            return self._module_cache[name][0]
 
-    def _load_module(self, unit: Unit, startup_path: Path) -> ModuleType:
-        """Import startup.py (cached per unit name)."""
-        if unit.name in self._module_cache:
-            return self._module_cache[unit.name][0]
-
-        module_name = f"cutip._startup_{unit.name}"
-        spec = importlib.util.spec_from_file_location(module_name, startup_path)
+        module_name = f"cutip._hook_{name}"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
         if spec is None or spec.loader is None:
-            raise CutipWorkflowError(f"Could not create module spec from '{startup_path}'")
+            raise CutipWorkflowError(f"Could not create module spec from '{file_path}'")
 
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
@@ -71,63 +55,111 @@ class UnitStartupLoader:
         try:
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as exc:
-            raise CutipWorkflowError(f"Error loading startup '{startup_path}': {exc}") from exc
+            raise CutipWorkflowError(f"Error loading hook '{file_path}': {exc}") from exc
 
-        self._module_cache[unit.name] = (module, startup_path)
+        self._module_cache[name] = (module, file_path)
         return module
 
-    def run_pre_build(self, unit: Unit, ctx, registry: CutipRegistry) -> None:
-        """Call ``pre_build(ctx)`` for *unit* if ``startup.py`` defines it.
+    def run_prehook(self, unit: Unit, ctx, registry: CutipRegistry) -> None:
+        """Run the prehook for a unit (before image build).
 
-        Silently returns when:
-        - ``startup.py`` is not found next to the unit YAML
-        - the file exists but does not define a ``pre_build()`` function
-
-        Raises :class:`~cutip.utils.exceptions.CutipWorkflowError` on any
-        exception raised inside ``pre_build()``.
+        Resolution order:
+        1. unit.spec.hooks.prehook → explicit file
+        2. prehook.py → main(ctx)
+        3. startup.py → pre_build(ctx) (legacy)
         """
         from loguru import logger
 
-        startup_path = self._startup_path(unit, registry)
-        if startup_path is None:
+        unit_dir = self._unit_dir(unit, registry)
+
+        # 1. Explicit hook from YAML
+        if unit.spec.hooks.prehook:
+            hook_path = unit_dir / unit.spec.hooks.prehook
+            if hook_path.is_file():
+                module = self._load_module(f"{unit.name}_prehook", hook_path)
+                self._call(module, "main", unit.name, "prehook", hook_path)
+                return
+
+        # 2. Convention: prehook.py
+        prehook_path = unit_dir / "prehook.py"
+        if prehook_path.is_file():
+            module = self._load_module(f"{unit.name}_prehook", prehook_path)
+            self._call(module, "main", unit.name, "prehook", prehook_path, ctx=ctx)
             return
 
-        module = self._load_module(unit, startup_path)
+        # 3. Legacy: startup.py → pre_build(ctx)
+        startup_path = unit_dir / "startup.py"
+        if startup_path.is_file():
+            module = self._load_module(f"{unit.name}_startup", startup_path)
+            if hasattr(module, "pre_build"):
+                logger.warning(
+                    f"Unit '{unit.name}': startup.py pre_build() is deprecated. "
+                    f"Use prehook.py with main(ctx) instead."
+                )
+                self._call(
+                    module, "pre_build", unit.name, "pre_build (legacy)", startup_path, ctx=ctx
+                )
 
-        if not hasattr(module, "pre_build"):
-            return
+    def run_posthook(self, unit: Unit, ctx, registry: CutipRegistry) -> None:
+        """Run the posthook for a unit (after orchestration).
 
-        logger.info(f"Running pre_build for unit '{unit.name}' ...")
-        try:
-            module.pre_build(ctx)
-        except Exception as exc:
-            raise CutipWorkflowError(f"Error in pre_build '{startup_path}': {exc}") from exc
-
-    def run(self, unit: Unit, ctx, registry: CutipRegistry) -> None:
-        """Call ``startup(ctx)`` for *unit* if ``startup.py`` exists and defines it.
-
-        Silently returns when:
-        - ``startup.py`` is not found next to the unit YAML
-        - the file exists but does not define a ``startup()`` function
-
-        Raises :class:`~cutip.utils.exceptions.CutipWorkflowError` on any
-        exception raised inside ``startup()``.
+        Resolution order:
+        1. unit.spec.hooks.posthook → explicit file
+        2. posthook.py → main(ctx)
+        3. startup.py → startup(ctx) (legacy)
         """
         from loguru import logger
 
-        startup_path = self._startup_path(unit, registry)
-        if startup_path is None:
-            logger.debug(f"No startup.py for unit '{unit.name}' — skipping.")
+        unit_dir = self._unit_dir(unit, registry)
+
+        # 1. Explicit hook from YAML
+        if unit.spec.hooks.posthook:
+            hook_path = unit_dir / unit.spec.hooks.posthook
+            if hook_path.is_file():
+                module = self._load_module(f"{unit.name}_posthook", hook_path)
+                self._call(module, "main", unit.name, "posthook", hook_path, ctx=ctx)
+                return
+
+        # 2. Convention: posthook.py
+        posthook_path = unit_dir / "posthook.py"
+        if posthook_path.is_file():
+            module = self._load_module(f"{unit.name}_posthook", posthook_path)
+            self._call(module, "main", unit.name, "posthook", posthook_path, ctx=ctx)
             return
 
-        module = self._load_module(unit, startup_path)
+        # 3. Legacy: startup.py → startup(ctx)
+        startup_path = unit_dir / "startup.py"
+        if startup_path.is_file():
+            module = self._load_module(f"{unit.name}_startup", startup_path)
+            if hasattr(module, "startup"):
+                logger.warning(
+                    f"Unit '{unit.name}': startup.py startup() is deprecated. "
+                    f"Use posthook.py with main(ctx) instead."
+                )
+                self._call(module, "startup", unit.name, "startup (legacy)", startup_path, ctx=ctx)
 
-        if not hasattr(module, "startup"):
-            logger.debug(f"startup.py for unit '{unit.name}' has no startup() — skipping.")
+    def _call(
+        self,
+        module: ModuleType,
+        func_name: str,
+        unit_name: str,
+        label: str,
+        file_path: Path,
+        ctx=None,
+    ) -> None:
+        """Call a function on a module, passing ctx if accepted."""
+        from loguru import logger
+
+        fn = getattr(module, func_name, None)
+        if fn is None:
             return
 
-        logger.info(f"Running startup for unit '{unit.name}' ...")
+        logger.info(f"Running {label} for unit '{unit_name}' ...")
         try:
-            module.startup(ctx)
+            fn(ctx)
         except Exception as exc:
-            raise CutipWorkflowError(f"Error in startup '{startup_path}': {exc}") from exc
+            raise CutipWorkflowError(f"Error in {label} '{file_path}': {exc}") from exc
+
+
+# Backward-compatible alias
+UnitStartupLoader = UnitHookLoader

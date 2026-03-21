@@ -1,4 +1,0 @@
-apiVersion: cutip/v1
-project:
-  name: complex-e2e
-  version: 0.1.0
