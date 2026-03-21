@@ -19,8 +19,8 @@ from cutip.workspace.scaffold import _find_project_root
 console = Console()
 
 
-def plan(
-    group_name: str = typer.Argument(..., help="Name of the group to plan"),
+def preview(
+    group_name: str = typer.Argument(..., help="Name of the group to preview"),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
     """Dry-run: show what cutip run would execute for a group."""

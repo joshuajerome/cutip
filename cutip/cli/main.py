@@ -8,13 +8,15 @@ from pathlib import Path
 
 import typer
 
+from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
+from cutip.cli.commands.create import app as create_app
 from cutip.cli.commands.desktop import desktop
 from cutip.cli.commands.info import app as info_app
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
-from cutip.cli.commands.plan import plan
+from cutip.cli.commands.plan import preview
 from cutip.cli.commands.run import run
 from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
@@ -57,7 +59,7 @@ def _backend_status() -> str:
 
 _EPILOG = (
     "[bold]Getting Started[/bold]: "
-    "cutip init · cutip from-compose FILE · cutip validate · cutip run GROUP\n\n"
+    "cutip init · cutip from-compose FILE · cutip validate · cutip preview GROUP · cutip run GROUP\n\n"
     "[bold]Updating[/bold]: "
     "pip install --upgrade cutip · cutip upgrade --apply\n\n"
     "[bold]AI Issues[/bold] (requires cutip\\[ai]): "
@@ -229,11 +231,15 @@ _WF = "Workflow"
 app.add_typer(init_app, name="init", rich_help_panel=_WF)
 app.command("run", rich_help_panel=_WF)(run)
 app.command("stop", rich_help_panel=_WF)(stop)
-app.command("plan", rich_help_panel=_WF)(plan)
+app.command("preview", rich_help_panel=_WF)(preview)
+app.command("plan", hidden=True)(preview)  # backward-compat alias
 app.command("from-compose", rich_help_panel=_WF)(from_compose)
 app.command("desktop", rich_help_panel=_WF)(desktop)
 
 app.add_typer(info_app, name="info", rich_help_panel=_WF)
+app.add_typer(create_app, name="create", rich_help_panel=_WF)
+
+app.command("compile", rich_help_panel=_WF)(compile_cmd)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
