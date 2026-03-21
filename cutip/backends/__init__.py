@@ -35,12 +35,12 @@ def get_backend(name: str, local: bool = False) -> CutipBackend:
     """
     if name == "podman":
         from cutip.backends.podman import PodmanBackend
+
         return PodmanBackend.connect_local() if local else PodmanBackend.connect()
 
     if name == "docker":
         from cutip.backends.docker import DockerBackend
+
         return DockerBackend.connect()
 
-    raise CutipError(
-        f"Unknown backend '{name}'. Supported backends: podman, docker"
-    )
+    raise CutipError(f"Unknown backend '{name}'. Supported backends: podman, docker")

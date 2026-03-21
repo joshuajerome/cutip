@@ -24,10 +24,11 @@ class BuildtimeResource(BaseModel):
     dest: str | None = None
 
     @model_validator(mode="after")
-    def _default_dest(self) -> "BuildtimeResource":
+    def _default_dest(self) -> BuildtimeResource:
         if not self.dest:
             # Use the last path component as the destination name
             from pathlib import Path
+
             object.__setattr__(self, "dest", Path(self.src).name)
         return self
 
@@ -75,14 +76,12 @@ class ImageSpec(BaseModel):
     network_mode: str | None = None
 
     @model_validator(mode="after")
-    def _validate_source_fields(self) -> "ImageSpec":
+    def _validate_source_fields(self) -> ImageSpec:
         if self.source == "pull":
             if not self.image:
                 raise ValueError("'image' is required when source is 'pull'")
             if self.buildtime_resources:
-                raise ValueError(
-                    "'buildtime_resources' is only valid when source is 'build'"
-                )
+                raise ValueError("'buildtime_resources' is only valid when source is 'build'")
         if self.source == "build" and not self.context:
             raise ValueError("'context' is required when source is 'build'")
         return self

@@ -5,7 +5,6 @@ import pytest
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
 from cutip.models.cards.network import NetworkCard
-from cutip.models.group import Group
 from cutip.models.unit import Unit
 from cutip.resolver.refs import RefResolver
 from cutip.utils.exceptions import CutipRefError

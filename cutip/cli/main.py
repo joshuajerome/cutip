@@ -13,15 +13,16 @@ from cutip.cli.commands.desktop import desktop
 from cutip.cli.commands.info import app as info_app
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
-from cutip.cli.commands.upgrade import app as upgrade_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import plan
 from cutip.cli.commands.run import run
-from cutip.cli.commands.stop import stop
 from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
+from cutip.cli.commands.stop import stop
 from cutip.cli.commands.tree import app as tree_app
+from cutip.cli.commands.upgrade import app as upgrade_app
 from cutip.cli.commands.validate import app as validate_app
+
 
 def _backend_status() -> str:
     """Detect available backends and the current default."""
@@ -39,8 +40,9 @@ def _backend_status() -> str:
     # Try to read configured default from cutip.yaml in cwd
     default = None
     try:
-        from cutip.workspace.scaffold import _find_project_root
         from cutip.cli.commands.run import _load_project_backend
+        from cutip.workspace.scaffold import _find_project_root
+
         default = _load_project_backend(_find_project_root())
     except Exception:
         pass
@@ -87,7 +89,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def _main(
-    version: bool = typer.Option(  # noqa: ARG001
+    version: bool = typer.Option(
         None,
         "--version",
         callback=_version_callback,
@@ -155,6 +157,7 @@ def _detect_shell() -> str:
     """Detect the current shell, with fallbacks."""
     try:
         import shellingham
+
         name, _ = shellingham.detect_shell()
         return name
     except Exception:
@@ -178,7 +181,10 @@ def _get_completion_script(shell: str, env_var: str) -> str:
     """Generate the completion script for the given shell."""
     source_key = f"source_{shell}"
     result = subprocess.run(
-        [sys.executable, "-c", f"""
+        [
+            sys.executable,
+            "-c",
+            f"""
 import os
 os.environ["{env_var}"] = "{source_key}"
 import sys
@@ -188,7 +194,8 @@ try:
     app(standalone_mode=False)
 except SystemExit:
     pass
-"""],
+""",
+        ],
         capture_output=True,
         text=True,
         env={**os.environ, env_var: source_key},
@@ -196,23 +203,22 @@ except SystemExit:
     if result.stdout.strip():
         return result.stdout.strip()
     # Fallback: generate script directly via Click's env var mechanism
-    complete_var = f"_{env_var.rstrip('_COMPLETE')}" if not env_var.endswith("_COMPLETE") else env_var
     if shell == "zsh":
-        return f'''#compdef cutip
+        return f"""#compdef cutip
 
 _cutip_completion() {{
   eval $(env _TYPER_COMPLETE_ARGS="${{words[1,$CURRENT]}}" {env_var}=complete_zsh cutip)
 }}
 
-compdef _cutip_completion cutip'''
+compdef _cutip_completion cutip"""
     elif shell == "bash":
-        return f'''_cutip_completion() {{
+        return f"""_cutip_completion() {{
   local IFS=$'\\n'
   COMPREPLY=( $(env _TYPER_COMPLETE_ARGS="${{COMP_WORDS[*]}}" {env_var}=complete_bash cutip) )
   return 0
 }}
 
-complete -o default -F _cutip_completion cutip'''
+complete -o default -F _cutip_completion cutip"""
     elif shell == "fish":
         return f'''complete -c cutip -f -a "(env _TYPER_COMPLETE_ARGS=(commandline -cp) {env_var}=complete_fish cutip)"'''
     return ""

@@ -1,11 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - "feat/**"
-      - "bug/**"
-      - "claude/**"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -61,6 +56,63 @@ jobs:
             --force --repo "${{ github.repository }}" 2>/dev/null || true
           gh pr edit "$PR" --repo "${{ github.repository }}" --add-label "$LABEL"
 
+  # ── Ruff Lint ───────────────────────────────────────────────────────────────
+  ruff-lint:
+    name: Ruff Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dev dependencies
+        run: uv sync
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+  # ── Ruff Format ────────────────────────────────────────────────────────────
+  ruff-format:
+    name: Ruff Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dev dependencies
+        run: uv sync
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  # ── Type Check ─────────────────────────────────────────────────────────────
+  ty-check:
+    name: Type Check (ty)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dev dependencies
+        run: uv sync
+
+      - name: ty check
+        run: uv run ty check
+
   # ── Unit Tests ──────────────────────────────────────────────────────────────
   unit-tests:
     name: Unit Tests
@@ -108,7 +160,6 @@ jobs:
     name: E2E Podman · Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -193,7 +244,6 @@ jobs:
     name: E2E Docker · Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -272,7 +322,6 @@ jobs:
     name: E2E Podman · Windows
     runs-on: windows-latest
     timeout-minutes: 45
-    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -381,7 +430,6 @@ jobs:
     name: Install & Validate · macOS
     runs-on: macos-14
     timeout-minutes: 15
-    if: github.event_name == 'pull_request'
 
     env:
       PYTHONUTF8: "1"
@@ -431,29 +479,3 @@ jobs:
       - name: Build docs (strict)
         run: uv run mkdocs build --strict
 
-  # ── Build Wheel (push only — archives artifact) ─────────────────────────────
-  build-wheel:
-    name: Build wheel
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
-
-      - name: Build wheel
-        run: uv build --wheel
-
-      - name: List dist/
-        run: ls -lh dist/
-
-      - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cutip-wheel
-          path: dist/*.whl
-          retention-days: 7

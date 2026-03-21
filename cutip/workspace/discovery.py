@@ -20,8 +20,7 @@ class WorkspaceDiscovery:
         cutip_dir = self.project_root / "cutip"
         if not cutip_dir.is_dir():
             raise CutipError(
-                f"No 'cutip/' directory found at {self.project_root}. "
-                "Run 'cutip init' first."
+                f"No 'cutip/' directory found at {self.project_root}. Run 'cutip init' first."
             )
 
         registry = CutipRegistry()
@@ -29,7 +28,8 @@ class WorkspaceDiscovery:
         # not CUTIP artifacts.
         _excluded = {"paths.yaml", "secrets.yaml", "vars.yaml"}
         yaml_files = [
-            f for f in sorted(cutip_dir.rglob("*.yaml")) + sorted(cutip_dir.rglob("*.yml"))
+            f
+            for f in sorted(cutip_dir.rglob("*.yaml")) + sorted(cutip_dir.rglob("*.yml"))
             if f.name not in _excluded
         ]
 

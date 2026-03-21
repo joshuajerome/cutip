@@ -3,6 +3,7 @@
 Each sub-app exposes a single ``ls`` command that lists all artifacts of that
 kind discovered in the current CUTIP workspace.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,8 +18,8 @@ from cutip.workspace.scaffold import _find_project_root
 console = Console()
 
 group_app = typer.Typer(help="Group commands.")
-unit_app  = typer.Typer(help="Unit commands.")
-card_app  = typer.Typer(help="Card commands.")
+unit_app = typer.Typer(help="Unit commands.")
+card_app = typer.Typer(help="Card commands.")
 
 
 def _get_registry(path: Path | None):
@@ -28,10 +29,16 @@ def _get_registry(path: Path | None):
 
 # ── group ls ─────────────────────────────────────────────────────────────────
 
+
 @group_app.command("ls")
 def group_ls(
-    path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
+    path: Path = typer.Option(
+        None,
+        "--path",
+        "-p",
+        show_default=False,
+        help="Project root. Defaults to nearest cutip.yaml, git root, or cwd.",
+    ),
 ) -> None:
     """List all groups discovered in the workspace."""
     try:
@@ -58,10 +65,16 @@ def group_ls(
 
 # ── unit ls ──────────────────────────────────────────────────────────────────
 
+
 @unit_app.command("ls")
 def unit_ls(
-    path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
+    path: Path = typer.Option(
+        None,
+        "--path",
+        "-p",
+        show_default=False,
+        help="Project root. Defaults to nearest cutip.yaml, git root, or cwd.",
+    ),
 ) -> None:
     """List all units discovered in the workspace."""
     try:
@@ -86,10 +99,16 @@ def unit_ls(
 
 # ── card ls ──────────────────────────────────────────────────────────────────
 
+
 @card_app.command("ls")
 def card_ls(
-    path: Path = typer.Option(None, "--path", "-p", show_default=False,
-                              help="Project root. Defaults to nearest cutip.yaml, git root, or cwd."),
+    path: Path = typer.Option(
+        None,
+        "--path",
+        "-p",
+        show_default=False,
+        help="Project root. Defaults to nearest cutip.yaml, git root, or cwd.",
+    ),
 ) -> None:
     """List all cards (images, containers, networks) discovered in the workspace."""
     try:

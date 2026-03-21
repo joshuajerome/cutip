@@ -29,6 +29,9 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 
+from cutip.utils.logging import setup_logging
+from cutip.workspace.scaffold import _find_project_root, _write_file
+
 
 def _yaml_scalar(value: str) -> str:
     """Return a YAML-safe inline scalar representation of *value*.
@@ -49,8 +52,6 @@ def _yaml_scalar(value: str) -> str:
         dumped = dumped[:-4]
     return dumped
 
-from cutip.utils.logging import setup_logging
-from cutip.workspace.scaffold import _find_project_root, _write_file
 
 console = Console()
 
@@ -176,9 +177,7 @@ def _image_yaml(service_name: str, service: dict) -> tuple[str, list[str]]:
             """)
     elif "build" in service:
         build = service["build"]
-        orig_context = (
-            build.get("context", ".") if isinstance(build, dict) else str(build)
-        )
+        orig_context = build.get("context", ".") if isinstance(build, dict) else str(build)
         orig_dockerfile = (
             build.get("dockerfile", "Dockerfile") if isinstance(build, dict) else "Dockerfile"
         )
@@ -238,7 +237,7 @@ def _container_yaml(
         f"  name: {service_name}",
         "",
         "spec:",
-        f"  imageRef:",
+        "  imageRef:",
         f"    ref: images/{service_name}",
     ]
 
@@ -249,7 +248,7 @@ def _container_yaml(
 
     if svc_nets:
         primary = svc_nets[0]
-        lines += [f"  networkRef:", f"    ref: networks/{primary}"]
+        lines += ["  networkRef:", f"    ref: networks/{primary}"]
     else:
         lines.append("  network_mode: bridge")
 
@@ -347,7 +346,7 @@ def _container_yaml(
     if bind_mounts:
         lines.append("  mounts:")
         for m in bind_mounts:
-            lines.append(f'    - type: bind')
+            lines.append("    - type: bind")
             lines.append(f'      source: "{m["source"]}"')
             lines.append(f'      target: "{m["target"]}"')
 
@@ -391,14 +390,12 @@ def _startup_py(service_name: str, service: dict) -> str:
         hc = service["healthcheck"]
         test = hc.get("test", [])
         if isinstance(test, list):
-            test_str = " ".join(
-                str(t) for t in test if t not in ("CMD-SHELL", "CMD")
-            )
+            test_str = " ".join(str(t) for t in test if t not in ("CMD-SHELL", "CMD"))
         else:
             test_str = str(test)
         hc_lines = [
             "",
-            f"# TODO: Implement the health check from compose:",
+            "# TODO: Implement the health check from compose:",
             f"#   Original test: {test_str}",
             "#",
             "# def startup(ctx: CutipContext) -> None:",
@@ -408,7 +405,7 @@ def _startup_py(service_name: str, service: dict) -> str:
             f'#             ["sh", "-c", "{test_str}"]',
             "#         )",
             "#         if exit_code == 0:",
-            f'#             logger.success(f"\'{service_name}\' ready after {{attempt}} attempt(s)")',
+            f"#             logger.success(f\"'{service_name}' ready after {{attempt}} attempt(s)\")",
             "#             break",
             '#         logger.debug(f"  attempt {attempt}/30 — not ready yet")',
             "#         time.sleep(1)",
@@ -440,7 +437,7 @@ def _startup_py(service_name: str, service: dict) -> str:
         "",
         "# def startup(ctx: CutipContext) -> None:",
         f'#     """Verify \'{service_name}\' is ready after it starts."""',
-        f'#     logger.success("\'{service_name}\' is running")',
+        f"#     logger.success(\"'{service_name}' is running\")",
     ]
     return "\n".join(lines) + "\n"
 
@@ -493,9 +490,8 @@ def _network_yaml(network_name: str, network_def: dict | None) -> str:
         "\n"
         "spec:\n"
         f"  driver: {driver}\n"
-        f'{placeholder_comment}'
-        f'  subnet: "{subnet}"\n'
-        + (f"{gw_line}\n" if gw_line else "")
+        f"{placeholder_comment}"
+        f'  subnet: "{subnet}"\n' + (f"{gw_line}\n" if gw_line else "")
     )
 
 
@@ -555,7 +551,7 @@ def _workflow_py(group_name: str, services: dict[str, dict]) -> str:
         "from cutip.context.workflow import CutipContext",
         "",
         "",
-        f"def main(ctx: CutipContext) -> None:",
+        "def main(ctx: CutipContext) -> None:",
         f'    """Start all containers for group \'{group_name}\'."""',
         body,
     ]
@@ -608,8 +604,7 @@ def _secrets_yaml_content(sensitive_vars: dict[str, str]) -> str:
             """)
 
     required_lines = "\n".join(
-        f'  {k}: ""  # was: {v}' if v else f'  {k}: ""'
-        for k, v in sensitive_vars.items()
+        f'  {k}: ""  # was: {v}' if v else f'  {k}: ""' for k, v in sensitive_vars.items()
     )
     return textwrap.dedent(f"""\
         # Fill in the required values before running cutip run <group>.
@@ -715,9 +710,7 @@ def from_compose(
         all_unmapped.extend(img_unmapped)
 
         # ContainerCard
-        ctr_yaml, ctr_unmapped, sensitive = _container_yaml(
-            svc_name, svc_def, used_networks
-        )
+        ctr_yaml, ctr_unmapped, sensitive = _container_yaml(svc_name, svc_def, used_networks)
         ctr_path = project_root / f"cutip/cards/{svc_name}/{svc_name}.container.yaml"
         _write_file(ctr_path, ctr_yaml, f"cutip/cards/{svc_name}/{svc_name}.container.yaml")
         generated_files.append(str(ctr_path.relative_to(project_root)))
@@ -726,9 +719,7 @@ def from_compose(
 
         # Unit
         unit_path = project_root / f"cutip/units/{svc_name}/{svc_name}.unit.yaml"
-        _write_file(
-            unit_path, _unit_yaml(svc_name), f"cutip/units/{svc_name}/{svc_name}.unit.yaml"
-        )
+        _write_file(unit_path, _unit_yaml(svc_name), f"cutip/units/{svc_name}/{svc_name}.unit.yaml")
         generated_files.append(str(unit_path.relative_to(project_root)))
 
         # startup.py
@@ -747,9 +738,7 @@ def from_compose(
         net_def = compose_networks.get(net_name)
         net_yaml = _network_yaml(net_name, net_def)
         net_path = project_root / f"cutip/cards/{net_name}/{net_name}.network.yaml"
-        _write_file(
-            net_path, net_yaml, f"cutip/cards/{net_name}/{net_name}.network.yaml"
-        )
+        _write_file(net_path, net_yaml, f"cutip/cards/{net_name}/{net_name}.network.yaml")
         generated_files.append(str(net_path.relative_to(project_root)))
         if not (isinstance(net_def, dict) and net_def.get("ipam")):
             all_unmapped.append(
@@ -762,16 +751,12 @@ def from_compose(
 
     group_yaml_str = _group_yaml(group_name, service_order)
     group_yaml_path = project_root / f"cutip/groups/{group_name}/group.yaml"
-    _write_file(
-        group_yaml_path, group_yaml_str, f"cutip/groups/{group_name}/group.yaml"
-    )
+    _write_file(group_yaml_path, group_yaml_str, f"cutip/groups/{group_name}/group.yaml")
     generated_files.append(str(group_yaml_path.relative_to(project_root)))
 
     workflow_py_str = _workflow_py(group_name, services)
     workflow_py_path = project_root / f"cutip/groups/{group_name}/workflow.py"
-    _write_file(
-        workflow_py_path, workflow_py_str, f"cutip/groups/{group_name}/workflow.py"
-    )
+    _write_file(workflow_py_path, workflow_py_str, f"cutip/groups/{group_name}/workflow.py")
     generated_files.append(str(workflow_py_path.relative_to(project_root)))
 
     # -- paths.yaml + secrets.yaml ---------------------------------------------
@@ -786,11 +771,11 @@ def from_compose(
     if secrets_path.exists():
         if all_sensitive:
             console.print(
-                f"\n[yellow]cutip/secrets.yaml already exists.[/yellow] "
-                f"Add these entries to the [bold]required:[/bold] section manually:"
+                "\n[yellow]cutip/secrets.yaml already exists.[/yellow] "
+                "Add these entries to the [bold]required:[/bold] section manually:"
             )
             for k in all_sensitive:
-                console.print(f"  [cyan]{k}[/cyan]: \"\"")
+                console.print(f'  [cyan]{k}[/cyan]: ""')
     else:
         secrets_path.parent.mkdir(parents=True, exist_ok=True)
         secrets_path.write_text(_secrets_yaml_content(all_sensitive), encoding="utf-8")

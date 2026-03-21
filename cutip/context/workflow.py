@@ -78,9 +78,7 @@ class WorkflowLoader:
         self.project_root = project_root
         self._module_cache: dict[str, tuple[ModuleType, Path]] = {}
 
-    def _load_module(
-        self, group: Group, registry: CutipRegistry
-    ) -> tuple[ModuleType, Path]:
+    def _load_module(self, group: Group, registry: CutipRegistry) -> tuple[ModuleType, Path]:
         """Import the workflow module (cached per group name)."""
         if group.name in self._module_cache:
             return self._module_cache[group.name]
@@ -93,16 +91,12 @@ class WorkflowLoader:
 
         workflow_path = group_dir / group.spec.workflow
         if not workflow_path.is_file():
-            raise CutipWorkflowError(
-                f"Workflow file not found: '{workflow_path}'"
-            )
+            raise CutipWorkflowError(f"Workflow file not found: '{workflow_path}'")
 
         module_name = f"cutip._workflow_{group.name}"
         spec = importlib.util.spec_from_file_location(module_name, workflow_path)
         if spec is None or spec.loader is None:
-            raise CutipWorkflowError(
-                f"Could not create module spec from '{workflow_path}'"
-            )
+            raise CutipWorkflowError(f"Could not create module spec from '{workflow_path}'")
 
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
@@ -110,9 +104,7 @@ class WorkflowLoader:
         try:
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as exc:
-            raise CutipWorkflowError(
-                f"Error loading workflow '{workflow_path}': {exc}"
-            ) from exc
+            raise CutipWorkflowError(f"Error loading workflow '{workflow_path}': {exc}") from exc
 
         self._module_cache[group.name] = (module, workflow_path)
         return module, workflow_path
@@ -143,6 +135,7 @@ class WorkflowLoader:
                 return
 
             from loguru import logger as _logger
+
             _logger.debug(
                 f"Workflow '{workflow_path}' has no main() — skipping group-level execution."
             )
@@ -151,6 +144,4 @@ class WorkflowLoader:
         try:
             module.main(ctx)
         except Exception as exc:
-            raise CutipWorkflowError(
-                f"Error executing workflow '{workflow_path}': {exc}"
-            ) from exc
+            raise CutipWorkflowError(f"Error executing workflow '{workflow_path}': {exc}") from exc

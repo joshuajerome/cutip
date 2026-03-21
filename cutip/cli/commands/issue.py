@@ -11,7 +11,6 @@ Commands:
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 import typer
@@ -39,7 +38,9 @@ def create_issue(
     project_root = path or _find_project_root()
     issue_path = _create(project_root, title)
     console.print(f"[green]Created issue:[/green] {issue_path}")
-    console.print(f"[dim]Edit the file to fill in description, then use 'cutip issue push' to create on GitHub.[/dim]")
+    console.print(
+        "[dim]Edit the file to fill in description, then use 'cutip issue push' to create on GitHub.[/dim]"
+    )
 
 
 @issue_app.command("list")
@@ -102,9 +103,13 @@ def push_issue(
     labels = spec.get("labels", [])
 
     cmd = [
-        "gh", "issue", "create",
-        "--title", title,
-        "--body", body,
+        "gh",
+        "issue",
+        "create",
+        "--title",
+        title,
+        "--body",
+        body,
     ]
     for label in labels:
         cmd.extend(["--label", label])
@@ -232,7 +237,9 @@ def fix_issue(
     # Create branch
     branch = f"bug/{cap_id}-issue-{meta.get('github_number', slug)}-{meta['slug']}"[:60]
     console.print(f"\n[yellow]Suggested branch:[/yellow] {branch}")
-    console.print(f"[dim]Run: git checkout -b {branch} && git add -p && git commit -m '[{cap_id}] fix: {meta['title']}'[/dim]")
+    console.print(
+        f"[dim]Run: git checkout -b {branch} && git add -p && git commit -m '[{cap_id}] fix: {meta['title']}'[/dim]"
+    )
 
     meta["status"] = "fixed"
     save_issue(issue_path, data)

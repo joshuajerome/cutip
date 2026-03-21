@@ -34,10 +34,10 @@ def _parse_ref(ref: str) -> tuple[str, str]:
 class RefResolver:
     """Resolves ref strings against a CutipRegistry."""
 
-    def __init__(self, registry: "CutipRegistry") -> None:
+    def __init__(self, registry: CutipRegistry) -> None:
         self.registry = registry
 
-    def resolve(self, ref: str) -> "CutipBaseModel":
+    def resolve(self, ref: str) -> CutipBaseModel:
         """Resolve any ref string to its artifact. Raises CutipRefError if not found."""
         prefix, name = _parse_ref(ref)
 

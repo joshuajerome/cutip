@@ -59,8 +59,7 @@ def parse_artifact(raw: dict[str, Any], source_path: str = "<unknown>") -> Cutip
         return model_cls.model_validate(raw)
     except ValidationError as exc:
         errors = "; ".join(
-            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}"
-            for e in exc.errors()
+            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in exc.errors()
         )
         raise CutipParseError(source_path, errors) from exc
 

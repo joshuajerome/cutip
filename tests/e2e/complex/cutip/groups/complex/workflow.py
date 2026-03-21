@@ -23,7 +23,9 @@ def start_database(ctx: CutipContext) -> None:
     logger.info("Waiting for postgres to accept connections...")
 
 
-@action(name="Wait for Database", description="Poll until DB accepts connections", container="cutip-db")
+@action(
+    name="Wait for Database", description="Poll until DB accepts connections", container="cutip-db"
+)
 def wait_for_database(ctx: CutipContext) -> None:
     db = ctx.container("cutip-db")
     db_password = ctx.secrets["db_password"]
@@ -40,8 +42,7 @@ def wait_for_database(ctx: CutipContext) -> None:
 
     db.remove(force=True)
     raise RuntimeError(
-        "Postgres did not become ready within 30 seconds. "
-        "Check 'podman logs cutip-db' for details."
+        "Postgres did not become ready within 30 seconds. Check 'podman logs cutip-db' for details."
     )
 
 

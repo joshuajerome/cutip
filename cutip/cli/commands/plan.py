@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import typer
 from rich.console import Console
 from rich.table import Table
-
-import typer
 
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
@@ -18,6 +17,8 @@ from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
 
 console = Console()
+
+
 def plan(
     group_name: str = typer.Argument(..., help="Name of the group to plan"),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
@@ -74,7 +75,9 @@ def plan(
                     # host/none/etc — no managed network card to ensure
                     net_key = f"__mode__{cc.spec.network_mode}"
                     if net_key not in seen_networks:
-                        table.add_row(str(step), "network_mode", cc.spec.network_mode, "pre-existing")
+                        table.add_row(
+                            str(step), "network_mode", cc.spec.network_mode, "pre-existing"
+                        )
                         step += 1
                         seen_networks.add(net_key)
                 elif cc.spec.networkRef is not None:

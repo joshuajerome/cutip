@@ -8,8 +8,8 @@ import pytest
 
 from cutip.utils.exceptions import CutipError
 
-
 # ── Connection tests ─────────────────────────────────────────────────────────
+
 
 def test_connect_success():
     mock_client = MagicMock()
@@ -20,6 +20,7 @@ def test_connect_success():
         return_value=mock_client,
     ):
         from cutip.backends.docker.backend import DockerBackend
+
         backend = DockerBackend.connect()
         assert backend.client is mock_client
 
@@ -30,7 +31,8 @@ def test_connect_import_error():
         side_effect=CutipError("The 'docker' package is required"),
     ):
         from cutip.backends.docker.backend import DockerBackend
-        with pytest.raises(CutipError, match="docker.*package"):
+
+        with pytest.raises(CutipError, match=r"docker.*package"):
             DockerBackend.connect()
 
 
@@ -40,14 +42,17 @@ def test_connect_daemon_error():
         side_effect=CutipError("Could not connect to the Docker daemon"),
     ):
         from cutip.backends.docker.backend import DockerBackend
+
         with pytest.raises(CutipError, match="Could not connect"):
             DockerBackend.connect()
 
 
 # ── Image tests ──────────────────────────────────────────────────────────────
 
+
 def _make_backend(mock_client=None):
     from cutip.backends.docker.backend import DockerBackend
+
     client = mock_client or MagicMock()
     backend = DockerBackend.__new__(DockerBackend)
     backend._client = client
@@ -56,16 +61,19 @@ def _make_backend(mock_client=None):
 
 def _make_image_card(name="hello", image="docker.io/library/alpine", tag="3.20", source="pull"):
     from cutip.models.cards.image import ImageCard
-    return ImageCard.model_validate({
-        "apiVersion": "cutip/v1",
-        "kind": "ImageCard",
-        "metadata": {"name": name},
-        "spec": {
-            "source": source,
-            "image": image,
-            "tag": tag,
-        },
-    })
+
+    return ImageCard.model_validate(
+        {
+            "apiVersion": "cutip/v1",
+            "kind": "ImageCard",
+            "metadata": {"name": name},
+            "spec": {
+                "source": source,
+                "image": image,
+                "tag": tag,
+            },
+        }
+    )
 
 
 def test_pull_image_skip_existing():
@@ -97,14 +105,18 @@ def test_pull_image_new():
 
 # ── Network tests ────────────────────────────────────────────────────────────
 
+
 def _make_network_card(name="test-net", subnet="10.89.0.0/16", gateway="10.89.0.1"):
     from cutip.models.cards.network import NetworkCard
-    return NetworkCard.model_validate({
-        "apiVersion": "cutip/v1",
-        "kind": "NetworkCard",
-        "metadata": {"name": name},
-        "spec": {"subnet": subnet, "gateway": gateway},
-    })
+
+    return NetworkCard.model_validate(
+        {
+            "apiVersion": "cutip/v1",
+            "kind": "NetworkCard",
+            "metadata": {"name": name},
+            "spec": {"subnet": subnet, "gateway": gateway},
+        }
+    )
 
 
 def test_ensure_network_exists():
@@ -137,25 +149,29 @@ def test_ensure_network_create():
 
 # ── Container tests ──────────────────────────────────────────────────────────
 
+
 def test_create_container_no_wsl_translation():
     """Docker backend should NOT translate Windows paths (Docker Desktop handles them)."""
     from cutip.models.cards.container import ContainerCard
-    card = ContainerCard.model_validate({
-        "apiVersion": "cutip/v1",
-        "kind": "ContainerCard",
-        "metadata": {"name": "test-ctr"},
-        "spec": {
-            "imageRef": {"ref": "images/hello"},
-            "network_mode": "bridge",
-            "mounts": [
-                {
-                    "type": "bind",
-                    "source": "C:/Users/foo/data",
-                    "target": "/data",
-                }
-            ],
-        },
-    })
+
+    card = ContainerCard.model_validate(
+        {
+            "apiVersion": "cutip/v1",
+            "kind": "ContainerCard",
+            "metadata": {"name": "test-ctr"},
+            "spec": {
+                "imageRef": {"ref": "images/hello"},
+                "network_mode": "bridge",
+                "mounts": [
+                    {
+                        "type": "bind",
+                        "source": "C:/Users/foo/data",
+                        "target": "/data",
+                    }
+                ],
+            },
+        }
+    )
 
     client = MagicMock()
     client.containers.get.side_effect = Exception("not found")
@@ -171,18 +187,21 @@ def test_create_container_no_wsl_translation():
 
 def test_build_image_uses_docker_cli():
     from cutip.models.cards.image import ImageCard
-    card = ImageCard.model_validate({
-        "apiVersion": "cutip/v1",
-        "kind": "ImageCard",
-        "metadata": {"name": "myimg"},
-        "spec": {
-            "source": "build",
-            "image": "myimg",
-            "tag": "latest",
-            "context": "/tmp/ctx",
-            "dockerfile": "Dockerfile",
-        },
-    })
+
+    card = ImageCard.model_validate(
+        {
+            "apiVersion": "cutip/v1",
+            "kind": "ImageCard",
+            "metadata": {"name": "myimg"},
+            "spec": {
+                "source": "build",
+                "image": "myimg",
+                "tag": "latest",
+                "context": "/tmp/ctx",
+                "dockerfile": "Dockerfile",
+            },
+        }
+    )
 
     backend = _make_backend()
 

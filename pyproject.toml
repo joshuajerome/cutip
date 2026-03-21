@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cutip"
-version = "0.1.15"
+version = "0.1.16"
 description = "Container Unit Templates in Python — a deterministic framework for building container workloads"
 readme = "README.md"
 license = { text = "MIT" }
@@ -61,7 +61,41 @@ ai = [
 dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
+    "ruff>=0.11",
+    "ty>=0.0.1a7",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",    # line too long — handled by formatter
+    "ARG001",  # unused function argument — common in hooks/callbacks
+    "B008",    # function call in default argument — required by typer
+    "B904",    # raise from within except — too noisy for typer.Exit patterns
+    "B905",    # zip without strict — not needed for Python 3.11
+    "SIM105",  # contextlib.suppress — style preference
+    "SIM108",  # ternary operator — readability preference
+    "SIM116",  # dictionary instead of if-statements — readability preference
+    "RUF001",  # ambiguous unicode — intentional in prose strings
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cutip"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.rules]
+unresolved-import = "warn"
+not-iterable = "warn"
+unresolved-attribute = "warn"
+invalid-return-type = "warn"
+no-matching-overload = "warn"
+invalid-argument-type = "warn"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

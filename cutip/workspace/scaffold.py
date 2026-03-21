@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import subprocess
-import textwrap
 from pathlib import Path
 
 import yaml
 from loguru import logger
-
 
 _CUTIP_PATHS_YAML = """\
 # cutip/paths.yaml — filesystem paths specific to your machine.

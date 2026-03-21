@@ -1,8 +1,8 @@
 """``cutip info`` — display CUTIP version, workspace, and backend information."""
+
 from __future__ import annotations
 
 from importlib.metadata import version as _pkg_version
-from pathlib import Path
 
 import typer
 import yaml
@@ -36,7 +36,7 @@ def info() -> None:
             lines.append(f"[bold]Project root[/bold]: [cyan]{project_root}[/cyan]")
             lines.append(f"[bold]Backend[/bold]: {backend}")
         except Exception:
-            lines.append(f"[bold]Workspace[/bold]: [yellow]cutip.yaml found but unreadable[/yellow]")
+            lines.append("[bold]Workspace[/bold]: [yellow]cutip.yaml found but unreadable[/yellow]")
             lines.append(f"[bold]Project root[/bold]: [cyan]{project_root}[/cyan]")
     else:
         lines.append("[bold]Workspace[/bold]: [dim]none (no cutip.yaml found)[/dim]")
@@ -55,8 +55,10 @@ def info() -> None:
     else:
         lines.append("[bold]Available backends[/bold]: [yellow]none installed[/yellow]")
 
-    console.print(Panel.fit(
-        "\n".join(lines),
-        title="cutip info",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "\n".join(lines),
+            title="cutip info",
+            border_style="blue",
+        )
+    )
