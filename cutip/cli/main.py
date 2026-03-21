@@ -12,6 +12,8 @@ from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.create import app as create_app
 from cutip.cli.commands.desktop import desktop
+from cutip.cli.commands.export_cmd import export_group
+from cutip.cli.commands.import_cmd import import_group
 from cutip.cli.commands.info import app as info_app
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
@@ -254,6 +256,8 @@ app.add_typer(card_app, name="card", rich_help_panel=_IN)
 # ── Manage ────────────────────────────────────────────────────────────────────
 _MG = "Manage"
 app.add_typer(rm_app, name="rm", rich_help_panel=_MG)
+app.command("export", rich_help_panel=_MG)(export_group)
+app.command("import", rich_help_panel=_MG)(import_group)
 
 # ── Configuration ────────────────────────────────────────────────────────────
 _CF = "Configuration"
