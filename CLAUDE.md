@@ -30,6 +30,16 @@ The only valid stopping points before completion are:
 - A required manual action (GitHub web UI, auth) — report exactly what the user must do, then continue everything else
 - The user explicitly asks you to stop
 
+## Versioning Convention
+
+CUTIP follows [Semantic Versioning](https://semver.org/):
+
+- **x** (major) — breaking changes to the artifact schema, lifecycle model, or public API
+- **y** (minor) — new features, new CLI commands, new optional YAML fields
+- **z** (patch) — bug fixes, CI improvements, documentation, formatting, tooling
+
+Non-breaking changes ship as `0.1.z` patches. Breaking changes accumulate and ship together as the next minor or major bump (e.g. `0.2.0`).
+
 ## Key Conventions
 
 - **Never auto-commit.** Only commit when explicitly asked.
