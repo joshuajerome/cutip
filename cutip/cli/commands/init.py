@@ -20,21 +20,26 @@ def init(
         help="Project root directory. Defaults to nearest cutip.yaml, git root, or cwd.",
         show_default=False,
     ),
+    blank: bool = typer.Option(
+        False,
+        "--blank",
+        help="Create minimal structure without example artifacts.",
+    ),
 ) -> None:
     """Initialize a CUTIP workspace.
 
     Usage: cutip init [PATH]
 
     Examples:
-      cutip init          # initialize in auto-detected project root
-      cutip init .        # initialize in current directory
+      cutip init          # initialize with hello-world example
+      cutip init --blank  # minimal structure, no examples
       cutip init ../foo   # initialize in ../foo
     """
     setup_logging()
     # Resolve the path argument relative to cwd
     resolved = Path(path).resolve() if path is not None else None
     scaffold = WorkspaceScaffold(project_root=resolved)
-    scaffold.init()
+    scaffold.init(blank=blank)
 
     root = scaffold.project_root
 

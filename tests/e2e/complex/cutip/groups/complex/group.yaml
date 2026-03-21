@@ -1,9 +1,0 @@
-apiVersion: cutip/v1
-kind: Group
-metadata:
-  name: complex
-spec:
-  units:
-    - ref: units/db
-    - ref: units/web
-  workflow: workflow.py

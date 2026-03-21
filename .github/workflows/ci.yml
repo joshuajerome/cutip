@@ -186,17 +186,11 @@ jobs:
           echo "CUTIP_BACKEND_NAME=podman" >> "$GITHUB_ENV"
           podman version
 
-      - name: Validate simple workspace
-        run: uv run cutip validate --path tests/e2e/simple
+      - name: Validate hello-world workspace
+        run: uv run cutip validate --path tests/e2e/hello-world
 
-      - name: Run E2E group simple (Podman · Ubuntu)
-        run: uv run cutip run simple --path tests/e2e/simple --backend podman --local
-
-      - name: Validate complex workspace
-        run: uv run cutip validate --path tests/e2e/complex
-
-      - name: Run E2E group complex (Podman · Ubuntu)
-        run: uv run cutip run complex --path tests/e2e/complex --backend podman --local
+      - name: Run E2E group hello (Podman · Ubuntu)
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend podman --local
 
       # ── from-compose: awesome-compose validation suite ──────────────────────
       - name: "from-compose · react-nginx"
@@ -264,17 +258,11 @@ jobs:
       - name: Verify Docker is available
         run: docker version
 
-      - name: Validate simple workspace
-        run: uv run cutip validate --path tests/e2e/simple
+      - name: Validate hello-world workspace
+        run: uv run cutip validate --path tests/e2e/hello-world
 
-      - name: Run E2E group simple (Docker · Ubuntu)
-        run: uv run cutip run simple --path tests/e2e/simple --backend docker --local
-
-      - name: Validate complex workspace
-        run: uv run cutip validate --path tests/e2e/complex
-
-      - name: Run E2E group complex (Docker · Ubuntu)
-        run: uv run cutip run complex --path tests/e2e/complex --backend docker --local
+      - name: Run E2E group hello (Docker · Ubuntu)
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend docker --local
 
       # ── from-compose: awesome-compose validation suite ──────────────────────
       - name: "from-compose · react-nginx"
@@ -362,17 +350,11 @@ jobs:
           podman machine init --cpus 2 --memory 2048 --now
           podman version
 
-      - name: Validate simple workspace
-        run: uv run cutip validate --path tests/e2e/simple
+      - name: Validate hello-world workspace
+        run: uv run cutip validate --path tests/e2e/hello-world
 
-      - name: Run E2E group simple (Podman · Windows)
-        run: uv run cutip run simple --path tests/e2e/simple --backend podman
-
-      - name: Validate complex workspace
-        run: uv run cutip validate --path tests/e2e/complex
-
-      - name: Run E2E group complex (Podman · Windows)
-        run: uv run cutip run complex --path tests/e2e/complex --backend podman
+      - name: Run E2E group hello (Podman · Windows)
+        run: uv run cutip run hello --path tests/e2e/hello-world --backend podman
 
       # ── from-compose: awesome-compose validation suite ──────────────────────
       - name: "from-compose · react-nginx (Windows)"
@@ -452,11 +434,8 @@ jobs:
           uv run cutip --help
           uv run cutip --version
 
-      - name: Validate simple workspace (schema only, no containers)
-        run: uv run cutip validate --path tests/e2e/simple
-
-      - name: Validate complex workspace (schema only, no containers)
-        run: uv run cutip validate --path tests/e2e/complex
+      - name: Validate hello-world workspace (schema only, no containers)
+        run: uv run cutip validate --path tests/e2e/hello-world
 
   # ── Docs Build ──────────────────────────────────────────────────────────────
   docs-build:
