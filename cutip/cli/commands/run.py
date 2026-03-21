@@ -212,7 +212,10 @@ def _load_config(project_root: Path) -> dict:
         return {}
 
     data = _yaml.safe_load(cutip_yaml.read_text(encoding="utf-8")) or {}
-    config_path_str = (data.get("project") or {}).get("config")
+    project_section = data.get("project")
+    if not isinstance(project_section, dict):
+        return {}
+    config_path_str = project_section.get("config")
     if not config_path_str:
         return {}
 
