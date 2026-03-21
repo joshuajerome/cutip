@@ -58,6 +58,12 @@ commit messages, and PR titles.
 | cap048 | CLI command renames + new commands                              | feat | merged | feat/cap048-cli-commands              | #102 | 2026-03-21 |
 | cap049 | CLI performance + tab completion cache                          | feat | merged | feat/cap049-cli-perf                  | #100 | 2026-03-21 |
 | cap050 | Annotation system + cutip compile                               | feat | merged | feat/cap050-annotations-compile       | #101 | 2026-03-21 |
+| cap051 | Unit lifecycle: prehook.py + posthook.py + HookSpec             | feat | merged | feat/cap051-unit-lifecycle             | #105 | 2026-03-21 |
+| cap052 | Group orchestrator.py + ctx.run_unit()                          | feat | merged | feat/cap052-orchestrator              | #106 | 2026-03-21 |
+| cap053 | cutip rm with safe archive to .cutip/trash/                     | feat | merged | feat/cap053-cutip-rm                  | #107 | 2026-03-21 |
+| cap054 | cutip export/import for portable group archives                 | feat | merged | feat/cap054-import-export             | #108 | 2026-03-21 |
+| cap055 | Hello-world scaffold rewrite + --blank flag                     | feat | merged | feat/cap055-hello-world-scaffold      | #109 | 2026-03-21 |
+| cap056 | Optional config.yaml support in CutipContext                    | feat | merged | feat/cap056-project-config            | #110 | 2026-03-21 |
 
 ## ID Assignment
 
