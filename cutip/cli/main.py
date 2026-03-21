@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 
+from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.desktop import desktop
 from cutip.cli.commands.info import app as info_app
@@ -234,6 +235,8 @@ app.command("from-compose", rich_help_panel=_WF)(from_compose)
 app.command("desktop", rich_help_panel=_WF)(desktop)
 
 app.add_typer(info_app, name="info", rich_help_panel=_WF)
+
+app.command("compile", rich_help_panel=_WF)(compile_cmd)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
