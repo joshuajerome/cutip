@@ -17,6 +17,7 @@ from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
 from cutip.cli.commands.plan import preview
+from cutip.cli.commands.rm import app as rm_app
 from cutip.cli.commands.run import run
 from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
@@ -249,6 +250,10 @@ app.add_typer(show_app, name="show", rich_help_panel=_IN)
 app.add_typer(group_app, name="group", rich_help_panel=_IN)
 app.add_typer(unit_app, name="unit", rich_help_panel=_IN)
 app.add_typer(card_app, name="card", rich_help_panel=_IN)
+
+# ── Manage ────────────────────────────────────────────────────────────────────
+_MG = "Manage"
+app.add_typer(rm_app, name="rm", rich_help_panel=_MG)
 
 # ── Configuration ────────────────────────────────────────────────────────────
 _CF = "Configuration"
