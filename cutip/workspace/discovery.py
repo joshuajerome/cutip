@@ -51,9 +51,7 @@ class WorkspaceDiscovery:
             cache_dir = self.project_root / ".cutip" / "cache"
             cache_dir.mkdir(parents=True, exist_ok=True)
             cache_file = cache_dir / "groups.json"
-            cache_file.write_text(
-                json.dumps(sorted(registry.groups.keys())), encoding="utf-8"
-            )
+            cache_file.write_text(json.dumps(sorted(registry.groups.keys())), encoding="utf-8")
         except Exception:
             pass  # completion cache is best-effort
 
