@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Callable
 
 _ACTION_ATTR = "_cutip_action_meta"
 _ORCHESTRATOR_ATTR = "_cutip_is_orchestrator"

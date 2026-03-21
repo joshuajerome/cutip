@@ -63,9 +63,7 @@ class UnitStartupLoader:
         module_name = f"cutip._startup_{unit.name}"
         spec = importlib.util.spec_from_file_location(module_name, startup_path)
         if spec is None or spec.loader is None:
-            raise CutipWorkflowError(
-                f"Could not create module spec from '{startup_path}'"
-            )
+            raise CutipWorkflowError(f"Could not create module spec from '{startup_path}'")
 
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
@@ -73,9 +71,7 @@ class UnitStartupLoader:
         try:
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as exc:
-            raise CutipWorkflowError(
-                f"Error loading startup '{startup_path}': {exc}"
-            ) from exc
+            raise CutipWorkflowError(f"Error loading startup '{startup_path}': {exc}") from exc
 
         self._module_cache[unit.name] = (module, startup_path)
         return module
@@ -105,9 +101,7 @@ class UnitStartupLoader:
         try:
             module.pre_build(ctx)
         except Exception as exc:
-            raise CutipWorkflowError(
-                f"Error in pre_build '{startup_path}': {exc}"
-            ) from exc
+            raise CutipWorkflowError(f"Error in pre_build '{startup_path}': {exc}") from exc
 
     def run(self, unit: Unit, ctx, registry: CutipRegistry) -> None:
         """Call ``startup(ctx)`` for *unit* if ``startup.py`` exists and defines it.
@@ -129,15 +123,11 @@ class UnitStartupLoader:
         module = self._load_module(unit, startup_path)
 
         if not hasattr(module, "startup"):
-            logger.debug(
-                f"startup.py for unit '{unit.name}' has no startup() — skipping."
-            )
+            logger.debug(f"startup.py for unit '{unit.name}' has no startup() — skipping.")
             return
 
         logger.info(f"Running startup for unit '{unit.name}' ...")
         try:
             module.startup(ctx)
         except Exception as exc:
-            raise CutipWorkflowError(
-                f"Error in startup '{startup_path}': {exc}"
-            ) from exc
+            raise CutipWorkflowError(f"Error in startup '{startup_path}': {exc}") from exc

@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
-import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Callable
 
 from cutip.workflow.decorators import _ACTION_ATTR, _ORCHESTRATOR_ATTR, ActionMeta
 
@@ -176,7 +174,7 @@ def _collect_action_calls(
             _check_call(stmt.value, action_funcs, call_order)
         # Assignment: result = action_func(ctx)
         elif isinstance(stmt, (ast.Assign, ast.AnnAssign)):
-            value = stmt.value if isinstance(stmt, ast.Assign) else stmt.value
+            value = stmt.value
             if isinstance(value, ast.Call):
                 _check_call(value, action_funcs, call_order)
         # If/else blocks
@@ -200,6 +198,5 @@ def _check_call(
 ) -> None:
     """If *call* targets a known action function, append to *call_order*."""
     func = call.func
-    if isinstance(func, ast.Name) and func.id in action_funcs:
-        if func.id not in call_order:
-            call_order.append(func.id)
+    if isinstance(func, ast.Name) and func.id in action_funcs and func.id not in call_order:
+        call_order.append(func.id)

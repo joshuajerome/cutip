@@ -36,6 +36,7 @@ def _interpolate_refs(text: str, vars: dict) -> str:
     Raises:
         CutipError: If a referenced key is absent from *vars*.
     """
+
     def _replace(match: re.Match) -> str:
         namespace = match.group(1)
         key = match.group(2).strip()
@@ -50,7 +51,7 @@ def _interpolate_refs(text: str, vars: dict) -> str:
 
 
 def stage_buildtime_resources(
-    card,                          # ImageCard — avoid circular import at module level
+    card,  # ImageCard — avoid circular import at module level
     project_root: Path | None,
     vars: dict | None = None,
 ) -> Path:

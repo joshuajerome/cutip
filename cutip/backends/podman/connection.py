@@ -27,12 +27,13 @@ from loguru import logger
 
 from cutip.utils.exceptions import CutipError
 
-
 # ── Tunnel result ─────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class TunnelInfo:
     """Result of opening an SSH tunnel — holds the process and the allocated port."""
+
     process: subprocess.Popen
     port: int
 
@@ -50,6 +51,7 @@ def _find_free_port() -> int:
 
 # ── Connection enumeration ─────────────────────────────────────────────────────
 
+
 def get_connections() -> list[dict[str, str]]:
     """Return all Podman connections as a list of dicts (one per connection).
 
@@ -66,15 +68,11 @@ def get_connections() -> list[dict[str, str]]:
             check=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        raise CutipError(
-            "Could not list Podman connections. Is Podman installed?"
-        ) from exc
+        raise CutipError("Could not list Podman connections. Is Podman installed?") from exc
 
     lines = result.stdout.strip().splitlines()
     if len(lines) < 2:
-        raise CutipError(
-            "No Podman connections found. Run 'podman machine start' first."
-        )
+        raise CutipError("No Podman connections found. Run 'podman machine start' first.")
 
     headers = lines[0].split()
     connections: list[dict[str, str]] = []
@@ -111,6 +109,7 @@ def get_default_connection(connections: list[dict[str, str]] | None = None) -> d
 
 # ── SSH tunnel (used by PodmanBackend.connect()) ───────────────────────────────
 
+
 def open_ssh_tunnel(connection: dict[str, str]) -> TunnelInfo:
     """Forward a dynamic localhost port → the Podman Unix socket inside the VM.
 
@@ -136,30 +135,31 @@ def open_ssh_tunnel(connection: dict[str, str]) -> TunnelInfo:
     without_scheme = uri.replace("ssh://", "")
     if "/" in without_scheme:
         user_host_port, socket_tail = without_scheme.split("/", 1)
-        socket_path = "/" + socket_tail        # restore leading slash
+        socket_path = "/" + socket_tail  # restore leading slash
     else:
         user_host_port, socket_path = without_scheme, ""
 
     user, host_port = (
-        user_host_port.split("@", 1) if "@" in user_host_port
-        else ("root", user_host_port)
+        user_host_port.split("@", 1) if "@" in user_host_port else ("root", user_host_port)
     )
-    host, port = (
-        host_port.rsplit(":", 1) if ":" in host_port
-        else (host_port, "22")
-    )
+    host, port = host_port.rsplit(":", 1) if ":" in host_port else (host_port, "22")
 
     local_port = _find_free_port()
 
     ssh_cmd = [
         "ssh",
-        "-N",                                       # port-forward only, no shell
-        "-L", f"{local_port}:{socket_path}",
-        "-i", identity,
-        "-p", port,
+        "-N",  # port-forward only, no shell
+        "-L",
+        f"{local_port}:{socket_path}",
+        "-i",
+        identity,
+        "-p",
+        port,
         f"{user}@{host}",
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "ExitOnForwardFailure=yes",            # fail fast on bind error
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "ExitOnForwardFailure=yes",  # fail fast on bind error
     ]
 
     logger.debug(f"Opening SSH tunnel: {shlex.join(ssh_cmd)}")
@@ -206,6 +206,7 @@ def close_ssh_tunnel(tunnel: TunnelInfo | subprocess.Popen | None, timeout: int 
 
 # ── Local socket (used by PodmanBackend.connect_local()) ──────────────────────
 
+
 def local_socket_url() -> str:
     """Resolve the local Podman socket URL for the current platform.
 
@@ -233,9 +234,16 @@ def local_socket_url() -> str:
     if sys.platform == "darwin":
         try:
             result = subprocess.run(
-                ["podman", "machine", "inspect",
-                 "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"],
-                capture_output=True, text=True, check=True,
+                [
+                    "podman",
+                    "machine",
+                    "inspect",
+                    "--format",
+                    "{{.ConnectionInfo.PodmanSocket.Path}}",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             sock = result.stdout.strip()
             if sock:
@@ -272,6 +280,7 @@ if __name__ == "__main__":
         python -m cutip.backends.podman.connection --local   # local socket
     """
     from cutip.utils.logging import setup_logging
+
     setup_logging(level="DEBUG")
 
     use_local = "--local" in sys.argv
@@ -294,7 +303,7 @@ if __name__ == "__main__":
             logger.error(f"Ping failed at {url}. Is 'podman machine start' running?")
             sys.exit(1)
 
-        logger.info(f"Ping OK")
+        logger.info("Ping OK")
         images = client.images.list()
         logger.info(f"Images on daemon: {len(images)}")
         for img in images[:5]:

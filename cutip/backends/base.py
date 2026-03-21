@@ -43,6 +43,7 @@ class CutipBackend(ABC):
     ) -> None:
         """Build an image from a local Dockerfile context."""
 
+    @abstractmethod
     def remove_image(self, name: str) -> None:
         """Remove an image by name/tag. No-op if not found."""
 

@@ -7,8 +7,6 @@ import sys
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from cutip.workflow import ActionMeta, action, orchestrator
 from cutip.workflow.decorators import _ACTION_ATTR, _ORCHESTRATOR_ATTR
 from cutip.workflow.introspect import (

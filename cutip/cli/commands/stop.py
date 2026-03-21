@@ -54,7 +54,7 @@ def stop(
         "-b",
         envvar="CUTIP_BACKEND",
         help="Container backend (docker or podman). "
-             "Defaults to project.backend in cutip.yaml, then docker.",
+        "Defaults to project.backend in cutip.yaml, then docker.",
     ),
     local: bool = typer.Option(
         False,
@@ -85,11 +85,7 @@ def stop(
         raise typer.Exit(0)
 
     is_local = local or os.environ.get("CUTIP_LOCAL", "").lower() in ("1", "true", "yes")
-    backend_name = (
-        backend.lower() if backend
-        else _load_project_backend(project_root)
-        or "docker"
-    )
+    backend_name = backend.lower() if backend else _load_project_backend(project_root) or "docker"
 
     try:
         _backend = get_backend(backend_name, local=is_local)

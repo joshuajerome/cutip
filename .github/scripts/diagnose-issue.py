@@ -115,9 +115,7 @@ def _is_low_confidence(diagnosis: str) -> bool:
     lower = diagnosis.lower()
     if "**confidence:** low" in lower:
         return True
-    if "need more information" in lower or "needs more info" in lower:
-        return True
-    return False
+    return "need more information" in lower or "needs more info" in lower
 
 
 def main() -> None:

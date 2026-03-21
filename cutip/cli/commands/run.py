@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import typer
+from loguru import logger
 from rich.console import Console
 
 from cutip.backends.shared.image import image_alias
@@ -21,7 +22,6 @@ from cutip.utils.runs import iso_now, run_lock, write_run_record
 from cutip.validation.graph import GraphValidator
 from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
-from loguru import logger
 
 console = Console()
 
@@ -29,6 +29,7 @@ console = Console()
 # ---------------------------------------------------------------------------
 # Group name helpers — partial matching + tab completion
 # ---------------------------------------------------------------------------
+
 
 def _match_group_name(incomplete: str, group_names: list[str]) -> list[str]:
     """Return group names that match *incomplete* by full prefix or segment prefix.
@@ -46,10 +47,7 @@ def _match_group_name(incomplete: str, group_names: list[str]) -> list[str]:
         return full_prefix
 
     # 2. Segment prefix matches
-    return [
-        n for n in group_names
-        if any(seg.startswith(incomplete) for seg in n.split("-"))
-    ]
+    return [n for n in group_names if any(seg.startswith(incomplete) for seg in n.split("-"))]
 
 
 def _resolve_group_name(name: str, registry) -> str:
@@ -70,10 +68,7 @@ def _resolve_group_name(name: str, registry) -> str:
         return resolved
 
     if len(candidates) > 1:
-        raise CutipError(
-            f"Ambiguous group name '{name}': matches {candidates}. "
-            f"Be more specific."
-        )
+        raise CutipError(f"Ambiguous group name '{name}': matches {candidates}. Be more specific.")
 
     raise CutipError(f"Group '{name}' not found in registry")
 
@@ -91,6 +86,7 @@ def _complete_group_name(incomplete: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Paths / secrets helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_paths(project_root: Path) -> tuple[dict, frozenset[str]]:
     """Load ``cutip/paths.yaml`` from the project if it exists.
@@ -121,6 +117,7 @@ def _load_paths(project_root: Path) -> tuple[dict, frozenset[str]]:
     directories CUTIP manages.
     """
     import yaml as _yaml
+
     p = project_root / "cutip" / "paths.yaml"
     if not p.exists():
         return {}, frozenset()
@@ -154,8 +151,7 @@ def _load_paths(project_root: Path) -> tuple[dict, frozenset[str]]:
             generated_keys.add(key)
 
         logger.debug(
-            f"Loaded paths: {len(req)} required, {len(gen)} generated "
-            f"(from cutip/paths.yaml)"
+            f"Loaded paths: {len(req)} required, {len(gen)} generated (from cutip/paths.yaml)"
         )
         return flat, frozenset(generated_keys)
 
@@ -171,6 +167,7 @@ def _load_secrets(project_root: Path) -> dict:
     Returns a flat dict of secret key → value pairs.
     """
     import yaml as _yaml
+
     p = project_root / "cutip" / "secrets.yaml"
     if not p.exists():
         return {}
@@ -199,20 +196,17 @@ def _resolve_refs_in_str(text: str, paths: dict, secrets: dict) -> str:
     Raises :class:`~cutip.utils.exceptions.CutipError` when a referenced key
     is absent from the corresponding dict.
     """
+
     def _replace(match: re.Match) -> str:
         namespace = match.group(1)
         key = match.group(2).strip()
         if namespace == "paths":
             if key not in paths:
-                raise CutipError(
-                    f"'{{{{ paths.{key} }}}}' not found in cutip/paths.yaml"
-                )
+                raise CutipError(f"'{{{{ paths.{key} }}}}' not found in cutip/paths.yaml")
             return str(paths[key])
         else:  # secrets
             if key not in secrets:
-                raise CutipError(
-                    f"'{{{{ secrets.{key} }}}}' not found in cutip/secrets.yaml"
-                )
+                raise CutipError(f"'{{{{ secrets.{key} }}}}' not found in cutip/secrets.yaml")
             return str(secrets[key])
 
     return re.sub(r"\{\{\s*(paths|secrets)\.(\w+)\s*\}\}", _replace, text)
@@ -301,7 +295,9 @@ def _prepare_generated_dirs(
 
 
 def _resolve_refs_in_card(
-    card: ContainerCard, paths: dict, secrets: dict,
+    card: ContainerCard,
+    paths: dict,
+    secrets: dict,
 ) -> ContainerCard:
     """Return a copy of *card* with ``{{ paths.key }}`` / ``{{ secrets.key }}``
     resolved in mount paths.
@@ -315,10 +311,12 @@ def _resolve_refs_in_card(
     resolved_mounts = []
     for mount in card.spec.mounts:
         resolved_mounts.append(
-            mount.model_copy(update={
-                "source": _resolve_refs_in_str(mount.source, paths, secrets),
-                "target": _resolve_refs_in_str(mount.target, paths, secrets),
-            })
+            mount.model_copy(
+                update={
+                    "source": _resolve_refs_in_str(mount.source, paths, secrets),
+                    "target": _resolve_refs_in_str(mount.target, paths, secrets),
+                }
+            )
         )
 
     resolved_spec = card.spec.model_copy(update={"mounts": resolved_mounts})
@@ -328,6 +326,7 @@ def _resolve_refs_in_card(
 # ---------------------------------------------------------------------------
 # Context builder
 # ---------------------------------------------------------------------------
+
 
 def _build_context(
     group_name: str,
@@ -378,6 +377,7 @@ def _build_context(
 # ---------------------------------------------------------------------------
 # Lifecycle helpers — called by run() in order
 # ---------------------------------------------------------------------------
+
 
 def _prepare_host_dirs(
     ctx: CutipContext,
@@ -435,7 +435,11 @@ def _remove_group_images(ctx: CutipContext, backend) -> None:
 
 
 def _build_and_pull_images(
-    ctx: CutipContext, backend, project_root: Path, paths: dict, secrets: dict,
+    ctx: CutipContext,
+    backend,
+    project_root: Path,
+    paths: dict,
+    secrets: dict,
     no_cache: bool = False,
 ) -> None:
     """Build or pull every ImageCard resolved in the context."""
@@ -478,7 +482,10 @@ def _ensure_networks(ctx: CutipContext, backend, group_name: str) -> None:
 
 
 def _provision_containers(
-    ctx: CutipContext, backend, paths: dict, secrets: dict,
+    ctx: CutipContext,
+    backend,
+    paths: dict,
+    secrets: dict,
     default_network: str | None = None,
 ) -> None:
     """Remove stale containers and create fresh ones with refs resolved."""
@@ -503,12 +510,12 @@ def _provision_containers(
         img_card = ctx.resolved_cards.get(img_ref)
         img_name = image_alias(img_card) if isinstance(img_card, ImageCard) else None
 
-        backend.create_container(resolved_card, image_name=img_name, default_network=default_network)
+        backend.create_container(
+            resolved_card, image_name=img_name, default_network=default_network
+        )
 
 
-def _run_unit_pre_builds(
-    ctx: CutipContext, registry, project_root: Path
-) -> None:
+def _run_unit_pre_builds(ctx: CutipContext, registry, project_root: Path) -> None:
     """Call ``pre_build(ctx)`` in each unit's ``startup.py`` (if it exists).
 
     Runs *before* any images are built so that units can stage build-context
@@ -520,9 +527,7 @@ def _run_unit_pre_builds(
         loader.run_pre_build(unit, ctx, registry)
 
 
-def _run_unit_startups(
-    ctx: CutipContext, registry, project_root: Path
-) -> None:
+def _run_unit_startups(ctx: CutipContext, registry, project_root: Path) -> None:
     """Call ``startup(ctx)`` in each unit's ``startup.py`` (if it exists).
 
     Runs after all containers have started, before the group-level
@@ -538,6 +543,7 @@ def _run_unit_startups(
 # ---------------------------------------------------------------------------
 # Project config helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_project_backend(project_root: Path) -> str | None:
     """Read ``project.backend`` from ``cutip.yaml`` if it exists.
@@ -640,6 +646,7 @@ def _save_project_backend(project_root: Path, backend_name: str) -> None:
 # CLI command
 # ---------------------------------------------------------------------------
 
+
 def run(
     group_name: str = typer.Argument(
         ...,
@@ -652,21 +659,21 @@ def run(
         "-b",
         envvar="CUTIP_BACKEND",
         help="Container backend to use (docker or podman). "
-             "Defaults to project.backend in cutip.yaml, then docker.",
+        "Defaults to project.backend in cutip.yaml, then docker.",
     ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
         help="Remove existing containers and images for the group, "
-             "then rebuild from scratch (no layer cache).",
+        "then rebuild from scratch (no layer cache).",
     ),
     local: bool = typer.Option(
         False,
         "--local",
         "-l",
         help="Connect to the local Podman socket directly (no SSH tunnel). "
-             "Uses CONTAINER_HOST env var when set. "
-             "Required for CI / Linux environments.",
+        "Uses CONTAINER_HOST env var when set. "
+        "Required for CI / Linux environments.",
     ),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
@@ -687,7 +694,7 @@ def run(
       9. Call startup(ctx) in each unit's startup.py (post-start hooks)
     """
     project_root = path or _find_project_root()
-    cutip_dir   = project_root / ".cutip"
+    cutip_dir = project_root / ".cutip"
     setup_logging(log_dir=cutip_dir / "logs")
 
     registry = WorkspaceDiscovery(project_root).discover()
@@ -723,6 +730,7 @@ def run(
     # Connect backend
     try:
         from cutip.backends import get_backend
+
         _backend = get_backend(backend_name, local=is_local)
     except CutipError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -742,7 +750,9 @@ def run(
     try:
         with run_lock(cutip_dir / "locks", group_name):
             ctx = _build_context(
-                group_name, project_root, registry,
+                group_name,
+                project_root,
+                registry,
                 runtime=_backend.client,
                 paths=project_paths,
                 secrets=project_secrets,
@@ -752,7 +762,7 @@ def run(
             # (generated keys are auto-managed and always valid — skip them)
             _validate_refs(ctx, project_paths, project_secrets, generated_keys)
 
-            # Steps 1–2: host dirs + named volumes
+            # Steps 1-2: host dirs + named volumes
             _prepare_host_dirs(ctx, project_root, paths=project_paths, secrets=project_secrets)
             _prepare_volumes(ctx, _backend.client)
 
@@ -764,10 +774,14 @@ def run(
                 logger.info("--no-cache: removing existing images for clean rebuild")
                 _remove_group_images(ctx, _backend)
 
-            # Steps 4–6: images → networks → create containers (no auto-start)
-            _build_and_pull_images(ctx, _backend, project_root, project_paths, project_secrets, no_cache=no_cache)
+            # Steps 4-6: images -> networks -> create containers (no auto-start)
+            _build_and_pull_images(
+                ctx, _backend, project_root, project_paths, project_secrets, no_cache=no_cache
+            )
             default_net = _ensure_networks(ctx, _backend, group_name)
-            _provision_containers(ctx, _backend, project_paths, project_secrets, default_network=default_net)
+            _provision_containers(
+                ctx, _backend, project_paths, project_secrets, default_network=default_net
+            )
 
             # Step 7: group-level workflow main() — starts containers, orchestrates
             workflow_loader = WorkflowLoader(project_root)

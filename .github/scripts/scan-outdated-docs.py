@@ -102,7 +102,9 @@ def main() -> int:
     out.write_text(response)
 
     if "VERDICT: FAIL" in response:
-        print("\n[scan-outdated-docs] HIGH-severity stale references found — resolve before merging.")
+        print(
+            "\n[scan-outdated-docs] HIGH-severity stale references found — resolve before merging."
+        )
         return 1
 
     print("\n[scan-outdated-docs] No HIGH-severity issues found.")

@@ -66,8 +66,7 @@ def init(
             f"  Project root: [cyan]{root}[/cyan]\n\n"
             f"  [dim]cutip/[/dim]          ← version-controlled artifacts\n"
             f"  [dim].cutip/[/dim]         ← runtime state (add to .gitignore)\n"
-            f"  [dim]cutip.yaml[/dim]       ← project config"
-            + backend_line,
+            f"  [dim]cutip.yaml[/dim]       ← project config" + backend_line,
             title="cutip init",
             border_style="green",
         )

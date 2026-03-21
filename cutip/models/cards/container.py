@@ -73,11 +73,9 @@ class ContainerSpec(BaseModel):
     restart_policy: str | None = None
 
     @model_validator(mode="after")
-    def _validate_network(self) -> "ContainerSpec":
+    def _validate_network(self) -> ContainerSpec:
         if self.networkRef is not None and self.network_mode is not None:
-            raise ValueError(
-                "Only one of 'networkRef' or 'network_mode' may be provided, not both"
-            )
+            raise ValueError("Only one of 'networkRef' or 'network_mode' may be provided, not both")
         # Neither set → CUTIP will create a default bridge at run time
         return self
 

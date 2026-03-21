@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
-
 
 DEFAULT_LOGURU_SINK_FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss.SSS Z}</green> | "
@@ -46,7 +45,7 @@ def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> str | Non
     logger.remove()
 
     is_subprocess = lambda rec: rec["extra"].get("subprocess") is True  # noqa: E731
-    is_standard   = lambda rec: not rec["extra"].get("subprocess")      # noqa: E731
+    is_standard = lambda rec: not rec["extra"].get("subprocess")  # noqa: E731
 
     # 1) Console: subprocess lines in grey
     logger.add(
@@ -70,7 +69,7 @@ def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> str | Non
         log_dir.mkdir(parents=True, exist_ok=True)
 
         # Timestamped log file per run
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         log_file = log_dir / f"cutip-{ts}.log"
 
         # 2) File: subprocess lines as plain text (no decoration)

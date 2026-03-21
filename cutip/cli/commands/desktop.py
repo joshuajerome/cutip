@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -16,7 +15,9 @@ from cutip.workspace.scaffold import _find_project_root
 
 def desktop(
     url: str = typer.Option("http://localhost:5173", "--url", help="cutip-desktop server URL."),
-    path: Path = typer.Option(None, "--path", "-p", help="Project root (auto-detected if omitted)."),
+    path: Path = typer.Option(
+        None, "--path", "-p", help="Project root (auto-detected if omitted)."
+    ),
 ) -> None:
     """Register this workspace in cutip-desktop and open the graph tab."""
     project_root = path or _find_project_root()

@@ -16,9 +16,9 @@ from cutip.workflow.introspect import (
 __all__ = [
     "ActionMeta",
     "action",
-    "orchestrator",
     "extract_action_order",
     "extract_action_order_from_module",
     "get_module_actions",
     "get_orchestrator",
+    "orchestrator",
 ]

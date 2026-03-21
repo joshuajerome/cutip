@@ -7,7 +7,6 @@ from pathlib import Path
 
 import yaml
 
-
 ISSUE_TEMPLATE = {
     "apiVersion": "cutip/v1",
     "kind": "Issue",
@@ -18,11 +17,7 @@ ISSUE_TEMPLATE = {
         "status": "draft",
     },
     "spec": {
-        "description": (
-            "## What happened\n\n"
-            "## Steps to reproduce\n\n"
-            "## Expected behavior\n"
-        ),
+        "description": ("## What happened\n\n## Steps to reproduce\n\n## Expected behavior\n"),
         "labels": ["bug"],
     },
 }
@@ -95,4 +90,5 @@ def list_issues(project_root: Path) -> list[tuple[Path, dict]]:
 def _deep_copy_template() -> dict:
     """Return a deep copy of the issue template."""
     import copy
+
     return copy.deepcopy(ISSUE_TEMPLATE)

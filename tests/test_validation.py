@@ -1,9 +1,7 @@
 """Tests for the graph validator."""
 
-from pathlib import Path
 import tempfile
-
-import pytest
+from pathlib import Path
 
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
