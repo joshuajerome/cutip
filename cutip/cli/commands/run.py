@@ -10,7 +10,7 @@ from loguru import logger
 from rich.console import Console
 
 from cutip.backends.shared.image import image_alias
-from cutip.context.startup import UnitStartupLoader
+from cutip.context.startup import UnitHookLoader
 from cutip.context.workflow import CutipContext, WorkflowLoader
 from cutip.models.cards.container import ContainerCard
 from cutip.models.cards.image import ImageCard
@@ -525,29 +525,24 @@ def _provision_containers(
         )
 
 
-def _run_unit_pre_builds(ctx: CutipContext, registry, project_root: Path) -> None:
-    """Call ``pre_build(ctx)`` in each unit's ``startup.py`` (if it exists).
+def _run_unit_prehooks(ctx: CutipContext, registry, project_root: Path) -> None:
+    """Run prehook for each unit (before image build).
 
-    Runs *before* any images are built so that units can stage build-context
-    files (e.g. resolving local npm ``file:`` dependencies) that must be
-    present when ``podman build`` runs.
+    Resolution order per unit: prehook.py → startup.py pre_build() (legacy).
     """
-    loader = UnitStartupLoader(project_root)
+    loader = UnitHookLoader(project_root)
     for unit in ctx.resolved_units.values():
-        loader.run_pre_build(unit, ctx, registry)
+        loader.run_prehook(unit, ctx, registry)
 
 
-def _run_unit_startups(ctx: CutipContext, registry, project_root: Path) -> None:
-    """Call ``startup(ctx)`` in each unit's ``startup.py`` (if it exists).
+def _run_unit_posthooks(ctx: CutipContext, registry, project_root: Path) -> None:
+    """Run posthook for each unit (after orchestration).
 
-    Runs after all containers have started, before the group-level
-    ``workflow.main(ctx)``.  Per-unit startup files live at::
-
-        cutip/units/<unit-name>/startup.py
+    Resolution order per unit: posthook.py → startup.py startup() (legacy).
     """
-    loader = UnitStartupLoader(project_root)
+    loader = UnitHookLoader(project_root)
     for unit in ctx.resolved_units.values():
-        loader.run(unit, ctx, registry)
+        loader.run_posthook(unit, ctx, registry)
 
 
 # ---------------------------------------------------------------------------
@@ -696,12 +691,12 @@ def run(
       1. Load cutip/paths.yaml + cutip/secrets.yaml
       2. Create host directories for mounts with create_host_path: true
       3. Create named volumes declared in ContainerCard.spec.volumes
-      4. Call pre_build(ctx) in each unit's startup.py (if defined)
+      4. Run per-unit prehooks (prehook.py or startup.py pre_build)
       5. Build / pull images declared in ImageCards
       6. Ensure networks declared in NetworkCards
       7. Remove stale containers and create fresh ones (no auto-start)
       8. Call workflow.main(ctx) — start containers, orchestrate units
-      9. Call startup(ctx) in each unit's startup.py (post-start hooks)
+      9. Run per-unit posthooks (posthook.py or startup.py startup)
     """
     project_root = path or _find_project_root()
     cutip_dir = project_root / ".cutip"
@@ -776,8 +771,8 @@ def run(
             _prepare_host_dirs(ctx, project_root, paths=project_paths, secrets=project_secrets)
             _prepare_volumes(ctx, _backend.client)
 
-            # Step 3: per-unit pre_build hooks (stage build-context files)
-            _run_unit_pre_builds(ctx, registry, project_root)
+            # Step 3: per-unit prehooks (stage build-context files)
+            _run_unit_prehooks(ctx, registry, project_root)
 
             # --no-cache: remove existing images before rebuilding
             if no_cache:
@@ -797,8 +792,8 @@ def run(
             workflow_loader = WorkflowLoader(project_root)
             workflow_loader.run(ctx.group, ctx, registry)
 
-            # Step 8: per-unit startup.py post-start hooks
-            _run_unit_startups(ctx, registry, project_root)
+            # Step 8: per-unit posthooks
+            _run_unit_posthooks(ctx, registry, project_root)
             status = "success"
     except CutipError as exc:
         run_error = str(exc)
