@@ -55,6 +55,9 @@ commit messages, and PR titles.
 | cap045 | MkDocs dark theme + design tokens                              | feat | merged | feat/cap045-mkdocs-theme              | #96 | 2026-03-21 |
 | cap046 | Trim README to essential content                               | feat | merged | feat/cap046-readme-trim               | #95 | 2026-03-21 |
 | cap047 | Documentation rewrite: lifecycle, annotations, compile         | docs | merged | docs/cap047-docs-rewrite              | #97 | 2026-03-21 |
+| cap048 | CLI command renames + new commands                              | feat | merged | feat/cap048-cli-commands              | #102 | 2026-03-21 |
+| cap049 | CLI performance + tab completion cache                          | feat | merged | feat/cap049-cli-perf                  | #100 | 2026-03-21 |
+| cap050 | Annotation system + cutip compile                               | feat | merged | feat/cap050-annotations-compile       | #101 | 2026-03-21 |
 
 ## ID Assignment
 
