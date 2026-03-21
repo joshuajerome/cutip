@@ -104,11 +104,19 @@ class GraphValidator:
                 group_dir = None
 
             if group_dir is not None:
+                # Resolution order matches WorkflowLoader: orchestrator → workflow
+                orchestrator_path = group_dir / group.spec.orchestrator
                 workflow_path = group_dir / group.spec.workflow
-                if not workflow_path.is_file():
-                    result.add(
-                        f"[WorkflowPath] {group_name}: workflow file not found: '{workflow_path}'"
-                    )
-                    logger.warning(f"  ✗ {group_name}: workflow not found: '{workflow_path}'")
-                else:
+                if orchestrator_path.is_file():
+                    logger.info(f"  ✓ {group_name}: {group.spec.orchestrator}")
+                elif workflow_path.is_file():
                     logger.info(f"  ✓ {group_name}: {group.spec.workflow}")
+                else:
+                    result.add(
+                        f"[WorkflowPath] {group_name}: neither orchestrator "
+                        f"'{group.spec.orchestrator}' nor workflow "
+                        f"'{group.spec.workflow}' found in {group_dir}"
+                    )
+                    logger.warning(
+                        f"  ✗ {group_name}: no orchestrator or workflow found in {group_dir}"
+                    )
