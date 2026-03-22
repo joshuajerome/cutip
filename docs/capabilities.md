@@ -65,7 +65,7 @@ commit messages, and PR titles.
 | cap055 | Hello-world scaffold rewrite + --blank flag                     | feat | merged | feat/cap055-hello-world-scaffold      | #109 | 2026-03-21 |
 | cap056 | Optional config.yaml support in CutipContext                    | feat | merged | feat/cap056-project-config            | #110 | 2026-03-21 |
 | cap057 | Validate orchestrator.py alongside workflow.py                  | bug  | merged | bug/cap057-validate-orchestrator      | #113 | 2026-03-21 |
-| cap058 | Fix prehook ctx=None for explicit hook declarations            | bug  | open   | bug/cap058-prehook-ctx-none           | —   | 2026-03-21 |
+| cap058 | Fix prehook ctx=None for explicit hook declarations            | bug  | merged | bug/cap058-prehook-ctx-none           | #116 | 2026-03-21 |
 
 ## ID Assignment
 
