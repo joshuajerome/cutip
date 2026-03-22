@@ -77,7 +77,7 @@ class UnitHookLoader:
             hook_path = unit_dir / unit.spec.hooks.prehook
             if hook_path.is_file():
                 module = self._load_module(f"{unit.name}_prehook", hook_path)
-                self._call(module, "main", unit.name, "prehook", hook_path)
+                self._call(module, "main", unit.name, "prehook", hook_path, ctx=ctx)
                 return
 
         # 2. Convention: prehook.py
