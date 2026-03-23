@@ -23,6 +23,7 @@ from cutip.cli.commands.rm import app as rm_app
 from cutip.cli.commands.run import run
 from cutip.cli.commands.secrets import secrets_app
 from cutip.cli.commands.show import app as show_app
+from cutip.cli.commands.status import status
 from cutip.cli.commands.stop import stop
 from cutip.cli.commands.tree import app as tree_app
 from cutip.cli.commands.upgrade import app as upgrade_app
@@ -243,6 +244,7 @@ app.add_typer(info_app, name="info", rich_help_panel=_WF)
 app.add_typer(create_app, name="create", rich_help_panel=_WF)
 
 app.command("compile", rich_help_panel=_WF)(compile_cmd)
+app.command("status", rich_help_panel=_WF)(status)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
