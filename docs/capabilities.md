@@ -66,7 +66,8 @@ commit messages, and PR titles.
 | cap056 | Optional config.yaml support in CutipContext                    | feat | merged | feat/cap056-project-config            | #110 | 2026-03-21 |
 | cap057 | Validate orchestrator.py alongside workflow.py                  | bug  | merged | bug/cap057-validate-orchestrator      | #113 | 2026-03-21 |
 | cap058 | Fix prehook ctx=None for explicit hook declarations            | bug  | merged | bug/cap058-prehook-ctx-none           | #116 | 2026-03-21 |
-| cap059 | cutip status command for backend connectivity                   | feat | open   | feat/cap059-status-command             | —   | 2026-03-23 |
+| cap059 | cutip status command for backend connectivity                   | feat | merged | feat/cap059-status-command             | #119 | 2026-03-23 |
+| cap060 | Upgrade system, cutip diff, stage() separator                  | feat | merged | feat/cap060-upgrade-system-stages      | #120 | 2026-03-25 |
 
 ## ID Assignment
 
