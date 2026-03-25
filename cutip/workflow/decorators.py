@@ -15,6 +15,45 @@ _CLEANUP_ATTR = "_cutip_cleanup_meta"
 _CONFIG_ATTR = "_cutip_config_meta"
 
 
+# ---------------------------------------------------------------------------
+# Stage separator
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StageMeta:
+    """Metadata for a stage boundary in the orchestrator."""
+
+    title: str | None = None
+    description: str | None = None
+
+
+def stage(title: str | None = None, description: str | None = None) -> None:
+    """Workflow stage separator. No-op at runtime.
+
+    Parsed by the AST introspector to group actions into named stages
+    for cutip-desktop DAG visualization.
+
+    With no arguments, Desktop labels stages numerically (Stage 1, Stage 2, ...).
+    With title/description, Desktop shows the stage header and detail panel.
+
+    Usage::
+
+        @orchestrator
+        def main(ctx):
+            stage("Pre-op Validation", description="Verify SSH, K8s resources, and file integrity")
+            validate_ssh(ctx, sesh)
+            check_deploy(ctx, sesh, ns, deploy)
+
+            stage("Operations")
+            enable_keycloak(ctx, sesh, script)
+            patch_handler(ctx, sesh, ns, deploy, patch)
+
+            stage()  # Desktop shows "Stage 3"
+            verify_pod(ctx, sesh, ns, deploy)
+    """
+
+
 @dataclass(frozen=True)
 class ActionMeta:
     """Metadata attached to an ``@action``-decorated function."""
