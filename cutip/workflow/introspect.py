@@ -16,6 +16,7 @@ from cutip.workflow.decorators import (
     ConfigMeta,
     HealthcheckMeta,
     HookMeta,
+    StageMeta,
 )
 
 
@@ -102,6 +103,204 @@ def extract_action_order_from_module(module: ModuleType) -> list[ActionMeta]:
     # No file available — fall back to runtime introspection
     actions = get_module_actions(module)
     return list(actions.values())
+
+
+@dataclass(frozen=True)
+class StageGroup:
+    """A group of actions belonging to a named stage."""
+
+    stage: StageMeta
+    actions: list[ActionMeta] = field(default_factory=list)
+
+
+def extract_staged_action_order(workflow_path: Path) -> list[StageGroup]:
+    """Extract actions grouped by stage() separators from a workflow file.
+
+    Returns a list of StageGroup objects. Each group contains a StageMeta
+    (with optional title/description) and the actions that follow that stage()
+    call until the next stage() or end of orchestrator body.
+
+    Actions before any stage() call are placed in an implicit first group
+    with no title (Desktop may render these outside any stage lane, or as
+    setup/teardown).
+
+    If no stage() calls are found, returns a single StageGroup containing
+    all actions.
+    """
+    source = workflow_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(workflow_path))
+
+    # Find action-decorated functions
+    action_funcs: dict[str, ActionMeta] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for deco in node.decorator_list:
+            if _is_action_decorator(deco):
+                meta = _extract_meta_from_decorator(deco)
+                if meta is not None:
+                    action_funcs[node.name] = meta
+                break
+
+    if not action_funcs:
+        return []
+
+    # Find orchestrator body
+    orch_body = _find_orchestrator_body(tree)
+    if orch_body is None:
+        return [StageGroup(stage=StageMeta(), actions=list(action_funcs.values()))]
+
+    # Walk body collecting stage boundaries and action calls
+    groups: list[StageGroup] = []
+    current_stage = StageMeta()
+    current_actions: list[ActionMeta] = []
+
+    current_stage, current_actions = _collect_staged_items(
+        orch_body, action_funcs, groups, current_stage, current_actions
+    )
+
+    # Flush remaining actions
+    if current_actions:
+        groups.append(StageGroup(stage=current_stage, actions=list(current_actions)))
+
+    # If no stages were found, return single group with all actions
+    if not groups:
+        all_actions: list[str] = []
+        _collect_action_calls(orch_body, action_funcs, all_actions)
+        return [StageGroup(stage=StageMeta(), actions=[action_funcs[n] for n in all_actions])]
+
+    # Number untitled stages
+    for i, group in enumerate(groups):
+        if group.stage.title is None:
+            numbered = StageMeta(title=f"Stage {i + 1}", description=group.stage.description)
+            groups[i] = StageGroup(stage=numbered, actions=group.actions)
+
+    return groups
+
+
+def _collect_staged_items(
+    stmts: list[ast.stmt],
+    action_funcs: dict[str, ActionMeta],
+    groups: list[StageGroup],
+    current_stage: StageMeta,
+    current_actions: list[ActionMeta],
+) -> tuple[StageMeta, list[ActionMeta]]:
+    """Walk statements collecting stage() boundaries and action calls."""
+    for stmt in stmts:
+        # Check for stage() call
+        stage_meta = _extract_stage_call(stmt)
+        if stage_meta is not None:
+            # Flush current group if it has actions
+            if current_actions:
+                groups.append(StageGroup(stage=current_stage, actions=list(current_actions)))
+                current_actions.clear()
+            current_stage = stage_meta
+            continue
+
+        # Check for action call
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            func = stmt.value.func
+            if isinstance(func, ast.Name) and func.id in action_funcs:
+                current_actions.append(action_funcs[func.id])
+                continue
+
+        # Assignment with action call
+        if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            value = stmt.value
+            if isinstance(value, ast.Call):
+                func = value.func
+                if isinstance(func, ast.Name) and func.id in action_funcs:
+                    current_actions.append(action_funcs[func.id])
+                    continue
+
+        # Recurse into with blocks (ssh.session, etc.)
+        if isinstance(stmt, ast.With):
+            current_stage, current_actions = _collect_staged_items_with_state(
+                stmt.body, action_funcs, groups, current_stage, current_actions
+            )
+            continue
+
+        # Recurse into if/for/while/try
+        if isinstance(stmt, ast.If):
+            current_stage, current_actions = _collect_staged_items_with_state(
+                stmt.body, action_funcs, groups, current_stage, current_actions
+            )
+            current_stage, current_actions = _collect_staged_items_with_state(
+                stmt.orelse, action_funcs, groups, current_stage, current_actions
+            )
+        elif isinstance(stmt, (ast.For, ast.While)):
+            current_stage, current_actions = _collect_staged_items_with_state(
+                stmt.body, action_funcs, groups, current_stage, current_actions
+            )
+        elif isinstance(stmt, ast.Try):
+            current_stage, current_actions = _collect_staged_items_with_state(
+                stmt.body, action_funcs, groups, current_stage, current_actions
+            )
+            for handler in stmt.handlers:
+                current_stage, current_actions = _collect_staged_items_with_state(
+                    handler.body, action_funcs, groups, current_stage, current_actions
+                )
+
+    return current_stage, current_actions
+
+
+def _collect_staged_items_with_state(
+    stmts: list[ast.stmt],
+    action_funcs: dict[str, ActionMeta],
+    groups: list[StageGroup],
+    current_stage: StageMeta,
+    current_actions: list[ActionMeta],
+) -> tuple[StageMeta, list[ActionMeta]]:
+    """Wrapper that threads mutable state through recursive calls."""
+    return _collect_staged_items(stmts, action_funcs, groups, current_stage, current_actions)
+
+
+def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
+    """Check if a statement is a stage() call and extract its metadata."""
+    if not isinstance(stmt, ast.Expr):
+        return None
+    if not isinstance(stmt.value, ast.Call):
+        return None
+
+    call = stmt.value
+    func = call.func
+
+    # Match stage(...) or workflow.stage(...)
+    is_stage = False
+    if (isinstance(func, ast.Name) and func.id == "stage") or (
+        isinstance(func, ast.Attribute) and func.attr == "stage"
+    ):
+        is_stage = True
+
+    if not is_stage:
+        return None
+
+    # Extract title and description
+    title: str | None = None
+    description: str | None = None
+
+    # Positional: first arg is title
+    if call.args:
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            title = first.value
+
+    # Keyword arguments
+    for kw in call.keywords:
+        if (
+            kw.arg == "title"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
+            title = kw.value.value
+        elif (
+            kw.arg == "description"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
+            description = kw.value.value
+
+    return StageMeta(title=title, description=description)
 
 
 def _is_action_decorator(deco: ast.expr) -> bool:

@@ -2,28 +2,54 @@
 
 from __future__ import annotations
 
-from importlib.metadata import version as _pkg_version
-
 import typer
 import yaml
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from cutip.utils.version import installed_version, latest_version
 from cutip.workspace.scaffold import _find_project_root
 
 console = Console()
 app = typer.Typer()
 
 
+def _version_line(project_root) -> str:
+    """Build the version status line: installed vs latest + migration hint."""
+    ver = installed_version()
+    latest = latest_version(cache_dir=project_root / ".cutip" / "cache")
+
+    if latest and latest != ver:
+        return (
+            f"[bold]Version[/bold]: {ver} "
+            f"([yellow]{latest} available[/yellow] — "
+            f"run: [cyan]pip install cutip --upgrade[/cyan])"
+        )
+
+    # Up to date — check if workspace has deprecated patterns
+    from cutip.upgrade.registry import scan_migrations
+
+    findings = scan_migrations(project_root)
+    if findings:
+        n = len(findings)
+        return (
+            f"[bold]Version[/bold]: {ver} [green]up to date[/green] — "
+            f"[yellow]{n} file{'s' if n != 1 else ''} use{'s' if n == 1 else ''} "
+            f"deprecated patterns[/yellow]. Run: [cyan]cutip upgrade[/cyan]"
+        )
+
+    return f"[bold]Version[/bold]: {ver} [green]up to date[/green]"
+
+
 @app.callback(invoke_without_command=True)
 def info() -> None:
     """Show CUTIP version, active workspace, backend info, and discovered artifacts."""
-    ver = _pkg_version("cutip")
-    lines = [f"[bold]Version[/bold]: {ver}"]
+    project_root = _find_project_root()
+
+    lines = [_version_line(project_root)]
 
     # Active workspace
-    project_root = _find_project_root()
     config_path = project_root / "cutip.yaml"
     if config_path.is_file():
         try:
