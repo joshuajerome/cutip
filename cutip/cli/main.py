@@ -10,9 +10,9 @@ import typer
 
 from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
-from cutip.cli.commands.diff import diff
 from cutip.cli.commands.create import app as create_app
 from cutip.cli.commands.desktop import desktop
+from cutip.cli.commands.diff import diff
 from cutip.cli.commands.export_cmd import export_group
 from cutip.cli.commands.import_cmd import import_group
 from cutip.cli.commands.info import app as info_app

@@ -170,14 +170,10 @@ def extract_staged_action_order(workflow_path: Path) -> list[StageGroup]:
         return [StageGroup(stage=StageMeta(), actions=[action_funcs[n] for n in all_actions])]
 
     # Number untitled stages
-    stage_counter = 0
-    for group in groups:
-        stage_counter += 1
+    for i, group in enumerate(groups):
         if group.stage.title is None:
-            # Replace with numbered stage — need to create new frozen instance
-            numbered = StageMeta(title=f"Stage {stage_counter}", description=group.stage.description)
-            # Since StageGroup is frozen, rebuild it
-            groups[groups.index(group)] = StageGroup(stage=numbered, actions=group.actions)
+            numbered = StageMeta(title=f"Stage {i + 1}", description=group.stage.description)
+            groups[i] = StageGroup(stage=numbered, actions=group.actions)
 
     return groups
 
@@ -271,9 +267,9 @@ def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
 
     # Match stage(...) or workflow.stage(...)
     is_stage = False
-    if isinstance(func, ast.Name) and func.id == "stage":
-        is_stage = True
-    elif isinstance(func, ast.Attribute) and func.attr == "stage":
+    if (isinstance(func, ast.Name) and func.id == "stage") or (
+        isinstance(func, ast.Attribute) and func.attr == "stage"
+    ):
         is_stage = True
 
     if not is_stage:
@@ -291,9 +287,17 @@ def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
 
     # Keyword arguments
     for kw in call.keywords:
-        if kw.arg == "title" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg == "title"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             title = kw.value.value
-        elif kw.arg == "description" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        elif (
+            kw.arg == "description"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             description = kw.value.value
 
     return StageMeta(title=title, description=description)

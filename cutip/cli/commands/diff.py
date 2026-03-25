@@ -45,7 +45,9 @@ def diff(
     for f in findings:
         rel = f.file.relative_to(project_root) if f.file else "—"
         sev = "✗" if f.severity == "breaking" else "!"
-        lines.append(f"[{'red' if f.severity == 'breaking' else 'yellow'}]{sev}[/] [{f.migration_id}] {rel}")
+        lines.append(
+            f"[{'red' if f.severity == 'breaking' else 'yellow'}]{sev}[/] [{f.migration_id}] {rel}"
+        )
         if f.detail:
             lines.append(f"    → {f.detail}")
         lines.append("")

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from cutip.upgrade.registry import Finding, apply_findings, scan_migrations
@@ -122,14 +121,10 @@ def upgrade(
     # Stage in git
     staged = _git_stage(modified, project_root)
     if staged:
-        console.print(
-            f"\n[green]Done.[/green] {len(modified)} file(s) modified and staged in git."
-        )
+        console.print(f"\n[green]Done.[/green] {len(modified)} file(s) modified and staged in git.")
         console.print("Run [bold]cutip diff[/bold] to review staged changes.")
     else:
-        console.print(
-            f"\n[green]Done.[/green] {len(modified)} file(s) modified."
-        )
+        console.print(f"\n[green]Done.[/green] {len(modified)} file(s) modified.")
         console.print("[dim](Not a git repository — changes were not staged.)[/dim]")
 
     # Verify

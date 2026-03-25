@@ -11,13 +11,12 @@ Each migration is a class with:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 import yaml
 from loguru import logger
-
 
 # ---------------------------------------------------------------------------
 # Finding — a single detected issue
@@ -64,7 +63,9 @@ class VarsToPathsMigration:
     id = "vars-to-paths"
     introduced = "0.1.8"
     severity = "breaking"
-    description = "cutip/vars.yaml was renamed to cutip/paths.yaml; secrets go in cutip/secrets.yaml"
+    description = (
+        "cutip/vars.yaml was renamed to cutip/paths.yaml; secrets go in cutip/secrets.yaml"
+    )
 
     def detect(self, project_root: Path) -> list[Finding]:
         old = project_root / "cutip" / "vars.yaml"
@@ -75,8 +76,8 @@ class VarsToPathsMigration:
                     migration_id=self.id,
                     severity=self.severity,
                     message=(
-                        f"cutip/vars.yaml should be renamed to cutip/paths.yaml.\n"
-                        f"  Sensitive values should be moved to cutip/secrets.yaml."
+                        "cutip/vars.yaml should be renamed to cutip/paths.yaml.\n"
+                        "  Sensitive values should be moved to cutip/secrets.yaml."
                     ),
                     file=old,
                     detail="Rename cutip/vars.yaml → cutip/paths.yaml",
@@ -98,7 +99,9 @@ class MissingBackendMigration:
     id = "missing-backend"
     introduced = "0.1.9"
     severity = "warning"
-    description = "cutip.yaml project.backend field required (default changed from podman to docker)"
+    description = (
+        "cutip.yaml project.backend field required (default changed from podman to docker)"
+    )
 
     def detect(self, project_root: Path) -> list[Finding]:
         config = project_root / "cutip.yaml"
@@ -138,7 +141,9 @@ class MissingBackendMigration:
 
     def apply(self, finding: Finding, project_root: Path, **kwargs: object) -> list[Path]:
         if finding.migration_id == "cutip-yaml-project":
-            logger.warning("Skipped: cutip-yaml-project requires manual restructuring of cutip.yaml")
+            logger.warning(
+                "Skipped: cutip-yaml-project requires manual restructuring of cutip.yaml"
+            )
             return []
         backend = kwargs.get("backend", "podman")
         config = project_root / "cutip.yaml"
@@ -298,7 +303,6 @@ class StartupToHooksMigration:
             return []
 
         import ast
-        import textwrap
 
         text = finding.file.read_text(encoding="utf-8")
         tree = ast.parse(text)
@@ -376,8 +380,7 @@ class StartupToHooksMigration:
                 remaining.append("")
                 finding.file.write_text("\n".join(remaining), encoding="utf-8")
                 logger.info(
-                    f"Updated: {finding.file.relative_to(project_root)} "
-                    f"(removed {old_name}())"
+                    f"Updated: {finding.file.relative_to(project_root)} (removed {old_name}())"
                 )
                 modified.append(finding.file)
 
@@ -425,7 +428,9 @@ def apply_findings(
         migration = get_migration(finding.migration_id)
         if migration is None:
             # Sub-findings like "cutip-yaml-project" are handled by their parent migration
-            parent_id = finding.migration_id.rsplit("-", 1)[0] if "-" in finding.migration_id else None
+            parent_id = (
+                finding.migration_id.rsplit("-", 1)[0] if "-" in finding.migration_id else None
+            )
             if parent_id:
                 migration = get_migration(parent_id)
         if migration:

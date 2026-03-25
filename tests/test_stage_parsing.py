@@ -3,7 +3,6 @@
 import textwrap
 from pathlib import Path
 
-from cutip.workflow.decorators import StageMeta
 from cutip.workflow.introspect import extract_staged_action_order
 
 
@@ -14,7 +13,9 @@ def _write_workflow(tmp_path: Path, code: str) -> Path:
 
 
 def test_no_stages_returns_single_group(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator
 
         @action(name="A")
@@ -27,7 +28,8 @@ def test_no_stages_returns_single_group(tmp_path):
         def main(ctx):
             a(ctx)
             b(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 1
     assert len(groups[0].actions) == 2
@@ -36,7 +38,9 @@ def test_no_stages_returns_single_group(tmp_path):
 
 
 def test_titled_stages_group_actions(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="Check SSH")
@@ -62,7 +66,8 @@ def test_titled_stages_group_actions(tmp_path):
 
             stage("Post-check")
             verify(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 3
 
@@ -81,7 +86,9 @@ def test_titled_stages_group_actions(tmp_path):
 
 
 def test_untitled_stages_get_numbered(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="A")
@@ -97,7 +104,8 @@ def test_untitled_stages_get_numbered(tmp_path):
 
             stage()
             b(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 2
     assert groups[0].stage.title == "Stage 1"
@@ -105,7 +113,9 @@ def test_untitled_stages_get_numbered(tmp_path):
 
 
 def test_mixed_titled_and_untitled(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="A")
@@ -127,7 +137,8 @@ def test_mixed_titled_and_untitled(tmp_path):
 
             stage()
             c(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 3
     assert groups[0].stage.title == "Stage 1"
@@ -136,7 +147,9 @@ def test_mixed_titled_and_untitled(tmp_path):
 
 
 def test_stage_with_description(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="A")
@@ -146,7 +159,8 @@ def test_stage_with_description(tmp_path):
         def main(ctx):
             stage("Setup", description="Initialize all resources")
             a(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 1
     assert groups[0].stage.title == "Setup"
@@ -155,7 +169,9 @@ def test_stage_with_description(tmp_path):
 
 def test_stages_inside_with_block(tmp_path):
     """Stages inside a `with` block (like ssh.session) should be detected."""
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="Check")
@@ -172,7 +188,8 @@ def test_stages_inside_with_block(tmp_path):
 
                 stage("Execute")
                 deploy(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 2
     assert groups[0].stage.title == "Validate"
@@ -183,7 +200,9 @@ def test_stages_inside_with_block(tmp_path):
 
 def test_actions_before_first_stage(tmp_path):
     """Actions before the first stage() go into an implicit group."""
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import action, orchestrator, stage
 
         @action(name="Init")
@@ -198,7 +217,8 @@ def test_actions_before_first_stage(tmp_path):
 
             stage("Main Work")
             work(ctx)
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 2
     # First group has the pre-stage action, numbered
@@ -208,12 +228,15 @@ def test_actions_before_first_stage(tmp_path):
 
 
 def test_no_actions_returns_empty(tmp_path):
-    path = _write_workflow(tmp_path, """\
+    path = _write_workflow(
+        tmp_path,
+        """\
         from cutip.workflow import orchestrator
 
         @orchestrator
         def main(ctx):
             pass
-    """)
+    """,
+    )
     groups = extract_staged_action_order(path)
     assert len(groups) == 0
