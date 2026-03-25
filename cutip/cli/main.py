@@ -10,6 +10,7 @@ import typer
 
 from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
+from cutip.cli.commands.diff import diff
 from cutip.cli.commands.create import app as create_app
 from cutip.cli.commands.desktop import desktop
 from cutip.cli.commands.export_cmd import export_group
@@ -62,14 +63,12 @@ def _backend_status() -> str:
 
 
 _EPILOG = (
-    "[bold]Getting Started[/bold]: "
-    "cutip init · cutip from-compose FILE · cutip validate · cutip preview GROUP · cutip run GROUP\n\n"
-    "[bold]Updating[/bold]: "
-    "pip install --upgrade cutip · cutip upgrade --apply\n\n"
-    "[bold]AI Issues[/bold] (requires cutip\\[ai]): "
-    "pip install cutip\\[ai] · export ANTHROPIC_API_KEY=... · cutip issue diagnose\n\n"
-    "[bold]GitHub[/bold]: "
-    "gh auth login (required for cutip issue push)\n\n"
+    "[bold]Common Workflows[/bold]\n\n"
+    "  [bold]New project[/bold]:   cutip init → cutip validate → cutip run GROUP\n"
+    "  [bold]Upgrade[/bold]:       cutip info → pip install cutip --upgrade → cutip upgrade → cutip diff → cutip upgrade --apply\n"
+    "  [bold]Inspect[/bold]:       cutip info → cutip group ls → cutip tree → cutip show group GROUP\n"
+    "  [bold]Run[/bold]:           cutip status → cutip validate → cutip run GROUP\n"
+    "  [bold]AI Issues[/bold]:     cutip issue diagnose → cutip issue fix → cutip issue push\n\n"
     "[bold]Docs[/bold]: https://joshuajerome.github.io/cutip"
 )
 
@@ -265,6 +264,7 @@ app.command("import", rich_help_panel=_MG)(import_group)
 _CF = "Configuration"
 app.add_typer(secrets_app, name="secrets", rich_help_panel=_CF)
 app.add_typer(upgrade_app, name="upgrade", rich_help_panel=_CF)
+app.command("diff", rich_help_panel=_CF)(diff)
 
 # ── AI & Issues ──────────────────────────────────────────────────────────────
 _AI = "AI & Issues"
