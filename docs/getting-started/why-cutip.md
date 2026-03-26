@@ -1,6 +1,6 @@
 # Why CUTIP?
 
-CUTIP is an automation tool for containerized workflows. It handles the full lifecycle --- from generating config files before an image build, through ordering container startups by actual readiness, to verifying services after deployment.
+CUTIP is an automation framework that uses containers as deterministic execution environments. Containers are the medium through which tasks get automated — SSH sessions, dev servers, build pipelines, deployment scripts. CUTIP handles the full lifecycle — from generating config files before an image build, through ordering container startups by actual readiness, to verifying services after deployment.
 
 This page is an honest comparison. If `docker-compose` does what you need, use it --- it is simpler, widely understood, and has first-class IDE tooling. CUTIP solves a different class of problems.
 

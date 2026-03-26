@@ -2,12 +2,14 @@
 
 ## Why CUTIP exists
 
+CUTIP is an automation framework that uses containers as deterministic execution environments. The container is the **medium** through which tasks get automated — not the end product.
+
 Most container tooling conflates *definition* and *execution*. A `docker-compose.yml` is both a schema and a runtime instruction --- there is no clean separation between "what the container looks like" and "what to do with it."
 
-CUTIP is an automation tool that separates these concerns explicitly:
+CUTIP separates these concerns explicitly:
 
-- **Cards** --- immutable, validated definitions of container resources
-- **Workflow** --- Python that operates on those definitions at runtime, with optional `@action`/`@orchestrator` annotations for self-describing steps
+- **Cards** --- immutable, validated definitions of container resources (the execution environment)
+- **Workflow** --- Python that automates tasks through those containers at runtime, with `@action`/`@orchestrator` annotations for self-describing steps
 - **Lifecycle** --- a three-phase execution model (pre-build, orchestration, post-start) that gives you control over every stage
 
 This means you can validate your entire container graph statically (no daemon, no network) and only contact a runtime when you have verified the graph is correct.

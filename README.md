@@ -7,9 +7,11 @@
 [![CI](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml/badge.svg)](https://github.com/joshuajerome/cutip/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-github%20pages-0969da)](https://joshuajerome.github.io/cutip)
 
-An automation tool for containerized workflows with deterministic Python hooks
-at every stage of a container's lifecycle. Define infrastructure as structured
-YAML cards, wire them into units and groups, then orchestrate with plain Python.
+An automation framework that uses containers as deterministic execution
+environments. Define container infrastructure as structured YAML cards,
+wire them into units and groups, then automate tasks with plain Python
+workflows — from pre-build file generation through container startup to
+post-deployment verification.
 
 | | docker-compose | CUTIP |
 |---|---|---|
