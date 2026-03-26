@@ -5,9 +5,11 @@
 [![uv](https://img.shields.io/badge/uv-package_manager-6e44ff)](https://github.com/astral-sh/uv)
 [![Runtime](https://img.shields.io/badge/runtime-podman%20%7C%20docker-892ca0)](getting-started/installation.md)
 
-**Container Unit Templates in Python** — an automation tool for defining, validating, and orchestrating containerized workflows using structured YAML artifacts and Python.
+**Container Unit Templates in Python** — an automation framework that uses containers as deterministic execution environments.
 
-CUTIP is not a wrapper around `docker-compose`. It is an opinionated automation layer: every container resource is a versioned, validated artifact; every deployment is a reproducible Python function. You define the structure in YAML, write the orchestration in Python, and CUTIP handles the lifecycle --- from pre-build file generation through container startup to post-deployment verification.
+CUTIP treats containers as the **medium** through which tasks get automated — not as the end product. Every container resource is a versioned, validated YAML artifact; every workflow is a reproducible Python function. You define the structure in YAML, automate in Python, and CUTIP handles the lifecycle — from pre-build file generation through container startup to post-deployment verification.
+
+CUTIP is not a wrapper around `docker-compose`. It is an opinionated automation layer for environments where the startup sequence is imperative, where you need to generate files, exec into containers, branch on health state, and treat container orchestration as code you can test and debug.
 
 ---
 
