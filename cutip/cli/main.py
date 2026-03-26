@@ -20,6 +20,7 @@ from cutip.cli.commands.info import app as info_app
 from cutip.cli.commands.init import app as init_app
 from cutip.cli.commands.issue import issue_app
 from cutip.cli.commands.ls import card_app, group_app, unit_app
+from cutip.cli.commands.ping import ping
 from cutip.cli.commands.plan import preview
 from cutip.cli.commands.rm import app as rm_app
 from cutip.cli.commands.run import run
@@ -63,15 +64,31 @@ def _backend_status() -> str:
     return "[bold]Backends[/bold]: " + ", ".join(parts)
 
 
-_EPILOG = (
-    "[bold]Common Workflows[/bold]\n\n"
-    "  [bold]New project[/bold]:   cutip init → cutip validate → cutip run GROUP\n"
-    "  [bold]Adopt[/bold]:         cutip adopt CONTAINER → cutip validate → cutip run GROUP\n"
-    "  [bold]Upgrade[/bold]:       cutip info → pip install cutip --upgrade → cutip upgrade → cutip diff → cutip upgrade --apply\n"
-    "  [bold]Inspect[/bold]:       cutip info → cutip group ls → cutip tree → cutip show group GROUP\n"
-    "  [bold]Run[/bold]:           cutip status → cutip validate → cutip run GROUP\n"
-    "  [bold]AI Issues[/bold]:     cutip issue diagnose → cutip issue fix → cutip issue push\n\n"
-    "[bold]Docs[/bold]: https://joshuajerome.github.io/cutip"
+_EPILOG = "\n".join(
+    [
+        "[bold]Common Workflows[/bold]",
+        "",
+        "  [bold]New project[/bold]",
+        "    cutip init → cutip validate → cutip run GROUP",
+        "",
+        "  [bold]Adopt[/bold]",
+        "    cutip adopt CONTAINER → cutip validate → cutip run GROUP",
+        "",
+        "  [bold]Upgrade[/bold]",
+        "    cutip info → pip install cutip --upgrade",
+        "    cutip upgrade → cutip diff → cutip upgrade --apply",
+        "",
+        "  [bold]Inspect[/bold]",
+        "    cutip info → cutip group ls → cutip tree",
+        "",
+        "  [bold]Run[/bold]",
+        "    cutip ping → cutip validate → cutip run GROUP",
+        "",
+        "  [bold]AI Issues[/bold]",
+        "    cutip issue diagnose → cutip issue fix → cutip issue push",
+        "",
+        "[bold]Docs[/bold]: https://joshuajerome.github.io/cutip",
+    ]
 )
 
 app = typer.Typer(
@@ -245,8 +262,10 @@ app.command("desktop", rich_help_panel=_WF)(desktop)
 app.add_typer(info_app, name="info", rich_help_panel=_WF)
 app.add_typer(create_app, name="create", rich_help_panel=_WF)
 
-app.command("compile", rich_help_panel=_WF)(compile_cmd)
+app.command("graph", rich_help_panel=_WF)(compile_cmd)
+app.command("compile", hidden=True)(compile_cmd)  # backward-compat alias
 app.command("status", rich_help_panel=_WF)(status)
+app.command("ping", rich_help_panel=_WF)(ping)
 
 # ── Inspect ──────────────────────────────────────────────────────────────────
 _IN = "Inspect"
