@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 
+from cutip.cli.commands.adopt import adopt
 from cutip.cli.commands.compile import compile_cmd
 from cutip.cli.commands.compose import from_compose
 from cutip.cli.commands.create import app as create_app
@@ -65,6 +66,7 @@ def _backend_status() -> str:
 _EPILOG = (
     "[bold]Common Workflows[/bold]\n\n"
     "  [bold]New project[/bold]:   cutip init → cutip validate → cutip run GROUP\n"
+    "  [bold]Adopt[/bold]:         cutip adopt CONTAINER → cutip validate → cutip run GROUP\n"
     "  [bold]Upgrade[/bold]:       cutip info → pip install cutip --upgrade → cutip upgrade → cutip diff → cutip upgrade --apply\n"
     "  [bold]Inspect[/bold]:       cutip info → cutip group ls → cutip tree → cutip show group GROUP\n"
     "  [bold]Run[/bold]:           cutip status → cutip validate → cutip run GROUP\n"
@@ -237,6 +239,7 @@ app.command("stop", rich_help_panel=_WF)(stop)
 app.command("preview", rich_help_panel=_WF)(preview)
 app.command("plan", hidden=True)(preview)  # backward-compat alias
 app.command("from-compose", rich_help_panel=_WF)(from_compose)
+app.command("adopt", rich_help_panel=_WF)(adopt)
 app.command("desktop", rich_help_panel=_WF)(desktop)
 
 app.add_typer(info_app, name="info", rich_help_panel=_WF)

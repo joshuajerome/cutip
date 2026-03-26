@@ -2,7 +2,7 @@
 
 ## What is CUTIP
 
-**Container Unit Templates in Python** — a deterministic framework for defining, validating, and orchestrating container environments with structured YAML artifacts and Python workflows. **Docker (default) and Podman are supported backends.** Select with `--backend podman` or `CUTIP_BACKEND=podman`.
+**Container Unit Templates in Python** — an automation framework that uses containers as deterministic execution environments. Containers are the medium through which tasks get automated — the container isn't the goal, the task is. Define infrastructure as YAML artifacts, automate with Python workflows. **Docker (default) and Podman are supported backends.** Select with `--backend podman` or `CUTIP_BACKEND=podman`.
 
 ## Deliverables — End-to-End Mandate
 
