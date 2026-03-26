@@ -199,7 +199,7 @@ jobs:
             -o /tmp/react-nginx.yaml
           mkdir -p /tmp/fc-react-nginx
           uv run cutip from-compose /tmp/react-nginx.yaml --output-dir /tmp/fc-react-nginx
-          uv run cutip validate --path /tmp/fc-react-nginx
+          uv run cutip validate --graph-only --path /tmp/fc-react-nginx
 
       - name: "from-compose · fastapi"
         run: |
@@ -207,7 +207,7 @@ jobs:
             -o /tmp/fastapi.yaml
           mkdir -p /tmp/fc-fastapi
           uv run cutip from-compose /tmp/fastapi.yaml --output-dir /tmp/fc-fastapi
-          uv run cutip validate --path /tmp/fc-fastapi
+          uv run cutip validate --graph-only --path /tmp/fc-fastapi
 
       - name: "from-compose · nginx-flask-mongo"
         run: |
@@ -215,7 +215,7 @@ jobs:
             -o /tmp/nginx-flask-mongo.yaml
           mkdir -p /tmp/fc-nginx-flask-mongo
           uv run cutip from-compose /tmp/nginx-flask-mongo.yaml --output-dir /tmp/fc-nginx-flask-mongo
-          uv run cutip validate --path /tmp/fc-nginx-flask-mongo
+          uv run cutip validate --graph-only --path /tmp/fc-nginx-flask-mongo
 
       - name: "from-compose · prometheus-grafana"
         run: |
@@ -223,7 +223,7 @@ jobs:
             -o /tmp/prometheus-grafana.yaml
           mkdir -p /tmp/fc-prometheus-grafana
           uv run cutip from-compose /tmp/prometheus-grafana.yaml --output-dir /tmp/fc-prometheus-grafana
-          uv run cutip validate --path /tmp/fc-prometheus-grafana
+          uv run cutip validate --graph-only --path /tmp/fc-prometheus-grafana
 
       - name: "from-compose · angular"
         run: |
@@ -231,7 +231,7 @@ jobs:
             -o /tmp/angular.yaml
           mkdir -p /tmp/fc-angular
           uv run cutip from-compose /tmp/angular.yaml --output-dir /tmp/fc-angular
-          uv run cutip validate --path /tmp/fc-angular
+          uv run cutip validate --graph-only --path /tmp/fc-angular
 
   # ── E2E · Docker · Ubuntu ──────────────────────────────────────────────────
   e2e-docker-ubuntu:
@@ -271,7 +271,7 @@ jobs:
             -o /tmp/react-nginx.yaml
           mkdir -p /tmp/fc-react-nginx
           uv run cutip from-compose /tmp/react-nginx.yaml --output-dir /tmp/fc-react-nginx
-          uv run cutip validate --path /tmp/fc-react-nginx
+          uv run cutip validate --graph-only --path /tmp/fc-react-nginx
 
       - name: "from-compose · fastapi"
         run: |
@@ -279,7 +279,7 @@ jobs:
             -o /tmp/fastapi.yaml
           mkdir -p /tmp/fc-fastapi
           uv run cutip from-compose /tmp/fastapi.yaml --output-dir /tmp/fc-fastapi
-          uv run cutip validate --path /tmp/fc-fastapi
+          uv run cutip validate --graph-only --path /tmp/fc-fastapi
 
       - name: "from-compose · nginx-flask-mongo"
         run: |
@@ -287,7 +287,7 @@ jobs:
             -o /tmp/nginx-flask-mongo.yaml
           mkdir -p /tmp/fc-nginx-flask-mongo
           uv run cutip from-compose /tmp/nginx-flask-mongo.yaml --output-dir /tmp/fc-nginx-flask-mongo
-          uv run cutip validate --path /tmp/fc-nginx-flask-mongo
+          uv run cutip validate --graph-only --path /tmp/fc-nginx-flask-mongo
 
       - name: "from-compose · prometheus-grafana"
         run: |
@@ -295,7 +295,7 @@ jobs:
             -o /tmp/prometheus-grafana.yaml
           mkdir -p /tmp/fc-prometheus-grafana
           uv run cutip from-compose /tmp/prometheus-grafana.yaml --output-dir /tmp/fc-prometheus-grafana
-          uv run cutip validate --path /tmp/fc-prometheus-grafana
+          uv run cutip validate --graph-only --path /tmp/fc-prometheus-grafana
 
       - name: "from-compose · angular"
         run: |
@@ -303,7 +303,7 @@ jobs:
             -o /tmp/angular.yaml
           mkdir -p /tmp/fc-angular
           uv run cutip from-compose /tmp/angular.yaml --output-dir /tmp/fc-angular
-          uv run cutip validate --path /tmp/fc-angular
+          uv run cutip validate --graph-only --path /tmp/fc-angular
 
   # ── E2E · Windows ───────────────────────────────────────────────────────────
   e2e-podman-windows:
@@ -364,7 +364,7 @@ jobs:
             -OutFile "$env:TEMP\react-nginx.yaml"
           New-Item -ItemType Directory -Force "$env:TEMP\fc-react-nginx" | Out-Null
           uv run cutip from-compose "$env:TEMP\react-nginx.yaml" --output-dir "$env:TEMP\fc-react-nginx"
-          uv run cutip validate --path "$env:TEMP\fc-react-nginx"
+          uv run cutip validate --graph-only --path "$env:TEMP\fc-react-nginx"
 
       - name: "from-compose · fastapi (Windows)"
         shell: pwsh
@@ -373,7 +373,7 @@ jobs:
             -OutFile "$env:TEMP\fastapi.yaml"
           New-Item -ItemType Directory -Force "$env:TEMP\fc-fastapi" | Out-Null
           uv run cutip from-compose "$env:TEMP\fastapi.yaml" --output-dir "$env:TEMP\fc-fastapi"
-          uv run cutip validate --path "$env:TEMP\fc-fastapi"
+          uv run cutip validate --graph-only --path "$env:TEMP\fc-fastapi"
 
       - name: "from-compose · nginx-flask-mongo (Windows)"
         shell: pwsh
@@ -382,7 +382,7 @@ jobs:
             -OutFile "$env:TEMP\nginx-flask-mongo.yaml"
           New-Item -ItemType Directory -Force "$env:TEMP\fc-nginx-flask-mongo" | Out-Null
           uv run cutip from-compose "$env:TEMP\nginx-flask-mongo.yaml" --output-dir "$env:TEMP\fc-nginx-flask-mongo"
-          uv run cutip validate --path "$env:TEMP\fc-nginx-flask-mongo"
+          uv run cutip validate --graph-only --path "$env:TEMP\fc-nginx-flask-mongo"
 
       - name: "from-compose · prometheus-grafana (Windows)"
         shell: pwsh
@@ -391,7 +391,7 @@ jobs:
             -OutFile "$env:TEMP\prometheus-grafana.yaml"
           New-Item -ItemType Directory -Force "$env:TEMP\fc-prometheus-grafana" | Out-Null
           uv run cutip from-compose "$env:TEMP\prometheus-grafana.yaml" --output-dir "$env:TEMP\fc-prometheus-grafana"
-          uv run cutip validate --path "$env:TEMP\fc-prometheus-grafana"
+          uv run cutip validate --graph-only --path "$env:TEMP\fc-prometheus-grafana"
 
       - name: "from-compose · angular (Windows)"
         shell: pwsh
@@ -400,7 +400,7 @@ jobs:
             -OutFile "$env:TEMP\angular.yaml"
           New-Item -ItemType Directory -Force "$env:TEMP\fc-angular" | Out-Null
           uv run cutip from-compose "$env:TEMP\angular.yaml" --output-dir "$env:TEMP\fc-angular"
-          uv run cutip validate --path "$env:TEMP\fc-angular"
+          uv run cutip validate --graph-only --path "$env:TEMP\fc-angular"
 
   # ── Install & Validate · macOS ──────────────────────────────────────────────
   install-validate-macos:
