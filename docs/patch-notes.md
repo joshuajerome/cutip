@@ -232,3 +232,4 @@ Internal developer tooling — no user-facing capability changes in this release
 - Introduced `PodmanBackend` as the only supported container runtime
 # v0.2.3
 # v0.2.4
+# v0.2.4
