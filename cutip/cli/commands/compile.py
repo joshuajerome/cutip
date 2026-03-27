@@ -1,4 +1,4 @@
-"""``cutip compile`` — compile group graph with Mermaid output."""
+"""``cutip graph`` — display the workflow command graph for a group."""
 
 from __future__ import annotations
 
@@ -6,12 +6,17 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
+from rich.panel import Panel
+from rich.tree import Tree
 
 from cutip.resolver.refs import RefResolver
 from cutip.utils.exceptions import CutipError
 from cutip.utils.logging import setup_logging
-from cutip.workflow.introspect import compile_group_graph, render_mermaid
+from cutip.workflow.commands import extract_all_action_commands
+from cutip.workflow.introspect import (
+    compile_group_graph,
+    extract_staged_action_order,
+)
 from cutip.workspace.discovery import WorkspaceDiscovery
 from cutip.workspace.scaffold import _find_project_root
 
@@ -22,7 +27,7 @@ def compile_cmd(
     group_name: str = typer.Argument(..., help="Name of the group to compile"),
     path: Path = typer.Option(None, "--path", "-p", show_default=False),
 ) -> None:
-    """Compile a group's workflow graph to Mermaid and a summary table."""
+    """Display the workflow graph for a group with runtime commands."""
     setup_logging()
     project_root = path or _find_project_root()
     registry = WorkspaceDiscovery(project_root).discover()
@@ -37,29 +42,26 @@ def compile_cmd(
 
     # Collect all workflow files for this group
     workflow_files: list[tuple[Path, str]] = []
+    workflow_path: Path | None = None
 
     # Group-level workflow / orchestrator
     group_source = registry.source_of(f"groups/{group_name}")
-    if group_source:
-        group_dir = group_source.parent
-    else:
-        group_dir = cutip_dir / "groups" / group_name
+    group_dir = group_source.parent if group_source else cutip_dir / "groups" / group_name
 
     for fname in ("orchestrator.py", "workflow.py"):
         candidate = group_dir / fname
         if candidate.is_file():
             rel = str(candidate.relative_to(project_root))
             workflow_files.append((candidate, rel))
+            if workflow_path is None:
+                workflow_path = candidate
 
     # Per-unit files
     for unit_ref in group.spec.units:
         try:
             unit = resolver.resolve_unit(unit_ref.ref)
             unit_source = registry.source_of(f"units/{unit.name}")
-            if unit_source:
-                unit_dir = unit_source.parent
-            else:
-                unit_dir = cutip_dir / "units" / unit.name
+            unit_dir = unit_source.parent if unit_source else cutip_dir / "units" / unit.name
 
             for fname in ("prehook.py", "workflow.py", "posthook.py", "startup.py"):
                 candidate = unit_dir / fname
@@ -73,64 +75,63 @@ def compile_cmd(
         console.print(f"[yellow]No workflow files found for group '{group_name}'.[/yellow]")
         raise typer.Exit(0)
 
-    # Compile the graph
-    graph = compile_group_graph(group_name, workflow_files)
+    # Extract commands from all workflow files
+    all_commands: dict[str, list[str]] = {}
+    for abs_path, _rel in workflow_files:
+        try:
+            cmds = extract_all_action_commands(abs_path)
+            all_commands.update(cmds)
+        except Exception:
+            pass
 
-    # Render Mermaid
-    mermaid = render_mermaid(graph)
+    # Try staged output first (shows stage headers)
+    staged = None
+    if workflow_path:
+        try:
+            staged = extract_staged_action_order(workflow_path)
+        except Exception:
+            pass
 
-    # Write compiled output
-    compiled_dir = project_root / ".cutip" / "compiled"
-    compiled_dir.mkdir(parents=True, exist_ok=True)
-    out_file = compiled_dir / f"{group_name}.md"
+    console.print()
 
-    all_funcs = (
-        graph.configs
-        + graph.prehooks
-        + graph.actions
-        + graph.healthchecks
-        + graph.posthooks
-        + graph.cleanups
-    )
-
-    md_lines = [
-        f"# {group_name} — Compiled Graph",
-        "",
-        "## Flowchart",
-        "",
-        "```mermaid",
-        mermaid,
-        "```",
-        "",
-        "## Annotated Functions",
-        "",
-        "| Function | Decorator | Name | Source | Line |",
-        "|----------|-----------|------|--------|------|",
-    ]
-    for f in all_funcs:
-        meta_name = f.meta.name if f.meta and hasattr(f.meta, "name") else "—"
-        md_lines.append(
-            f"| `{f.func_name}` | @{f.decorator} | {meta_name} | `{f.source}` | {f.line} |"
+    if staged and any(sg.actions for sg in staged):
+        # Staged tree — each stage is a section
+        step = 0
+        for sg in staged:
+            title = sg.stage.title or "Workflow"
+            desc = f" — {sg.stage.description}" if sg.stage.description else ""
+            console.print(
+                f"  [bold yellow]━━ {title}{desc} ━━[/bold yellow]"
+            )
+            console.print()
+            for action in sg.actions:
+                step += 1
+                commands = all_commands.get(action.name, [])
+                console.print(f"  [bold]{step}. {action.name}[/bold]")
+                if commands:
+                    for cmd in commands:
+                        console.print(f"     [cyan]→ {cmd}[/cyan]")
+                else:
+                    console.print(f"     [dim]→ (no block calls detected)[/dim]")
+                console.print()
+    else:
+        # Flat tree — no stages
+        graph = compile_group_graph(group_name, workflow_files)
+        all_funcs = (
+            graph.configs + graph.prehooks + graph.actions
+            + graph.healthchecks + graph.posthooks + graph.cleanups
         )
-
-    md_lines.append("")
-    out_file.write_text("\n".join(md_lines), encoding="utf-8")
-
-    # Print summary
-    console.print(f"\n[bold]Compiled graph for:[/bold] [magenta]{group_name}[/magenta]\n")
-
-    if all_funcs:
-        table = Table(title="Annotated Functions", show_lines=True)
-        table.add_column("Function", style="bold")
-        table.add_column("Decorator", style="cyan")
-        table.add_column("Name")
-        table.add_column("Source", style="dim")
-        table.add_column("Line", style="dim", justify="right")
-
+        step = 0
         for f in all_funcs:
-            meta_name = f.meta.name if f.meta and hasattr(f.meta, "name") else "—"
-            table.add_row(f.func_name, f"@{f.decorator}", meta_name, f.source, str(f.line))
-        console.print(table)
+            step += 1
+            meta_name = f.meta.name if f.meta and hasattr(f.meta, "name") else f.func_name
+            commands = all_commands.get(meta_name, [])
+            console.print(f"  [bold]{step}. {meta_name}[/bold]")
+            if commands:
+                for cmd in commands:
+                    console.print(f"     [cyan]→ {cmd}[/cyan]")
+            else:
+                console.print(f"     [dim]→ (no block calls detected)[/dim]")
+            console.print()
 
-    console.print(f"\n[dim]Mermaid graph written to: {out_file.relative_to(project_root)}[/dim]")
-    console.print(f"[dim]Files scanned: {len(workflow_files)}[/dim]")
+    console.print(f"  [dim]Group: {group_name} | Files: {len(workflow_files)}[/dim]")
