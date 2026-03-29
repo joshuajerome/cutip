@@ -6,8 +6,6 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
-from rich.tree import Tree
 
 from cutip.resolver.refs import RefResolver
 from cutip.utils.exceptions import CutipError
@@ -100,9 +98,7 @@ def compile_cmd(
         for sg in staged:
             title = sg.stage.title or "Workflow"
             desc = f" — {sg.stage.description}" if sg.stage.description else ""
-            console.print(
-                f"  [bold yellow]━━ {title}{desc} ━━[/bold yellow]"
-            )
+            console.print(f"  [bold yellow]━━ {title}{desc} ━━[/bold yellow]")
             console.print()
             for action in sg.actions:
                 step += 1
@@ -112,14 +108,18 @@ def compile_cmd(
                     for cmd in commands:
                         console.print(f"     [cyan]→ {cmd}[/cyan]")
                 else:
-                    console.print(f"     [dim]→ (no block calls detected)[/dim]")
+                    console.print("     [dim]→ (no block calls detected)[/dim]")
                 console.print()
     else:
         # Flat tree — no stages
         graph = compile_group_graph(group_name, workflow_files)
         all_funcs = (
-            graph.configs + graph.prehooks + graph.actions
-            + graph.healthchecks + graph.posthooks + graph.cleanups
+            graph.configs
+            + graph.prehooks
+            + graph.actions
+            + graph.healthchecks
+            + graph.posthooks
+            + graph.cleanups
         )
         step = 0
         for f in all_funcs:
@@ -131,7 +131,7 @@ def compile_cmd(
                 for cmd in commands:
                     console.print(f"     [cyan]→ {cmd}[/cyan]")
             else:
-                console.print(f"     [dim]→ (no block calls detected)[/dim]")
+                console.print("     [dim]→ (no block calls detected)[/dim]")
             console.print()
 
     console.print(f"  [dim]Group: {group_name} | Files: {len(workflow_files)}[/dim]")

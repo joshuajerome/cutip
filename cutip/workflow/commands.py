@@ -58,14 +58,14 @@ def _resolve_kwarg(node: ast.expr) -> str:
         return "".join(parts)
     if isinstance(node, ast.Name):
         return f"<{node.id}>"
-    if isinstance(node, ast.Subscript):
-        # e.g., kc["secret_namespace"]
-        if isinstance(node.value, ast.Name) and isinstance(node.slice, ast.Constant):
-            return f"<{node.value.id}[{node.slice.value}]>"
-    if isinstance(node, ast.Attribute):
-        # e.g., patch.source_file
-        if isinstance(node.value, ast.Name):
-            return f"<{node.value.id}.{node.attr}>"
+    if (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Name)
+        and isinstance(node.slice, ast.Constant)
+    ):
+        return f"<{node.value.id}[{node.slice.value}]>"
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        return f"<{node.value.id}.{node.attr}>"
     return "<...>"
 
 
@@ -99,11 +99,8 @@ def extract_commands_from_action(func_node: ast.FunctionDef) -> list[str]:
 
         # Extract positional args (e.g., kube.get("deployment", name=...))
         # Map first positional to 'resource' for kube.get
-        if call_name == "kube.get" and node.args:
-            # Skip 'self' — first real arg after self is position 0
-            # In method calls, args[0] is the first user arg (not self)
-            if len(node.args) >= 1:
-                kwargs.setdefault("resource", _resolve_kwarg(node.args[0]))
+        if call_name == "kube.get" and node.args and len(node.args) >= 1:
+            kwargs.setdefault("resource", _resolve_kwarg(node.args[0]))
 
         # Substitute into template
         cmd = template
@@ -112,6 +109,7 @@ def extract_commands_from_action(func_node: ast.FunctionDef) -> list[str]:
 
         # Clean up unreplaced placeholders
         import re
+
         cmd = re.sub(r"\{[a-z_]+\}", "<...>", cmd)
 
         commands.append(cmd)
