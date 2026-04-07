@@ -1,7 +1,7 @@
 site_name: CUTIP
 site_description: >
-  Container Unit Templates in Python — an automation tool for defining,
-  validating, and orchestrating containerized workflows.
+  Workflow automation framework — define infrastructure as YAML,
+  automate with Python, execute in containers.
 site_url: https://joshuajerome.github.io/cutip
 repo_url: https://github.com/joshuajerome/cutip
 repo_name: joshuajerome/cutip
@@ -104,6 +104,7 @@ nav:
       - NetworkCard: reference/cards/network-card.md
 
   - Guides:
+    - Use Cases: guides/use-cases.md
     - Runtimes:
       - Podman: guides/runtimes/podman.md
       - Docker: guides/runtimes/docker.md
