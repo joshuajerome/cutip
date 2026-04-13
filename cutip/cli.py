@@ -7,6 +7,8 @@ from pathlib import Path
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
+VERSION = "1.0.1"
+
 
 def cmd_validate(args):
     """Validate config.yaml."""
@@ -91,7 +93,12 @@ def cmd_tree(args):
 
 def cmd_show(args):
     """Show a config section."""
-    print(_show(args["section"], path=args.get("path")))
+    section = args.get("section")
+    if not section:
+        print("Usage: cutip show <section>")
+        print("Sections: vars, secrets, container, containers, network, or any config key")
+        sys.exit(1)
+    print(_show(section, path=args.get("path")))
 
 
 def cmd_run(args):
@@ -144,7 +151,11 @@ def cmd_run(args):
 
 def cmd_init(args):
     """Scaffold a new project."""
-    name = args["name"]
+    name = args.get("name")
+    if not name:
+        print("Usage: cutip init <project-name>")
+        sys.exit(1)
+
     target = Path(args.get("path") or name)
 
     if (target / "config.yaml").exists():
@@ -182,13 +193,30 @@ def run_standalone(config):
     print(f"  Next: cd {name} && cutip validate && cutip run")
 
 
-def cmd_doctor(args):
-    """Check prerequisites."""
+def cmd_verify(args):
+    """Check prerequisites and environment."""
     import subprocess
-    print("cutip doctor\n")
+    import platform
+
+    print(f"cutip v{VERSION}")
+    print(f"Platform: {platform.system()} {platform.machine()}")
+    print()
+
+    # Python — try both python and python3
+    python_found = False
+    for cmd in (["python", "--version"], ["python3", "--version"]):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                print(f"  ✓ Python — {r.stdout.strip()}")
+                python_found = True
+                break
+        except Exception:
+            continue
+    if not python_found:
+        print("  ✗ Python — not found")
 
     checks = [
-        ("Python", ["python3", "--version"]),
         ("Docker", ["docker", "--version"]),
         ("Podman", ["podman", "--version"]),
     ]
@@ -198,23 +226,23 @@ def cmd_doctor(args):
             if r.returncode == 0:
                 print(f"  ✓ {name} — {r.stdout.strip()}")
             else:
-                print(f"  ✗ {name} — not found")
+                print(f"  · {name} — not found")
         except Exception:
-            print(f"  ✗ {name} — not found")
+            print(f"  · {name} — not found")
 
     # Check cutip-blocks
     try:
         import cutip_blocks
-        print(f"  ✓ cutip-blocks — installed")
+        print("  ✓ cutip-blocks — installed")
     except ImportError:
-        print(f"  ✗ cutip-blocks — not installed (pip install cutip-blocks)")
+        print("  ✗ cutip-blocks — not installed (pip install cutip-blocks)")
 
     # Check Rust core
     try:
         from cutip._core import validate
-        print(f"  ✓ cutip (Rust core) — loaded")
+        print("  ✓ cutip core — loaded")
     except ImportError:
-        print(f"  ✗ cutip (Rust core) — not loaded")
+        print("  ✗ cutip core — not loaded")
 
 
 COMMANDS = {
@@ -223,7 +251,7 @@ COMMANDS = {
     "show": cmd_show,
     "run": cmd_run,
     "init": cmd_init,
-    "doctor": cmd_doctor,
+    "verify": cmd_verify,
 }
 
 
@@ -232,7 +260,7 @@ def main():
     args = sys.argv[1:]
 
     if not args or args[0] in ("-h", "--help", "help"):
-        print("cutip — workflow automation framework")
+        print(f"cutip v{VERSION} — workflow automation framework")
         print()
         print("Commands:")
         print("  validate   Validate config.yaml")
@@ -240,7 +268,7 @@ def main():
         print("  show       Show a config section")
         print("  run        Run workflow.py")
         print("  init       Scaffold a new project")
-        print("  doctor     Check prerequisites")
+        print("  verify     Check prerequisites")
         print()
         print("Options:")
         print("  --path     Path to config.yaml")
@@ -251,8 +279,8 @@ def main():
         print("  python -m cutip validate")
         return
 
-    if args[0] == "--version":
-        print("cutip 1.0.0")
+    if args[0] in ("--version", "version"):
+        print(f"cutip v{VERSION}")
         return
 
     command = args[0]
