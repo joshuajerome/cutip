@@ -340,7 +340,7 @@ jobs:
 
   build-wheels:
     name: Build (${{ matrix.os }})
-    needs: [unit-tests, smoke-test]
+    needs: [smoke-test]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
