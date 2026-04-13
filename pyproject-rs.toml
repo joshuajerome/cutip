@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "cutip"
+name = "cutip-cli"
 version = "1.0.0"
 description = "Workflow automation framework — define infrastructure as YAML, automate with Python, execute in containers"
 requires-python = ">=3.11"
