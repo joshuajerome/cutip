@@ -1,109 +1,157 @@
-"""cutip CLI — thin Python wrapper over Rust core."""
+"""cutip CLI — Python wrapper over Rust core, formatted with rich."""
 
 import sys
 import json
 import importlib.util
 from pathlib import Path
 
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.tree import Tree
+from rich import box
+
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
+console = Console()
 
 
 def cmd_validate(args):
     """Validate config.yaml."""
     path = args.get("path")
-    result = _validate(path=path)
+    try:
+        result = _validate(path=path)
+    except RuntimeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
 
     if args.get("json"):
         print(json.dumps(result, indent=2))
         return
 
-    print(f"Project: {result['project']}")
-    print(f"Backend: {result['backend']}")
-    print(f"Workflow: {result['workflow']}")
-    print(f"Vars: {result['vars_count']}")
+    table = Table(title="Validation", box=box.ROUNDED, show_header=False, title_style="bold")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+
+    table.add_row("Project", result["project"])
+    table.add_row("Backend", result["backend"])
+    table.add_row("Workflow", result["workflow"])
+    table.add_row("Vars", str(result["vars_count"]))
 
     if result["empty_secrets"]:
-        print(f"Secrets: {result['secrets_count']} ({len(result['empty_secrets'])} empty: {', '.join(result['empty_secrets'])})")
+        table.add_row("Secrets", f"{result['secrets_count']} ([yellow]{len(result['empty_secrets'])} empty[/yellow])")
     else:
-        print(f"Secrets: {result['secrets_count']}, all set")
+        table.add_row("Secrets", f"{result['secrets_count']}, all set")
 
     if result["containers_count"]:
-        print(f"Containers: {result['containers_count']}")
+        table.add_row("Containers", str(result["containers_count"]))
     if result["networks_count"]:
-        print(f"Networks: {result['networks_count']}")
+        table.add_row("Networks", str(result["networks_count"]))
 
     if result["workflow_exists"]:
-        print(f"Workflow: {result['workflow']} exists")
+        table.add_row("Workflow", "[green]exists[/green]")
     else:
-        print(f"Workflow: {result['workflow']} not found")
+        table.add_row("Workflow", "[red]not found[/red]")
+
+    console.print(table)
 
     if result["warnings"]:
-        print()
+        console.print()
         for w in result["warnings"]:
-            print(f"  ⚠ {w}")
-        print("\n⚠ Validation passed with warnings")
+            console.print(f"  [yellow]⚠[/yellow] {w}")
+        console.print("\n[yellow]⚠ Validation passed with warnings[/yellow]")
     else:
-        print("\n✓ Validation passed")
+        console.print("\n[green]✓ Validation passed[/green]")
 
 
 def cmd_tree(args):
     """Print config as tree."""
     path = args.get("path")
-    config_json = _tree(path=path)
+    try:
+        config_json = _tree(path=path)
+    except RuntimeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
 
     if args.get("json"):
         print(config_json)
         return
 
     config = json.loads(config_json)
-    print(config["project"])
-    print(f"├── backend: {config['backend']}")
-    print(f"├── workflow: {config.get('workflow', 'workflow.py')}")
+    tree = Tree(f"[bold]{config['project']}[/bold]")
+    tree.add(f"backend: [cyan]{config['backend']}[/cyan]")
+    tree.add(f"workflow: [cyan]{config.get('workflow', 'workflow.py')}[/cyan]")
 
     if config.get("vars"):
-        print("├── vars:")
-        items = list(config["vars"].items())
-        for i, (k, v) in enumerate(items):
-            prefix = "│   └──" if i == len(items) - 1 else "│   ├──"
-            print(f"{prefix} {k}: {v!r}")
+        vars_branch = tree.add("vars")
+        for k, v in config["vars"].items():
+            display = f"[dim]{v!r}[/dim]" if v else "[yellow](empty)[/yellow]"
+            vars_branch.add(f"{k}: {display}")
 
     if config.get("secrets"):
-        print("├── secrets:")
-        items = list(config["secrets"].items())
-        for i, (k, v) in enumerate(items):
-            prefix = "│   └──" if i == len(items) - 1 else "│   ├──"
-            masked = "(empty)" if not v else "****"
-            print(f"{prefix} {k}: {masked}")
+        secrets_branch = tree.add("secrets")
+        for k, v in config["secrets"].items():
+            masked = "[yellow](empty)[/yellow]" if not v else "[dim]****[/dim]"
+            secrets_branch.add(f"{k}: {masked}")
+
+    if config.get("container"):
+        name = config["container"].get("name", "(unnamed)")
+        tree.add(f"container: [cyan]{name}[/cyan]")
 
     if config.get("containers"):
-        print("├── containers:")
-        items = list(config["containers"].keys())
-        for i, name in enumerate(items):
-            prefix = "│   └──" if i == len(items) - 1 else "│   ├──"
-            print(f"{prefix} {name}")
+        containers_branch = tree.add("containers")
+        for name in config["containers"]:
+            containers_branch.add(f"[cyan]{name}[/cyan]")
 
-    extra = {k: v for k, v in config.items()
+    if config.get("network"):
+        name = config["network"].get("name", "(unnamed)")
+        tree.add(f"network: [cyan]{name}[/cyan]")
+
+    if config.get("networks"):
+        networks_branch = tree.add("networks")
+        for name in config["networks"]:
+            networks_branch.add(f"[cyan]{name}[/cyan]")
+
+    extra = {k for k in config
              if k not in ("project", "backend", "workflow", "vars", "secrets",
                           "image", "container", "containers", "network", "networks")}
     if extra:
-        print(f"└── config: {', '.join(extra.keys())}")
+        tree.add(f"config: [dim]{', '.join(sorted(extra))}[/dim]")
+
+    console.print(tree)
 
 
 def cmd_show(args):
     """Show a config section."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip show[/bold] <section>")
+        console.print("Sections: vars, secrets, container, containers, network, or any config key")
+        return
+
     section = args.get("section")
     if not section:
-        print("Usage: cutip show <section>")
-        print("Sections: vars, secrets, container, containers, network, or any config key")
+        console.print("[bold]cutip show[/bold] <section>")
+        console.print("Sections: vars, secrets, container, containers, network, or any config key")
         sys.exit(1)
-    print(_show(section, path=args.get("path")))
+
+    try:
+        result = _show(section, path=args.get("path"))
+    except RuntimeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+
+    console.print(Panel(result.strip(), title=section, box=box.ROUNDED))
 
 
 def cmd_run(args):
     """Run workflow.py."""
     import yaml
+
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip run[/bold]")
+        console.print("Reads config.yaml in current directory, runs workflow.py")
+        return
 
     path = args.get("path")
     if path:
@@ -111,20 +159,30 @@ def cmd_run(args):
     else:
         config_path = Path("config.yaml")
         if not config_path.exists():
-            print("Error: No config.yaml found in current directory")
+            console.print("[red]Error:[/red] No config.yaml found in current directory")
             sys.exit(1)
 
     with open(config_path) as f:
         config = yaml.safe_load(f) or {}
 
     # Prompt for empty vars/secrets
+    has_prompts = False
     for key, val in config.get("vars", {}).items():
         if not val:
-            config["vars"][key] = input(f"  {key}: ").strip()
+            if not has_prompts:
+                console.print()
+                has_prompts = True
+            config["vars"][key] = console.input(f"  {key}: ")
 
     for key, val in config.get("secrets", {}).items():
         if not val:
-            config["secrets"][key] = input(f"  {key} (secret): ").strip()
+            if not has_prompts:
+                console.print()
+                has_prompts = True
+            config["secrets"][key] = console.input(f"  {key}: ")
+
+    if has_prompts:
+        console.print()
 
     # Find and run workflow
     config_dir = config_path.parent
@@ -132,7 +190,7 @@ def cmd_run(args):
     workflow_path = config_dir / workflow_name
 
     if not workflow_path.exists():
-        print(f"Error: {workflow_name} not found")
+        console.print(f"[red]Error:[/red] {workflow_name} not found")
         sys.exit(1)
 
     spec = importlib.util.spec_from_file_location("workflow", str(workflow_path))
@@ -145,21 +203,25 @@ def cmd_run(args):
     elif hasattr(module, "main"):
         module.main(config)
     else:
-        print("Error: workflow.py has no run_standalone() or main() function")
+        console.print("[red]Error:[/red] workflow.py has no run_standalone() or main() function")
         sys.exit(1)
 
 
 def cmd_init(args):
     """Scaffold a new project."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip init[/bold] <project-name>")
+        return
+
     name = args.get("name")
     if not name:
-        print("Usage: cutip init <project-name>")
+        console.print("[bold]cutip init[/bold] <project-name>")
         sys.exit(1)
 
     target = Path(args.get("path") or name)
 
     if (target / "config.yaml").exists():
-        print(f"Error: config.yaml already exists in {target}")
+        console.print(f"[red]Error:[/red] config.yaml already exists in {target}")
         sys.exit(1)
 
     target.mkdir(parents=True, exist_ok=True)
@@ -188,9 +250,9 @@ def run_standalone(config):
     main(config)
 ''')
 
-    print(f"✓ Created {name} at {target}")
-    print(f"  config.yaml + workflow.py")
-    print(f"  Next: cd {name} && cutip validate && cutip run")
+    console.print(f"[green]✓[/green] Created [bold]{name}[/bold] at {target}")
+    console.print(f"  config.yaml + workflow.py")
+    console.print(f"  Next: cd {name} && cutip validate && cutip run")
 
 
 def cmd_verify(args):
@@ -198,9 +260,11 @@ def cmd_verify(args):
     import subprocess
     import platform
 
-    print(f"cutip v{VERSION}")
-    print(f"Platform: {platform.system()} {platform.machine()}")
-    print()
+    table = Table(title=f"cutip v{VERSION}", box=box.ROUNDED, show_header=False)
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+
+    table.add_row("Platform", f"{platform.system()} {platform.machine()}")
 
     # Python — try both python and python3
     python_found = False
@@ -208,13 +272,13 @@ def cmd_verify(args):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
             if r.returncode == 0:
-                print(f"  ✓ Python — {r.stdout.strip()}")
+                table.add_row("Python", f"[green]✓[/green] {r.stdout.strip()}")
                 python_found = True
                 break
         except Exception:
             continue
     if not python_found:
-        print("  ✗ Python — not found")
+        table.add_row("Python", "[red]✗ not found[/red]")
 
     checks = [
         ("Docker", ["docker", "--version"]),
@@ -224,25 +288,27 @@ def cmd_verify(args):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
             if r.returncode == 0:
-                print(f"  ✓ {name} — {r.stdout.strip()}")
+                table.add_row(name, f"[green]✓[/green] {r.stdout.strip()}")
             else:
-                print(f"  · {name} — not found")
+                table.add_row(name, "[dim]· not found[/dim]")
         except Exception:
-            print(f"  · {name} — not found")
+            table.add_row(name, "[dim]· not found[/dim]")
 
     # Check cutip-blocks
     try:
         import cutip_blocks
-        print("  ✓ cutip-blocks — installed")
+        table.add_row("cutip-blocks", "[green]✓[/green] installed")
     except ImportError:
-        print("  ✗ cutip-blocks — not installed (pip install cutip-blocks)")
+        table.add_row("cutip-blocks", "[red]✗ not installed[/red] (pip install cutip-blocks)")
 
     # Check Rust core
     try:
         from cutip._core import validate
-        print("  ✓ cutip core — loaded")
+        table.add_row("cutip core", "[green]✓[/green] loaded")
     except ImportError:
-        print("  ✗ cutip core — not loaded")
+        table.add_row("cutip core", "[red]✗ not loaded[/red]")
+
+    console.print(table)
 
 
 COMMANDS = {
@@ -260,40 +326,44 @@ def main():
     args = sys.argv[1:]
 
     if not args or args[0] in ("-h", "--help", "help"):
-        print(f"cutip v{VERSION} — workflow automation framework")
-        print()
-        print("Commands:")
-        print("  validate   Validate config.yaml")
-        print("  tree       Print config structure")
-        print("  show       Show a config section")
-        print("  run        Run workflow.py")
-        print("  init       Scaffold a new project")
-        print("  verify     Check prerequisites")
-        print()
-        print("Options:")
-        print("  --path     Path to config.yaml")
-        print("  --json     Output as JSON (validate, tree)")
-        print()
-        print("Usage:")
-        print("  cutip validate")
-        print("  python -m cutip validate")
+        console.print(Panel(
+            "[bold]cutip[/bold] — workflow automation framework\n\n"
+            "[bold]Commands:[/bold]\n"
+            "  validate   Validate config.yaml\n"
+            "  tree       Print config structure\n"
+            "  show       Show a config section\n"
+            "  run        Run workflow.py\n"
+            "  init       Scaffold a new project\n"
+            "  verify     Check prerequisites\n\n"
+            "[bold]Options:[/bold]\n"
+            "  --path     Path to config.yaml\n"
+            "  --json     Output as JSON (validate, tree)\n\n"
+            "[bold]Usage:[/bold]\n"
+            "  cutip validate\n"
+            "  python -m cutip validate",
+            title=f"cutip v{VERSION}",
+            box=box.ROUNDED,
+        ))
         return
 
     if args[0] in ("--version", "version"):
-        print(f"cutip v{VERSION}")
+        console.print(f"cutip v{VERSION}")
         return
 
     command = args[0]
     if command not in COMMANDS:
-        print(f"Unknown command: {command}")
-        print(f"Available: {', '.join(COMMANDS)}")
+        console.print(f"[red]Unknown command:[/red] {command}")
+        console.print(f"Available: {', '.join(COMMANDS)}")
         sys.exit(1)
 
     # Parse remaining args into a dict
     parsed = {}
     i = 1
     while i < len(args):
-        if args[i] == "--path" and i + 1 < len(args):
+        if args[i] in ("-h", "--help"):
+            parsed["help"] = True
+            i += 1
+        elif args[i] == "--path" and i + 1 < len(args):
             parsed["path"] = args[i + 1]
             i += 2
         elif args[i] == "--json":
