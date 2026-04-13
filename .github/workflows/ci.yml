@@ -459,9 +459,9 @@ jobs:
         run: uv run mkdocs build --strict
 
 
-  # ── Rust CLI Build ──────────────────────────────────────────────────────────
+  # ── Rust Core Build ─────────────────────────────────────────────────────────
   rust-build:
-    name: Rust CLI Build
+    name: Rust Core Build
     runs-on: ubuntu-latest
 
     steps:
@@ -470,16 +470,21 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cargo check
-        run: cargo check
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-      - name: Build release
-        run: cargo build --release
+      - name: Build and install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install maturin pyyaml
+          .venv/bin/maturin develop --features pyo3/extension-module
 
       - name: Test CLI commands
         run: |
-          ./target/release/cutip --help
-          ./target/release/cutip validate --path example/config.yaml
-          ./target/release/cutip tree --path example/config.yaml
-          ./target/release/cutip doctor
-          ./target/release/cutip validate --path example/config.yaml --json
+          .venv/bin/python -m cutip --help
+          .venv/bin/python -m cutip validate --path example/config.yaml
+          .venv/bin/python -m cutip tree --path example/config.yaml
+          .venv/bin/python -m cutip doctor
+          .venv/bin/python -m cutip validate --json --path example/config.yaml
