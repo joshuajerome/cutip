@@ -56,3 +56,7 @@ site/
 # claude-reports/ is written at runtime by .jenkins/scripts/* and archived as
 # Jenkins build artifacts. Never commit it.
 claude-reports/
+
+# Rust
+target/
+Cargo.lock
