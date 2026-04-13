@@ -94,7 +94,21 @@ Or from a PR:
 gh pr checks <PR_NUMBER>
 ```
 
-### Step 4 — If retries fail consistently
+### Step 4 — Trivial / pre-existing failures
+
+If retries confirm a failure is pre-existing, unrelated to the PR's changes, and cannot affect any user-facing behavior, post a PR comment before merging:
+
+```shell
+gh pr comment <PR_NUMBER> --body \
+  "CI failure on <job-name>: <one-sentence root cause>.
+This failure is pre-existing / unrelated to this PR and does not affect
+production: <explain why no user-facing behavior is impacted>.
+Proceeding with merge."
+```
+
+This creates an auditable record. The underlying issue should be tracked as a separate bug/cap and fixed in a follow-up PR.
+
+### Step 5 — If retries fail consistently
 
 If the same job fails three times with the same transient error and the failure is clearly not a code issue, `--admin` force merge may be used as a last resort.
 

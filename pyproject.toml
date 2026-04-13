@@ -5,23 +5,26 @@ build-backend = "hatchling.build"
 [project]
 name = "cutip"
 version = "0.2.5"
-description = "Container Unit Templates in Python — an automation framework that uses containers as deterministic execution environments"
+description = "Workflow automation framework — define infrastructure as YAML, automate with Python, execute in containers"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Joshua Jerome" },
 ]
-keywords = ["containers", "podman", "docker", "devops", "workflow", "infrastructure"]
+keywords = ["containers", "podman", "docker", "devops", "workflow", "automation", "infrastructure", "orchestration"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
     "Topic :: System :: Software Distribution",
     "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
 ]
 requires-python = ">=3.11"
 dependencies = [

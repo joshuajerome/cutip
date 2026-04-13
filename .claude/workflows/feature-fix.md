@@ -112,8 +112,19 @@ gh pr checks <PR_NUMBER> --watch
 Wait for **all checks to pass**. If a check fails:
 
 1. Read the failure: `gh run view <run-id> --log-failed`
-2. Fix locally, push — CI reruns automatically
-3. Never merge a PR with failing checks
+2. Diagnose: is this a code issue or a transient/pre-existing infra issue?
+3. **Code issue** — fix locally, push. CI reruns automatically.
+4. **Trivial / non-production failure** (pre-existing flake, infra timeout, unrelated scan) —
+   if the failure cannot affect users and the PR change is correct, post a PR comment
+   defending why the failure is not significant before merging:
+   ```bash
+   gh pr comment <PR_NUMBER> --body \
+     "CI failure on <job-name>: <one sentence root cause>.
+   This failure is pre-existing / unrelated to this PR's changes and does not affect
+   production: <explain why no user-facing behavior is impacted>.
+   Proceeding with merge."
+   ```
+5. Never merge a PR with a failure that could be a real code issue.
 
 ---
 

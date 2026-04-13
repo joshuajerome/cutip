@@ -171,22 +171,7 @@ Build output goes through `logger.bind(subprocess=True).debug(raw_line)`.
 
 ## Consumer Projects
 
-Both are at `~/dev/cutip-projects/`:
-
-### snf-gui-dev
-- Group: `snf-gui`
-- Container: `snf-gui`
-- `sfm_vm_support/` package — uses `config.yaml` (not `.env`); kubectl exec for keycloak patch
-- `paths.yaml` required: `snf_repo`
-- `secrets.yaml` required: `ssh_private_key`, `ssh_public_key`
-
-### snf-blueprint-dev
-- Group: `snf-blueprint-manager`
-- Container: `snf-blueprint-manager` (Ansible/blueprint tooling)
-- `secrets.yaml` required: `ssh_private_key`, `ssh_public_key`
-- `paths.yaml` required: `blueprint_manager`
-- `paths.yaml` generated: `blueprint_manager_data: ".snf-blueprint-manager-data"`
-  - Mounts: `{{ paths.blueprint_manager_data }}/sheets` and `.../infrastructures` with `create_host_path: true`
+Consumer projects live at `~/dev/cutip-projects/`. See the monorepo CLAUDE.md for details on individual projects (snf-dev, orderflow, factoryos-emulator).
 
 ## Branch Conventions
 
@@ -246,7 +231,7 @@ integration → release/v{X}.{Y}.{Z} → GitHub Release
 - Renamed `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`
 - Both `podman>=4.0` and `docker>=6.0` are core deps; docker is the default backend
 - Docker backend added (cap012): `--backend docker` / `CUTIP_BACKEND=docker`
-- Renamed groups: `main` → `snf-gui` / `snf-blueprint-manager`
+- Renamed example groups to project-specific names
 - Added `_validate_refs()` — checks `{{ paths.X }}` / `{{ secrets.X }}` refs are present + non-empty (skips generated keys)
 - Added `_prepare_generated_dirs()` — creates generated path directories before lifecycle
 - Build output: `subprocess.Popen` streaming → `logger.bind(subprocess=True).debug()`
