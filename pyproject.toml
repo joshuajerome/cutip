@@ -1,17 +1,17 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "cutip"
-version = "0.2.5"
+version = "1.0.0"
 description = "Workflow automation framework — define infrastructure as YAML, automate with Python, execute in containers"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Joshua Jerome" },
 ]
-keywords = ["containers", "podman", "docker", "devops", "workflow", "automation", "infrastructure", "orchestration"]
+keywords = ["containers", "podman", "docker", "devops", "workflow", "automation", "rust"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,85 +20,40 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
     "Topic :: System :: Systems Administration",
-    "Topic :: System :: Software Distribution",
-    "Operating System :: OS Independent",
-    "Framework :: AsyncIO",
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "typer>=0.12",
-    "pydantic>=2.0",
     "pyyaml>=6.0",
-    "loguru>=0.7",
-    "rich>=13.0",
-    "podman>=4.0",
-    "docker>=6.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/joshuajerome/cutip"
 Documentation = "https://joshuajerome.github.io/cutip"
 Repository = "https://github.com/joshuajerome/cutip"
-"Bug Tracker" = "https://github.com/joshuajerome/cutip/issues"
 
 [project.scripts]
-cutip = "cutip.cli.main:app"
+cutip = "cutip.cli:main"
 
 [project.optional-dependencies]
 docs = [
     "mkdocs-material>=9.5",
-    "mkdocs<2.0",              # MkDocs 2.0 is incompatible with mkdocs-material (Feb 2026)
-    "mkdocs-callouts>=1.14",   # converts > [!NOTE] GitHub callouts → Material admonitions
-]
-dev = [
-    "pytest>=8.0",
-    "pytest-cov",
-]
-ai = [
-    "anthropic>=0.40",
+    "mkdocs<2.0",
+    "mkdocs-callouts>=1.14",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
-    "ruff>=0.11",
-    "ty>=0.0.1a7",
+    "maturin>=1.0",
+    "pytest>=9.0",
 ]
 
-[tool.ruff]
-target-version = "py311"
-line-length = 100
-
-[tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = [
-    "E501",    # line too long — handled by formatter
-    "ARG001",  # unused function argument — common in hooks/callbacks
-    "B008",    # function call in default argument — required by typer
-    "B904",    # raise from within except — too noisy for typer.Exit patterns
-    "B905",    # zip without strict — not needed for Python 3.11
-    "SIM105",  # contextlib.suppress — style preference
-    "SIM108",  # ternary operator — readability preference
-    "SIM116",  # dictionary instead of if-statements — readability preference
-    "RUF001",  # ambiguous unicode — intentional in prose strings
-]
-
-[tool.ruff.lint.isort]
-known-first-party = ["cutip"]
-
-[tool.ruff.format]
-quote-style = "double"
-
-[tool.ty.rules]
-unresolved-import = "warn"
-not-iterable = "warn"
-unresolved-attribute = "warn"
-invalid-return-type = "warn"
-no-matching-overload = "warn"
-invalid-argument-type = "warn"
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "cutip._core"
+python-source = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

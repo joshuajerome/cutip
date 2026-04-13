@@ -1,5 +1,4 @@
-"""Allow running cutip as ``python -m cutip``."""
+"""python -m cutip entry point."""
+from cutip.cli import main
 
-from cutip.cli.main import app
-
-app()
+main()

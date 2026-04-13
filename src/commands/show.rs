@@ -1,67 +1,73 @@
-//! cutip show — dump a resolved config section.
+//! cutip show — return a config section as YAML string.
 
-use std::path::Path;
+use std::collections::HashMap;
 
-use anyhow::{Context, Result};
-use colored::Colorize;
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use crate::config::loader;
 
-pub fn run(section: &str, path: Option<&Path>) -> Result<()> {
+/// Return a config section as a YAML string.
+#[pyfunction]
+#[pyo3(signature = (section, path = None))]
+pub fn show(section: &str, path: Option<&str>) -> PyResult<String> {
     let config_path = match path {
-        Some(p) => p.to_path_buf(),
-        None => loader::find_config(&std::env::current_dir()?)?,
+        Some(p) => std::path::PathBuf::from(p),
+        None => loader::find_config(&std::env::current_dir().map_err(|e| {
+            PyRuntimeError::new_err(format!("{e}"))
+        })?)
+        .map_err(|e| PyRuntimeError::new_err(format!("{e}")))?,
     };
 
-    let config = loader::load_config(&config_path)?;
+    let config = loader::load_config(&config_path)
+        .map_err(|e| PyRuntimeError::new_err(format!("{e}")))?;
 
-    match section {
-        "vars" => {
-            println!("{}", serde_yaml::to_string(&config.vars)?);
-        }
+    let yaml = match section {
+        "vars" => serde_yaml::to_string(&config.vars),
         "secrets" => {
-            // Mask values
-            let masked: std::collections::HashMap<_, _> = config
+            let masked: HashMap<_, _> = config
                 .secrets
                 .iter()
                 .map(|(k, v)| (k.as_str(), if v.is_empty() { "(empty)" } else { "****" }))
                 .collect();
-            println!("{}", serde_yaml::to_string(&masked)?);
+            serde_yaml::to_string(&masked)
         }
-        "container" => {
-            if let Some(ref c) = config.container {
-                println!("{}", serde_yaml::to_string(c)?);
-            } else {
-                println!("{}", "No single container defined".yellow());
-            }
-        }
+        "container" => match &config.container {
+            Some(c) => serde_yaml::to_string(c),
+            None => Ok("No single container defined".to_string()),
+        },
         "containers" => {
             if config.containers.is_empty() {
-                println!("{}", "No containers defined".yellow());
+                Ok("No containers defined".to_string())
             } else {
-                println!("{}", serde_yaml::to_string(&config.containers)?);
+                serde_yaml::to_string(&config.containers)
             }
         }
         "network" | "networks" => {
+            let mut parts = Vec::new();
             if let Some(ref n) = config.network {
-                println!("{}", serde_yaml::to_string(n)?);
+                parts.push(serde_yaml::to_string(n).unwrap_or_default());
             }
             if !config.networks.is_empty() {
-                println!("{}", serde_yaml::to_string(&config.networks)?);
+                parts.push(serde_yaml::to_string(&config.networks).unwrap_or_default());
             }
-            if config.network.is_none() && config.networks.is_empty() {
-                println!("{}", "No networks defined".yellow());
+            if parts.is_empty() {
+                Ok("No networks defined".to_string())
+            } else {
+                Ok(parts.join("\n"))
             }
         }
         other => {
-            // Try extra sections
             if let Some(value) = config.extra.get(other) {
-                println!("{}", serde_yaml::to_string(value)?);
+                serde_yaml::to_string(value)
             } else {
-                anyhow::bail!("Unknown section: '{}'. Available: vars, secrets, container, containers, network, networks, or config section names", other);
+                return Err(PyRuntimeError::new_err(format!(
+                    "Unknown section: '{other}'. Available: vars, secrets, container, containers, network, networks"
+                )));
             }
         }
     }
+    .map_err(|e| PyRuntimeError::new_err(format!("YAML error: {e}")))?;
 
-    Ok(())
+    Ok(yaml)
 }
