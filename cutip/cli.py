@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 console = Console()
 
 
@@ -198,13 +198,66 @@ def cmd_run(args):
     sys.path.insert(0, str(config_dir))
     spec.loader.exec_module(module)
 
-    if hasattr(module, "run_standalone"):
+    # Check if workflow uses @action/@orchestrator decorators → use engine
+    from cutip.workflow.engine import WorkflowEngine, ActionFailed
+    from cutip.workflow.decorators import _ACTION_ATTR
+
+    has_actions = any(
+        hasattr(getattr(module, attr, None), _ACTION_ATTR)
+        for attr in dir(module)
+        if callable(getattr(module, attr, None))
+    )
+
+    if has_actions:
+        _run_with_engine(module, config)
+    elif hasattr(module, "run_standalone"):
         module.run_standalone(config)
     elif hasattr(module, "main"):
         module.main(config)
     else:
-        console.print("[red]Error:[/red] workflow.py has no run_standalone() or main() function")
+        console.print("[red]Error:[/red] workflow.py has no @action functions, run_standalone(), or main()")
         sys.exit(1)
+
+
+def _run_with_engine(module, config):
+    """Execute a workflow using the cutip execution engine."""
+    from cutip.workflow.engine import WorkflowEngine, ActionFailed, ActionEvent
+
+    backend = config.get("backend", "local")
+    project = config.get("project", "workflow")
+
+    def on_event(event: ActionEvent):
+        if event.event == "stage_started":
+            console.print(f"\n[bold]── {event.action} ──[/bold]")
+            if event.detail:
+                console.print(f"  [dim]{event.detail}[/dim]")
+        elif event.event == "action_started":
+            label = f"  [cyan]▶[/cyan] {event.action}"
+            if event.attempt > 1:
+                label += f" [dim](attempt {event.attempt})[/dim]"
+            console.print(label)
+        elif event.event == "action_completed":
+            console.print(f"  [green]✓[/green] {event.action}")
+        elif event.event == "action_failed":
+            console.print(f"  [red]✗[/red] {event.action}: {event.error}")
+        elif event.event == "action_retrying":
+            console.print(f"  [yellow]↻[/yellow] {event.action} — {event.detail}")
+        elif event.event == "action_skipped":
+            console.print(f"  [dim]○[/dim] {event.action} [dim](skipped)[/dim]")
+        elif event.event == "stage_completed":
+            pass  # stage transitions are visual enough
+
+    engine = WorkflowEngine(module, config, on_event=on_event)
+
+    try:
+        ctx = engine.run()
+        console.print(f"\n[green]✓ {project} complete[/green]")
+    except ActionFailed as e:
+        console.print(f"\n[red]✗ {project} failed:[/red] {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        console.print(f"\n[yellow]⚠ {project} interrupted[/yellow]")
+        sys.exit(130)
 
 
 def cmd_init(args):

@@ -26,31 +26,37 @@ class StageMeta:
 
     title: str | None = None
     description: str | None = None
+    parallel: bool = False
 
 
-def stage(title: str | None = None, description: str | None = None) -> None:
+def stage(
+    title: str | None = None,
+    description: str | None = None,
+    parallel: bool = False,
+) -> None:
     """Workflow stage separator. No-op at runtime.
 
     Parsed by the AST introspector to group actions into named stages
-    for cutip-desktop DAG visualization.
+    for cutip-desktop DAG visualization and the execution engine.
 
     With no arguments, Desktop labels stages numerically (Stage 1, Stage 2, ...).
     With title/description, Desktop shows the stage header and detail panel.
+    With parallel=True, all actions in this stage run concurrently.
 
     Usage::
 
         @orchestrator
         def main(ctx):
-            stage("Pre-op Validation", description="Verify SSH, K8s resources, and file integrity")
-            validate_ssh(ctx, sesh)
-            check_deploy(ctx, sesh, ns, deploy)
+            stage("Pre-op Validation")
+            validate_ssh(ctx)
+            check_cluster(ctx)
 
-            stage("Operations")
-            enable_keycloak(ctx, sesh, script)
-            patch_handler(ctx, sesh, ns, deploy, patch)
+            stage("Deploy", parallel=True)
+            deploy_backend(ctx)
+            deploy_frontend(ctx)
 
-            stage()  # Desktop shows "Stage 3"
-            verify_pod(ctx, sesh, ns, deploy)
+            stage("Verify")
+            smoke_test(ctx)
     """
 
 
@@ -61,7 +67,17 @@ class ActionMeta:
     name: str
     description: str = ""
     container: str | None = None
+    host: str | None = None
     depends_on: list[str] = field(default_factory=list)
+
+    # Orchestration parameters
+    retry: int = 0
+    delay: float = 0.0
+    backoff: float = 1.0
+    timeout: float | None = None
+    on_fail: str | None = None
+    continue_on_fail: bool = False
+    when: Callable | None = field(default=None, compare=False, hash=False)
 
 
 @dataclass(frozen=True)
@@ -104,21 +120,51 @@ def action(
     name: str,
     description: str = "",
     container: str | None = None,
+    host: str | None = None,
     depends_on: list[str] | None = None,
+    retry: int = 0,
+    delay: float = 0.0,
+    backoff: float = 1.0,
+    timeout: float | None = None,
+    on_fail: str | None = None,
+    continue_on_fail: bool = False,
+    when: Callable | None = None,
 ) -> Callable:
     """Parameterized decorator that attaches :class:`ActionMeta` to a function.
 
+    Orchestration parameters control how the execution engine runs the action:
+
+    - ``retry`` — Number of retry attempts on failure (default 0, no retry).
+    - ``delay`` — Seconds between retries (default 0).
+    - ``backoff`` — Multiply delay by this after each retry (default 1.0, no backoff).
+    - ``timeout`` — Kill the action after this many seconds (default None, no timeout).
+    - ``on_fail`` — Name of another @action to invoke if this action fails.
+    - ``continue_on_fail`` — If True, the workflow continues even if this action fails.
+    - ``when`` — Callable that receives ctx; action is skipped if it returns False.
+
     Usage::
 
-        @action(name="Start DB", description="Start the database", container="cutip-db")
-        def start_db(ctx):
-            ctx.container("cutip-db").start()
+        @action(name="Wait for API", retry=5, delay=10, backoff=2, timeout=120)
+        def wait_for_api(ctx):
+            service.poll_until_ready("http://localhost:8080")
+
+        @action(name="Deploy backend", on_fail="rollback_backend")
+        def deploy_backend(ctx):
+            kubectl.patch_deployment(name="api", image=ctx.vars["api_image"])
     """
     meta = ActionMeta(
         name=name,
         description=description,
         container=container,
+        host=host,
         depends_on=depends_on or [],
+        retry=retry,
+        delay=delay,
+        backoff=backoff,
+        timeout=timeout,
+        on_fail=on_fail,
+        continue_on_fail=continue_on_fail,
+        when=when,
     )
 
     def decorator(fn: Callable) -> Callable:

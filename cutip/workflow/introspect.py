@@ -275,9 +275,10 @@ def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
     if not is_stage:
         return None
 
-    # Extract title and description
+    # Extract title, description, parallel
     title: str | None = None
     description: str | None = None
+    parallel: bool = False
 
     # Positional: first arg is title
     if call.args:
@@ -299,8 +300,14 @@ def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
             and isinstance(kw.value.value, str)
         ):
             description = kw.value.value
+        elif (
+            kw.arg == "parallel"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, bool)
+        ):
+            parallel = kw.value.value
 
-    return StageMeta(title=title, description=description)
+    return StageMeta(title=title, description=description, parallel=parallel)
 
 
 def _is_action_decorator(deco: ast.expr) -> bool:
@@ -316,7 +323,7 @@ def _is_action_decorator(deco: ast.expr) -> bool:
 
 def _extract_meta_from_decorator(deco: ast.Call) -> ActionMeta | None:
     """Parse ActionMeta fields from an @action(...) AST call node."""
-    kwargs: dict[str, str | list[str] | None] = {}
+    kwargs: dict[str, str | int | float | bool | list[str] | None] = {}
 
     # Positional: first arg is name
     if deco.args:
@@ -328,8 +335,10 @@ def _extract_meta_from_decorator(deco: ast.Call) -> ActionMeta | None:
     for kw in deco.keywords:
         if kw.arg is None:
             continue
-        if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
-            kwargs[kw.arg] = kw.value.value
+        if isinstance(kw.value, ast.Constant):
+            val = kw.value.value
+            if isinstance(val, (str, int, float, bool)):
+                kwargs[kw.arg] = val
         elif isinstance(kw.value, ast.List):
             items = []
             for elt in kw.value.elts:
@@ -343,13 +352,22 @@ def _extract_meta_from_decorator(deco: ast.Call) -> ActionMeta | None:
 
     description = kwargs.get("description", "")
     container = kwargs.get("container")
+    host = kwargs.get("host")
     depends_on = kwargs.get("depends_on", [])
 
     return ActionMeta(
         name=name,
         description=description if isinstance(description, str) else "",
         container=container if isinstance(container, str) else None,
+        host=host if isinstance(host, str) else None,
         depends_on=depends_on if isinstance(depends_on, list) else [],
+        retry=_int_kwarg(kwargs, "retry", 0),
+        delay=_float_kwarg(kwargs, "delay", 0.0),
+        backoff=_float_kwarg(kwargs, "backoff", 1.0),
+        timeout=_float_kwarg_optional(kwargs, "timeout"),
+        on_fail=kwargs.get("on_fail") if isinstance(kwargs.get("on_fail"), str) else None,
+        continue_on_fail=bool(kwargs.get("continue_on_fail", False)),
+        # `when` is a callable — can't be parsed from AST, only available at runtime
     )
 
 
@@ -660,3 +678,17 @@ def _extract_kwargs(deco: ast.Call) -> dict[str, str | int | list[str] | None]:
 def _int_kwarg(kwargs: dict, key: str, default: int) -> int:
     val = kwargs.get(key, default)
     return val if isinstance(val, int) else default
+
+
+def _float_kwarg(kwargs: dict, key: str, default: float) -> float:
+    val = kwargs.get(key, default)
+    if isinstance(val, (int, float)):
+        return float(val)
+    return default
+
+
+def _float_kwarg_optional(kwargs: dict, key: str) -> float | None:
+    val = kwargs.get(key)
+    if isinstance(val, (int, float)):
+        return float(val)
+    return None
