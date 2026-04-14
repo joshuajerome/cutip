@@ -23,6 +23,7 @@ from types import ModuleType
 from typing import Any
 
 from cutip.workflow.decorators import ActionMeta, StageMeta, _ACTION_ATTR
+from cutip.workflow import decorators as _decorators_module
 from cutip.workflow.introspect import (
     StageGroup,
     extract_staged_action_order,
@@ -122,26 +123,81 @@ class WorkflowEngine:
             self._name_to_func[meta.name] = func_name
 
     def run(self) -> WorkflowContext:
-        """Execute the workflow and return the context with results."""
-        # Try AST-based staged extraction first
-        mod_file = getattr(self.module, "__file__", None)
-        if mod_file:
-            from pathlib import Path
-            stage_groups = extract_staged_action_order(Path(mod_file))
-        else:
-            stage_groups = []
+        """Execute the workflow and return the context with results.
 
-        if stage_groups:
-            self._run_staged(stage_groups)
-        else:
-            # Fallback: run orchestrator directly (no stage awareness)
+        Runs the @orchestrator function directly, intercepting @action calls
+        at runtime to apply orchestration policies (retry, timeout, on_fail, etc.).
+
+        The orchestrator controls flow — if/else, loops, conditionals all work
+        naturally because Python executes them. The engine wraps each @action
+        call with the orchestration layer.
+        """
+        # Patch all @action functions in the module to go through the engine
+        self._patch_actions()
+
+        try:
             orch = get_orchestrator(self.module)
             if orch:
                 orch(self.ctx)
             elif hasattr(self.module, "main"):
                 self.module.main(self.ctx)
+        finally:
+            self._unpatch_actions()
 
         return self.ctx
+
+    def _patch_actions(self) -> None:
+        """Replace @action-decorated functions and stage() with engine-wrapped versions."""
+        self._originals: dict[str, Callable] = {}
+        self._current_stage: str | None = None
+
+        for func_name, (func, meta) in self._actions.items():
+            self._originals[func_name] = getattr(self.module, func_name)
+
+            def make_wrapper(fn_name: str, fn: Callable, m: ActionMeta):
+                def wrapper(*args, **kwargs):
+                    return self._execute_action(m)
+                return wrapper
+
+            setattr(self.module, func_name, make_wrapper(func_name, func, meta))
+
+        # Patch stage() to emit events at runtime
+        self._original_stage = _decorators_module.stage
+
+        def _runtime_stage(title=None, description=None, parallel=False):
+            if self._current_stage is not None:
+                self.on_event(ActionEvent(
+                    event="stage_completed",
+                    action=self._current_stage,
+                ))
+            stage_title = title or "Stage"
+            self._current_stage = stage_title
+            self.on_event(ActionEvent(
+                event="stage_started",
+                action=stage_title,
+                detail=description or "",
+            ))
+
+        _decorators_module.stage = _runtime_stage
+
+        # Also patch in the module's namespace if it imported stage directly
+        if hasattr(self.module, "stage"):
+            self._originals["stage"] = getattr(self.module, "stage")
+            setattr(self.module, "stage", _runtime_stage)
+
+    def _unpatch_actions(self) -> None:
+        """Restore original @action functions and stage()."""
+        # Emit final stage_completed
+        if self._current_stage is not None:
+            self.on_event(ActionEvent(
+                event="stage_completed",
+                action=self._current_stage,
+            ))
+
+        for func_name, original in self._originals.items():
+            setattr(self.module, func_name, original)
+
+        _decorators_module.stage = self._original_stage
 
     def _run_staged(self, stage_groups: list[StageGroup]) -> None:
         """Execute stage groups with orchestration policies."""
