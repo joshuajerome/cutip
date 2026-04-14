@@ -62,15 +62,35 @@ class WorkflowContext:
     vars: dict = field(default_factory=dict)
     secrets: dict = field(default_factory=dict)
     results: dict[str, Any] = field(default_factory=dict)
-    backend: str = "local"
+    host: str = "local"
+    container_runtime: str = "podman"
+
+    @property
+    def backend(self) -> str:
+        """Backward compat — maps host to legacy backend value."""
+        if self.host == "container":
+            return self.container_runtime
+        return self.host
 
     @classmethod
     def from_config(cls, config: dict) -> WorkflowContext:
+        # Resolve host from new or legacy fields
+        host = config.get("host")
+        if not host:
+            backend = config.get("backend", "local")
+            host = "container" if backend in ("docker", "podman") else backend
+
+        runtime = config.get("container_runtime")
+        if not runtime:
+            backend = config.get("backend", "podman")
+            runtime = backend if backend in ("docker", "podman") else "podman"
+
         return cls(
             config=config,
             vars=config.get("vars", {}),
             secrets=config.get("secrets", {}),
-            backend=config.get("backend", "local"),
+            host=host,
+            container_runtime=runtime,
         )
 
 

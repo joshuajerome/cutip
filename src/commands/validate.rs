@@ -44,7 +44,10 @@ pub fn validate(py: Python<'_>, path: Option<&str>) -> PyResult<PyObject> {
     let dict = PyDict::new(py);
     dict.set_item("path", config_path.to_string_lossy().to_string())?;
     dict.set_item("project", &config.project)?;
-    dict.set_item("backend", &config.backend)?;
+    dict.set_item("host", config.resolved_host())?;
+    dict.set_item("container_runtime", config.resolved_runtime())?;
+    // backward compat
+    dict.set_item("backend", config.resolved_host())?;
     dict.set_item("workflow", &config.workflow)?;
     dict.set_item("vars_count", config.vars.len())?;
     dict.set_item("secrets_count", config.secrets.len())?;

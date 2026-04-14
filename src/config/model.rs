@@ -2,7 +2,8 @@
 //!
 //! ```yaml
 //! project: my-app
-//! backend: docker          # docker | podman | local
+//! host: container          # local | container | remote
+//! container_runtime: podman  # docker | podman (only when host: container)
 //!
 //! vars:
 //!   repo_path: "/home/user/dev/my-app"
@@ -12,7 +13,7 @@
 //!   db_password: ""        # prompted if empty
 //!   ssh_key: ""
 //!
-//! image:                   # single container projects
+//! image:                   # container projects
 //!   source: build
 //!   dockerfile: Dockerfile
 //!   context: .
@@ -55,9 +56,17 @@ pub struct Config {
     /// Project name.
     pub project: String,
 
-    /// Container backend: "docker", "podman", or "local" (no containers).
-    #[serde(default = "default_backend")]
-    pub backend: String,
+    /// Host type: "local", "container", or "remote".
+    #[serde(default)]
+    pub host: Option<String>,
+
+    /// Container runtime: "docker" or "podman" (only when host: container).
+    #[serde(default)]
+    pub container_runtime: Option<String>,
+
+    /// Legacy backend field — maps to host + container_runtime for backward compat.
+    #[serde(default)]
+    pub backend: Option<String>,
 
     /// Workflow file path (default: "workflow.py").
     #[serde(default = "default_workflow")]
@@ -214,7 +223,34 @@ pub struct NetworkConfig {
     pub gateway: Option<String>,
 }
 
-fn default_backend() -> String { "docker".to_string() }
+impl Config {
+    /// Resolved host type — prefers `host`, falls back to `backend` for backward compat.
+    pub fn resolved_host(&self) -> String {
+        if let Some(ref h) = self.host {
+            return h.clone();
+        }
+        // Map legacy backend values
+        match self.backend.as_deref() {
+            Some("local") => "local".to_string(),
+            Some("docker") | Some("podman") => "container".to_string(),
+            Some(other) => other.to_string(),
+            None => "local".to_string(),
+        }
+    }
+
+    /// Resolved container runtime — prefers `container_runtime`, falls back to `backend`.
+    pub fn resolved_runtime(&self) -> String {
+        if let Some(ref rt) = self.container_runtime {
+            return rt.clone();
+        }
+        match self.backend.as_deref() {
+            Some("docker") => "docker".to_string(),
+            Some("podman") => "podman".to_string(),
+            _ => "podman".to_string(),
+        }
+    }
+}
+
 fn default_workflow() -> String { "workflow.py".to_string() }
 fn default_tag() -> String { "latest".to_string() }
 fn default_mount_type() -> String { "bind".to_string() }
