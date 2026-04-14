@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 console = Console()
 
 
@@ -35,7 +35,10 @@ def cmd_validate(args):
     table.add_column("Value")
 
     table.add_row("Project", result["project"])
-    table.add_row("Backend", result["backend"])
+    host = result.get("host", result.get("backend", "local"))
+    table.add_row("Host", host)
+    if host == "container":
+        table.add_row("Runtime", result.get("container_runtime", "podman"))
     table.add_row("Workflow", result["workflow"])
     table.add_row("Vars", str(result["vars_count"]))
 
@@ -80,7 +83,13 @@ def cmd_tree(args):
 
     config = json.loads(config_json)
     tree = Tree(f"[bold]{config['project']}[/bold]")
-    tree.add(f"backend: [cyan]{config['backend']}[/cyan]")
+
+    # Resolve host from new or legacy fields
+    host = config.get("host") or ("container" if config.get("backend") in ("docker", "podman") else config.get("backend", "local"))
+    tree.add(f"host: [cyan]{host}[/cyan]")
+    if host == "container":
+        runtime = config.get("container_runtime") or config.get("backend", "podman")
+        tree.add(f"container_runtime: [cyan]{runtime}[/cyan]")
     tree.add(f"workflow: [cyan]{config.get('workflow', 'workflow.py')}[/cyan]")
 
     if config.get("vars"):
@@ -114,8 +123,9 @@ def cmd_tree(args):
             networks_branch.add(f"[cyan]{name}[/cyan]")
 
     extra = {k for k in config
-             if k not in ("project", "backend", "workflow", "vars", "secrets",
-                          "image", "container", "containers", "network", "networks")}
+             if k not in ("project", "host", "container_runtime", "backend", "workflow",
+                          "vars", "secrets", "image", "container", "containers",
+                          "network", "networks")}
     if extra:
         tree.add(f"config: [dim]{', '.join(sorted(extra))}[/dim]")
 
@@ -123,17 +133,23 @@ def cmd_tree(args):
 
 
 def cmd_show(args):
-    """Show a config section."""
+    """Show project summary, a config section, or workflow actions."""
     if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip show[/bold] <section>")
-        console.print("Sections: vars, secrets, container, containers, network, or any config key")
+        console.print("[bold]cutip show[/bold] [section]")
+        console.print("  (no args)   Project summary with execution steps")
+        console.print("  workflow    List workflow actions in execution order")
+        console.print("  vars, secrets, container, containers, network, or any config key")
         return
 
     section = args.get("section")
+
     if not section:
-        console.print("[bold]cutip show[/bold] <section>")
-        console.print("Sections: vars, secrets, container, containers, network, or any config key")
-        sys.exit(1)
+        _show_summary(args)
+        return
+
+    if section == "workflow":
+        _show_workflow(args)
+        return
 
     try:
         result = _show(section, path=args.get("path"))
@@ -142,6 +158,132 @@ def cmd_show(args):
         sys.exit(1)
 
     console.print(Panel(result.strip(), title=section, box=box.ROUNDED))
+
+
+def _show_summary(args):
+    """Show project overview with what cutip run will do."""
+    import yaml
+
+    path = args.get("path")
+    config_path = Path(path) if path else Path("config.yaml")
+    if not config_path.exists():
+        console.print("[red]Error:[/red] No config.yaml found")
+        sys.exit(1)
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    # Print tree first
+    cmd_tree(args)
+    console.print()
+
+    # Resolve host
+    host = config.get("host")
+    if not host:
+        backend = config.get("backend", "local")
+        host = "container" if backend in ("docker", "podman") else backend
+
+    runtime = config.get("container_runtime") or config.get("backend", "podman")
+    project = config.get("project", "project")
+    workflow = config.get("workflow", "workflow.py")
+
+    # Print steps
+    console.print("[bold]Steps:[/bold]")
+    console.print(f"  1. Read [cyan]{config_path}[/cyan]")
+    console.print(f"  2. Validate config")
+
+    empty_vars = [k for k, v in config.get("vars", {}).items() if not v]
+    if empty_vars:
+        console.print(f"  3. Prompt for empty vars: [yellow]{', '.join(empty_vars)}[/yellow]")
+        step = 4
+    else:
+        step = 3
+
+    if host == "local":
+        console.print(f"  {step}. Prepare environment: [cyan]local[/cyan]")
+    elif host == "container":
+        console.print(f"  {step}. Prepare environment: [cyan]container[/cyan] ({runtime})")
+    elif host == "remote":
+        console.print(f"  {step}. Prepare environment: [cyan]remote[/cyan]")
+
+    console.print(f"  {step + 1}. Run [cyan]{workflow}[/cyan]")
+
+    # Show workflow actions if available
+    config_dir = config_path.parent
+    workflow_path = config_dir / workflow
+    if workflow_path.exists():
+        from cutip.workflow.introspect import extract_staged_action_order
+        groups = extract_staged_action_order(workflow_path)
+        if groups:
+            console.print()
+            console.print("[bold]Workflow:[/bold]")
+            for group in groups:
+                title = group.stage.title or "Stage"
+                parallel = " [dim](parallel)[/dim]" if group.stage.parallel else ""
+                console.print(f"  [bold]{title}[/bold]{parallel}")
+                for a in group.actions:
+                    extras = []
+                    if a.retry:
+                        extras.append(f"retry={a.retry}")
+                    if a.timeout:
+                        extras.append(f"timeout={a.timeout}s")
+                    if a.on_fail:
+                        extras.append(f"on_fail={a.on_fail}")
+                    suffix = f" [dim]({', '.join(extras)})[/dim]" if extras else ""
+                    console.print(f"    {a.name}{suffix}")
+
+
+def _show_workflow(args):
+    """Show workflow actions in execution order."""
+    import yaml
+
+    path = args.get("path")
+    config_path = Path(path) if path else Path("config.yaml")
+    if not config_path.exists():
+        console.print("[red]Error:[/red] No config.yaml found")
+        sys.exit(1)
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    workflow_name = config.get("workflow", "workflow.py")
+    workflow_path = config_path.parent / workflow_name
+
+    if not workflow_path.exists():
+        console.print(f"[red]Error:[/red] {workflow_name} not found")
+        sys.exit(1)
+
+    from cutip.workflow.introspect import extract_staged_action_order
+    groups = extract_staged_action_order(workflow_path)
+
+    if not groups:
+        console.print("[dim]No @action-decorated functions found in workflow[/dim]")
+        return
+
+    project = config.get("project", workflow_name)
+    console.print(f"[bold]{project}[/bold] — {workflow_name}\n")
+
+    action_num = 0
+    for group in groups:
+        title = group.stage.title or "Stage"
+        parallel = " [dim](parallel)[/dim]" if group.stage.parallel else ""
+        console.print(f"[bold]  {title}[/bold]{parallel}")
+        for a in group.actions:
+            action_num += 1
+            extras = []
+            if a.retry:
+                extras.append(f"retry={a.retry}")
+            if a.delay:
+                extras.append(f"delay={a.delay}s")
+            if a.timeout:
+                extras.append(f"timeout={a.timeout}s")
+            if a.on_fail:
+                extras.append(f"on_fail={a.on_fail}")
+            if a.continue_on_fail:
+                extras.append("continue_on_fail")
+            suffix = f"  [dim]{', '.join(extras)}[/dim]" if extras else ""
+            console.print(f"    {action_num}. {a.name}{suffix}")
+        console.print()
 
 
 def cmd_run(args):
