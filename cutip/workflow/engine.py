@@ -55,12 +55,18 @@ EventCallback = Callable[[ActionEvent], None]
 class WorkflowContext:
     """Lightweight context passed to workflow actions.
 
-    Carries config, vars, secrets, and action results.
+    Attributes:
+        config: Full parsed config.yaml as a dict.
+        vars: User-defined variables from config.yaml vars section.
+        secrets: Sensitive values from config.yaml secrets section.
+        results: Action return values, keyed by action name.
+        host: Execution target — "local", "container", or "remote".
+        container_runtime: Container engine — "docker" or "podman" (only when host is "container").
     """
 
-    config: dict
-    vars: dict = field(default_factory=dict)
-    secrets: dict = field(default_factory=dict)
+    config: dict[str, Any]
+    vars: dict[str, str] = field(default_factory=dict)
+    secrets: dict[str, str] = field(default_factory=dict)
     results: dict[str, Any] = field(default_factory=dict)
     host: str = "local"
     container_runtime: str = "podman"
