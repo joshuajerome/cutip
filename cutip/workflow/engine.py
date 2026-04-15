@@ -433,12 +433,13 @@ class WorkflowEngine:
             except Exception as e:
                 last_error = e
 
-                if attempt < max_attempts:
+                # Check if this error type should stop retries immediately
+                if attempt < max_attempts and not self._is_fatal(e):
                     self.on_event(ActionEvent(
                         event="action_retrying",
                         action=meta.name,
                         attempt=attempt,
-                        detail=f"Retrying in {current_delay}s ({attempt}/{max_attempts})",
+                        detail=f"Retrying in {current_delay}s ({attempt}/{max_attempts}): {e}",
                         error=e,
                     ))
                     if current_delay > 0:
@@ -463,6 +464,24 @@ class WorkflowEngine:
                     return None
 
                 raise ActionFailed(meta.name, e) from e
+
+    @staticmethod
+    def _is_fatal(error: Exception) -> bool:
+        """Check if an error should stop retries immediately.
+
+        AuthError and ValidationError are fatal — retrying won't help.
+        All other errors (ConnectionError, TimeoutError, CommandFailed,
+        generic Exception) are considered transient and retryable.
+        """
+        try:
+            from rsty.errors import AuthError, ValidationError
+            return isinstance(error, (AuthError, ValidationError))
+        except ImportError:
+            pass
+
+        # Fallback: check class name for environments without rsty
+        name = type(error).__name__
+        return name in ("AuthError", "ValidationError")
 
     def _run_with_timeout(self, func: Callable, timeout: float) -> Any:
         """Execute a function with a timeout.
