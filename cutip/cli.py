@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 console = Console()
 
 
@@ -309,19 +309,19 @@ def cmd_run(args):
 
     # Prompt for empty vars/secrets
     has_prompts = False
-    for key, val in config.get("vars", {}).items():
+    for key, val in (config.get("vars") or {}).items():
         if not val:
             if not has_prompts:
                 console.print()
                 has_prompts = True
-            config["vars"][key] = console.input(f"  {key}: ")
+            config.setdefault("vars", {})[key] = console.input(f"  {key}: ")
 
-    for key, val in config.get("secrets", {}).items():
+    for key, val in (config.get("secrets") or {}).items():
         if not val:
             if not has_prompts:
                 console.print()
                 has_prompts = True
-            config["secrets"][key] = console.input(f"  {key}: ")
+            config.setdefault("secrets", {})[key] = console.input(f"  {key}: ")
 
     if has_prompts:
         console.print()
@@ -422,32 +422,49 @@ def cmd_init(args):
     target.mkdir(parents=True, exist_ok=True)
 
     (target / "config.yaml").write_text(f"""project: {name}
-backend: local
+host: local                  # local | container | remote
+# container_runtime: podman  # docker | podman (only when host: container)
 
 vars:
-  # example_var: ""
+  greeting: "hello from {name}"
 
 secrets:
-  # example_secret: ""
+  # api_key: ""              # prompted if empty at runtime
 """)
 
     (target / "workflow.py").write_text(f'''"""{name} workflow."""
 
-from loguru import logger
+from cutip.workflow import action, orchestrator, stage
 
 
-def main(config):
-    logger.info("Starting {name} ...")
-    logger.success("{name} complete.")
+@orchestrator
+def main(ctx):
+    stage("Setup")
+    check_environment(ctx)
+
+    stage("Run")
+    greet(ctx)
 
 
-def run_standalone(config):
-    main(config)
+@action(name="Check environment")
+def check_environment(ctx):
+    from cutip_blocks import shell
+    result = shell.run("echo ready", check=False)
+    return result.stdout.strip()
+
+
+@action(name="Greet")
+def greet(ctx):
+    print(f"  {{ctx.vars['greeting']}}")
 ''')
 
     console.print(f"[green]✓[/green] Created [bold]{name}[/bold] at {target}")
     console.print(f"  config.yaml + workflow.py")
-    console.print(f"  Next: cd {name} && cutip validate && cutip run")
+    console.print()
+    console.print(f"  [bold]Next:[/bold]")
+    console.print(f"    cd {name}")
+    console.print(f"    cutip show          # see what will happen")
+    console.print(f"    cutip run           # execute the workflow")
 
 
 def cmd_verify(args):
@@ -506,10 +523,105 @@ def cmd_verify(args):
     console.print(table)
 
 
+def cmd_plan(args):
+    """Show execution plan without running."""
+    import yaml
+
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip plan[/bold]")
+        console.print("Shows what cutip run will do without executing")
+        return
+
+    path = args.get("path")
+    config_path = Path(path) if path else Path("config.yaml")
+    if not config_path.exists():
+        console.print("[red]Error:[/red] No config.yaml found")
+        sys.exit(1)
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    project = config.get("project", "project")
+    host = config.get("host")
+    if not host:
+        backend = config.get("backend", "local")
+        host = "container" if backend in ("docker", "podman") else backend
+    runtime = config.get("container_runtime") or config.get("backend", "podman")
+    workflow_name = config.get("workflow", "workflow.py")
+    workflow_path = config_path.parent / workflow_name
+
+    # Header
+    console.print(f"\n[bold]{project}[/bold] — execution plan\n")
+
+    # Config summary
+    console.print(f"  Host:     [cyan]{host}[/cyan]")
+    if host == "container":
+        console.print(f"  Runtime:  [cyan]{runtime}[/cyan]")
+    console.print(f"  Workflow: [cyan]{workflow_name}[/cyan]")
+
+    vars_dict = config.get("vars") or {}
+    secrets_dict = config.get("secrets") or {}
+    empty_vars = [k for k, v in vars_dict.items() if not v]
+    empty_secrets = [k for k, v in secrets_dict.items() if not v]
+
+    if vars_dict:
+        console.print(f"  Vars:     {len(vars_dict)}", end="")
+        if empty_vars:
+            console.print(f" [yellow]({len(empty_vars)} will be prompted)[/yellow]")
+        else:
+            console.print()
+    if secrets_dict:
+        console.print(f"  Secrets:  {len(secrets_dict)}", end="")
+        if empty_secrets:
+            console.print(f" [yellow]({len(empty_secrets)} will be prompted)[/yellow]")
+        else:
+            console.print()
+
+    # Workflow actions
+    if not workflow_path.exists():
+        console.print(f"\n  [red]Workflow not found:[/red] {workflow_name}")
+        sys.exit(1)
+
+    from cutip.workflow.introspect import extract_staged_action_order
+    groups = extract_staged_action_order(workflow_path)
+
+    if not groups:
+        console.print(f"\n  [dim]No @action-decorated functions found[/dim]")
+        return
+
+    console.print()
+    action_num = 0
+    for group in groups:
+        title = group.stage.title or "Stage"
+        parallel = " [dim](parallel)[/dim]" if group.stage.parallel else ""
+        console.print(f"  [bold]── {title} ──[/bold]{parallel}")
+        for a in group.actions:
+            action_num += 1
+            extras = []
+            if a.retry:
+                extras.append(f"retry={a.retry}")
+            if a.delay:
+                extras.append(f"delay={a.delay}s")
+            if a.backoff and a.backoff != 1.0:
+                extras.append(f"backoff={a.backoff}x")
+            if a.timeout:
+                extras.append(f"timeout={a.timeout}s")
+            if a.on_fail:
+                extras.append(f"on_fail={a.on_fail}")
+            if a.continue_on_fail:
+                extras.append("continue_on_fail")
+            suffix = f"  [dim]{', '.join(extras)}[/dim]" if extras else ""
+            console.print(f"    {action_num}. {a.name}{suffix}")
+        console.print()
+
+    console.print(f"  [dim]{action_num} action(s) across {len(groups)} stage(s)[/dim]\n")
+
+
 COMMANDS = {
     "validate": cmd_validate,
     "tree": cmd_tree,
     "show": cmd_show,
+    "plan": cmd_plan,
     "run": cmd_run,
     "init": cmd_init,
     "verify": cmd_verify,
@@ -524,11 +636,12 @@ def main():
         console.print(Panel(
             "[bold]cutip[/bold] — workflow automation framework\n\n"
             "[bold]Commands:[/bold]\n"
-            "  validate   Validate config.yaml\n"
-            "  tree       Print config structure\n"
-            "  show       Show a config section\n"
-            "  run        Run workflow.py\n"
             "  init       Scaffold a new project\n"
+            "  validate   Validate config.yaml\n"
+            "  show       Project summary or config section\n"
+            "  plan       Show execution plan (dry run)\n"
+            "  run        Execute workflow\n"
+            "  tree       Print config structure\n"
             "  verify     Check prerequisites\n\n"
             "[bold]Options:[/bold]\n"
             "  --path     Path to config.yaml\n"
