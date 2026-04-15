@@ -62,6 +62,22 @@ class WorkflowContext:
         results: Action return values, keyed by action name.
         host: Execution target — "local", "container", or "remote".
         container_runtime: Container engine — "docker" or "podman" (only when host is "container").
+
+    Connection management::
+
+        @orchestrator
+        def main(ctx):
+            ctx.ssh("vm", host="10.0.0.1", username="root", password=ctx.secrets["pass"])
+            ctx.kubectl("k8s", session="vm", namespace="prod")
+            ctx.container("rt")
+
+            stage("Deploy")
+            deploy(ctx)
+
+        @action(name="Deploy")
+        def deploy(ctx):
+            ctx.k8s.patch_deployment(...)
+            ctx.vm.exec("systemctl restart nginx")
     """
 
     config: dict[str, Any]
@@ -70,6 +86,7 @@ class WorkflowContext:
     results: dict[str, Any] = field(default_factory=dict)
     host: str = "local"
     container_runtime: str = "podman"
+    _connections: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property
     def backend(self) -> str:
@@ -77,6 +94,88 @@ class WorkflowContext:
         if self.host == "container":
             return self.container_runtime
         return self.host
+
+    def ssh(self, name: str, *, host: str, username: str, password: str, port: int = 22) -> Any:
+        """Create or retrieve a named SSH session.
+
+        The session persists across actions and is closed on workflow exit.
+        Accessible as ctx.{name} after creation.
+
+        Args:
+            name: Connection name (becomes an attribute on ctx).
+            host: Remote host IP or hostname.
+            username: SSH username.
+            password: SSH password.
+            port: SSH port (default 22).
+
+        Returns:
+            SSHSession with .exec(cmd) and .probe() methods.
+        """
+        if name in self._connections:
+            return self._connections[name]
+
+        from cutip_blocks._core import ssh_connect
+        session = ssh_connect(host=host, username=username, password=password, port=port)
+        self._connections[name] = session
+        return session
+
+    def kubectl(self, name: str, *, session: str, namespace: str) -> Any:
+        """Create or retrieve a named kubectl session bound to an SSH connection.
+
+        Args:
+            name: Connection name (becomes an attribute on ctx).
+            session: Name of an existing SSH session (registered via ctx.ssh()).
+            namespace: Default Kubernetes namespace.
+
+        Returns:
+            KubectlSession with get/exec/patch/rollout methods.
+        """
+        if name in self._connections:
+            return self._connections[name]
+
+        ssh_session = self._connections.get(session)
+        if ssh_session is None:
+            raise RuntimeError(f"SSH session '{session}' not found. Call ctx.ssh('{session}', ...) first.")
+
+        from cutip_blocks._core import kubectl_connect
+        kube = kubectl_connect(ssh_session, namespace=namespace)
+        self._connections[name] = kube
+        return kube
+
+    def container(self, name: str, *, socket: str | None = None) -> Any:
+        """Create or retrieve a named container runtime connection.
+
+        Args:
+            name: Connection name (becomes an attribute on ctx).
+            socket: Optional Docker/Podman socket path.
+
+        Returns:
+            ContainerRuntime with build/create/start/stop/exec methods.
+        """
+        if name in self._connections:
+            return self._connections[name]
+
+        from cutip_blocks._core import container_connect
+        rt = container_connect(socket=socket)
+        self._connections[name] = rt
+        return rt
+
+    def __getattr__(self, name: str) -> Any:
+        """Allow accessing named connections as ctx.{name}."""
+        connections = object.__getattribute__(self, "_connections")
+        if name in connections:
+            return connections[name]
+        raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+    def _close_connections(self) -> None:
+        """Close all managed connections. Called by the engine on workflow exit."""
+        for name, conn in self._connections.items():
+            if hasattr(conn, "close"):
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        self._connections.clear()
 
     @classmethod
     def from_config(cls, config: dict) -> WorkflowContext:
@@ -169,6 +268,7 @@ class WorkflowEngine:
                 self.module.main(self.ctx)
         finally:
             self._unpatch_actions()
+            self.ctx._close_connections()
 
         return self.ctx
 
