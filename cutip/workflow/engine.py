@@ -114,7 +114,7 @@ class WorkflowContext:
         if name in self._connections:
             return self._connections[name]
 
-        from cutip_blocks._core import ssh_connect
+        from rsty._core import ssh_connect
         session = ssh_connect(host=host, username=username, password=password, port=port)
         self._connections[name] = session
         return session
@@ -137,7 +137,7 @@ class WorkflowContext:
         if ssh_session is None:
             raise RuntimeError(f"SSH session '{session}' not found. Call ctx.ssh('{session}', ...) first.")
 
-        from cutip_blocks._core import kubectl_connect
+        from rsty._core import kubectl_connect
         kube = kubectl_connect(ssh_session, namespace=namespace)
         self._connections[name] = kube
         return kube
@@ -155,7 +155,7 @@ class WorkflowContext:
         if name in self._connections:
             return self._connections[name]
 
-        from cutip_blocks._core import container_connect
+        from rsty._core import container_connect
         rt = container_connect(socket=socket)
         self._connections[name] = rt
         return rt
