@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cutip"
-version = "2.0.0"
+version = "2.1.0"
 description = "Workflow automation framework — define infrastructure as YAML, automate with Python, execute in containers"
 readme = "README.md"
 license = { text = "MIT" }
@@ -49,6 +49,7 @@ docs = [
 dev = [
     "maturin>=1.0",
     "pytest>=9.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.maturin]
@@ -58,4 +59,19 @@ python-source = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v"
+addopts = "-v --cov=cutip --cov-report=term-missing --cov-fail-under=60"
+
+[tool.coverage.run]
+source = ["cutip"]
+omit = [
+    "cutip/__main__.py",
+    "cutip/cli.py",           # tested via subprocess integration (test_cli.py)
+    "cutip/workflow/commands.py",  # AST utility, low-priority coverage
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "raise NotImplementedError",
+]
