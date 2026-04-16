@@ -13,15 +13,109 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "1.5.1"
+VERSION = "2.0.0"
 console = Console()
 
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+def _resolve_project(project_arg: str | None) -> Path:
+    """Resolve a project YAML file path.
+
+    If project_arg is given, use it directly.
+    If not, look for *.yaml files with a 'project:' field in cwd.
+    """
+    if project_arg:
+        path = Path(project_arg)
+        if path.is_dir():
+            # User passed a directory — look for config.yaml inside (backward compat)
+            candidate = path / "config.yaml"
+            if candidate.exists():
+                return candidate
+            console.print(f"[red]Error:[/red] No config.yaml found in {path}")
+            sys.exit(1)
+        if not path.suffix:
+            path = path.with_suffix(".yaml")
+        if not path.exists():
+            console.print(f"[red]Error:[/red] {path} not found")
+            sys.exit(1)
+        return path
+
+    # No arg — look for project YAML files in cwd
+    # First try config.yaml (backward compat)
+    if Path("config.yaml").exists():
+        return Path("config.yaml")
+
+    # Then look for *.yaml with project: field
+    import yaml
+    projects = []
+    for f in sorted(Path(".").glob("*.yaml")):
+        try:
+            with open(f) as fh:
+                data = yaml.safe_load(fh)
+            if isinstance(data, dict) and "project" in data:
+                projects.append(f)
+        except Exception:
+            continue
+
+    if len(projects) == 1:
+        return projects[0]
+
+    if len(projects) > 1:
+        console.print("[bold]Available projects:[/bold]")
+        for p in projects:
+            with open(p) as fh:
+                data = yaml.safe_load(fh)
+            name = data.get("project", p.stem)
+            host = data.get("host", "local")
+            console.print(f"  {p}  — {name} (host: {host})")
+        console.print(f"\nUsage: cutip run <project.yaml>")
+        sys.exit(0)
+
+    console.print("[red]Error:[/red] No project YAML found in current directory")
+    console.print("  Create one with: cutip init <name>")
+    sys.exit(1)
+
+
+def _resolve_workflow(project_path: Path, config: dict) -> Path:
+    """Resolve the workflow file from a project config."""
+    workflow_name = config.get("workflow")
+    if not workflow_name:
+        # Default: <stem>.workflow.py
+        workflow_name = f"{project_path.stem}.workflow.py"
+        # Fallback: workflow.py (backward compat)
+        candidate = project_path.parent / workflow_name
+        if not candidate.exists():
+            workflow_name = "workflow.py"
+
+    return project_path.parent / workflow_name
+
+
+def _load_config(project_path: Path) -> dict:
+    """Load and return project config as a dict."""
+    import yaml
+    with open(project_path) as f:
+        config = yaml.safe_load(f) or {}
+    return config
+
+
+def _resolve_host(config: dict) -> str:
+    """Resolve host from config, with backward compat for 'backend'."""
+    host = config.get("host")
+    if host:
+        return host
+    backend = config.get("backend", "local")
+    return "container" if backend in ("docker", "podman") else backend
+
+
+# ── Commands ────────────────────────────────────────────────────────────────
+
 def cmd_validate(args):
-    """Validate config.yaml."""
-    path = args.get("path")
+    """Validate a project YAML file."""
+    project_path = _resolve_project(args.get("project"))
+
     try:
-        result = _validate(path=path)
+        result = _validate(path=str(project_path))
     except RuntimeError as e:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(1)
@@ -38,8 +132,9 @@ def cmd_validate(args):
     host = result.get("host", result.get("backend", "local"))
     table.add_row("Host", host)
     if host == "container":
-        table.add_row("Runtime", result.get("container_runtime", "podman"))
-    table.add_row("Workflow", result["workflow"])
+        rt = result.get("container_runtime", result.get("container.rt", "auto"))
+        table.add_row("Runtime", rt)
+    table.add_row("Workflow", result.get("workflow", "workflow.py"))
     table.add_row("Vars", str(result["vars_count"]))
 
     if result["empty_secrets"]:
@@ -52,10 +147,11 @@ def cmd_validate(args):
     if result["networks_count"]:
         table.add_row("Networks", str(result["networks_count"]))
 
-    if result["workflow_exists"]:
+    workflow_path = _resolve_workflow(project_path, _load_config(project_path))
+    if workflow_path.exists():
         table.add_row("Workflow", "[green]exists[/green]")
     else:
-        table.add_row("Workflow", "[red]not found[/red]")
+        table.add_row("Workflow", f"[red]not found:[/red] {workflow_path.name}")
 
     console.print(table)
 
@@ -70,9 +166,10 @@ def cmd_validate(args):
 
 def cmd_tree(args):
     """Print config as tree."""
-    path = args.get("path")
+    project_path = _resolve_project(args.get("project"))
+
     try:
-        config_json = _tree(path=path)
+        config_json = _tree(path=str(project_path))
     except RuntimeError as e:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(1)
@@ -84,13 +181,14 @@ def cmd_tree(args):
     config = json.loads(config_json)
     tree = Tree(f"[bold]{config['project']}[/bold]")
 
-    # Resolve host from new or legacy fields
     host = config.get("host") or ("container" if config.get("backend") in ("docker", "podman") else config.get("backend", "local"))
     tree.add(f"host: [cyan]{host}[/cyan]")
     if host == "container":
-        runtime = config.get("container_runtime") or config.get("backend", "podman")
-        tree.add(f"container_runtime: [cyan]{runtime}[/cyan]")
-    tree.add(f"workflow: [cyan]{config.get('workflow', 'workflow.py')}[/cyan]")
+        rt = config.get("container.rt", config.get("container_runtime", "auto"))
+        tree.add(f"container.rt: [cyan]{rt}[/cyan]")
+
+    workflow = config.get("workflow", f"{project_path.stem}.workflow.py")
+    tree.add(f"workflow: [cyan]{workflow}[/cyan]")
 
     if config.get("vars"):
         vars_branch = tree.add("vars")
@@ -103,6 +201,12 @@ def cmd_tree(args):
         for k, v in config["secrets"].items():
             masked = "[yellow](empty)[/yellow]" if not v else "[dim]****[/dim]"
             secrets_branch.add(f"{k}: {masked}")
+
+    if config.get("connections"):
+        conn_branch = tree.add("connections")
+        for name, conn in config["connections"].items():
+            conn_type = conn.get("type", "unknown")
+            conn_branch.add(f"{name}: [cyan]{conn_type}[/cyan]")
 
     if config.get("container"):
         name = config["container"].get("name", "(unnamed)")
@@ -122,10 +226,10 @@ def cmd_tree(args):
         for name in config["networks"]:
             networks_branch.add(f"[cyan]{name}[/cyan]")
 
-    extra = {k for k in config
-             if k not in ("project", "host", "container_runtime", "backend", "workflow",
-                          "vars", "secrets", "image", "container", "containers",
-                          "network", "networks")}
+    excluded = {"project", "host", "container.rt", "container_runtime", "backend",
+                "workflow", "vars", "secrets", "connections",
+                "image", "container", "containers", "network", "networks"}
+    extra = {k for k in config if k not in excluded}
     if extra:
         tree.add(f"config: [dim]{', '.join(sorted(extra))}[/dim]")
 
@@ -135,10 +239,10 @@ def cmd_tree(args):
 def cmd_show(args):
     """Show project summary, a config section, or workflow actions."""
     if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip show[/bold] [section]")
-        console.print("  (no args)   Project summary with execution steps")
-        console.print("  workflow    List workflow actions in execution order")
-        console.print("  vars, secrets, container, containers, network, or any config key")
+        console.print("[bold]cutip show[/bold] <project.yaml> [section]")
+        console.print("  (no section)  Project summary with execution steps")
+        console.print("  workflow      List workflow actions in execution order")
+        console.print("  vars, secrets, container, connections, or any config key")
         return
 
     section = args.get("section")
@@ -151,8 +255,9 @@ def cmd_show(args):
         _show_workflow(args)
         return
 
+    project_path = _resolve_project(args.get("project"))
     try:
-        result = _show(section, path=args.get("path"))
+        result = _show(section, path=str(project_path))
     except RuntimeError as e:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(1)
@@ -162,55 +267,38 @@ def cmd_show(args):
 
 def _show_summary(args):
     """Show project overview with what cutip run will do."""
-    import yaml
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+    host = _resolve_host(config)
+    project = config.get("project", project_path.stem)
+    workflow_path = _resolve_workflow(project_path, config)
 
-    path = args.get("path")
-    config_path = Path(path) if path else Path("config.yaml")
-    if not config_path.exists():
-        console.print("[red]Error:[/red] No config.yaml found")
-        sys.exit(1)
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f) or {}
-
-    # Print tree first
+    # Print tree
     cmd_tree(args)
     console.print()
 
-    # Resolve host
-    host = config.get("host")
-    if not host:
-        backend = config.get("backend", "local")
-        host = "container" if backend in ("docker", "podman") else backend
-
-    runtime = config.get("container_runtime") or config.get("backend", "podman")
-    project = config.get("project", "project")
-    workflow = config.get("workflow", "workflow.py")
-
-    # Print steps
+    # Steps
     console.print("[bold]Steps:[/bold]")
-    console.print(f"  1. Read [cyan]{config_path}[/cyan]")
+    console.print(f"  1. Read [cyan]{project_path}[/cyan]")
     console.print(f"  2. Validate config")
 
-    empty_vars = [k for k, v in config.get("vars", {}).items() if not v]
+    empty_vars = [k for k, v in (config.get("vars") or {}).items() if not v]
+    step = 3
     if empty_vars:
-        console.print(f"  3. Prompt for empty vars: [yellow]{', '.join(empty_vars)}[/yellow]")
-        step = 4
-    else:
-        step = 3
+        console.print(f"  {step}. Prompt for empty vars: [yellow]{', '.join(empty_vars)}[/yellow]")
+        step += 1
 
     if host == "local":
         console.print(f"  {step}. Prepare environment: [cyan]local[/cyan]")
     elif host == "container":
-        console.print(f"  {step}. Prepare environment: [cyan]container[/cyan] ({runtime})")
+        rt = config.get("container.rt", "auto")
+        console.print(f"  {step}. Prepare environment: [cyan]container[/cyan] ({rt})")
     elif host == "remote":
         console.print(f"  {step}. Prepare environment: [cyan]remote[/cyan]")
 
-    console.print(f"  {step + 1}. Run [cyan]{workflow}[/cyan]")
+    console.print(f"  {step + 1}. Run [cyan]{workflow_path.name}[/cyan]")
 
-    # Show workflow actions if available
-    config_dir = config_path.parent
-    workflow_path = config_dir / workflow
+    # Workflow actions
     if workflow_path.exists():
         from cutip.workflow.introspect import extract_staged_action_order
         groups = extract_staged_action_order(workflow_path)
@@ -235,22 +323,12 @@ def _show_summary(args):
 
 def _show_workflow(args):
     """Show workflow actions in execution order."""
-    import yaml
-
-    path = args.get("path")
-    config_path = Path(path) if path else Path("config.yaml")
-    if not config_path.exists():
-        console.print("[red]Error:[/red] No config.yaml found")
-        sys.exit(1)
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f) or {}
-
-    workflow_name = config.get("workflow", "workflow.py")
-    workflow_path = config_path.parent / workflow_name
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+    workflow_path = _resolve_workflow(project_path, config)
 
     if not workflow_path.exists():
-        console.print(f"[red]Error:[/red] {workflow_name} not found")
+        console.print(f"[red]Error:[/red] {workflow_path.name} not found")
         sys.exit(1)
 
     from cutip.workflow.introspect import extract_staged_action_order
@@ -260,8 +338,8 @@ def _show_workflow(args):
         console.print("[dim]No @action-decorated functions found in workflow[/dim]")
         return
 
-    project = config.get("project", workflow_name)
-    console.print(f"[bold]{project}[/bold] — {workflow_name}\n")
+    project = config.get("project", project_path.stem)
+    console.print(f"[bold]{project}[/bold] — {workflow_path.name}\n")
 
     action_num = 0
     for group in groups:
@@ -286,302 +364,21 @@ def _show_workflow(args):
         console.print()
 
 
-def cmd_run(args):
-    """Run workflow.py."""
-    import yaml
-
-    if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip run[/bold]")
-        console.print("Reads config.yaml in current directory, runs workflow.py")
-        return
-
-    path = args.get("path")
-    if path:
-        config_path = Path(path)
-    else:
-        config_path = Path("config.yaml")
-        if not config_path.exists():
-            console.print("[red]Error:[/red] No config.yaml found in current directory")
-            sys.exit(1)
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f) or {}
-
-    # Prompt for empty vars/secrets
-    has_prompts = False
-    for key, val in (config.get("vars") or {}).items():
-        if not val:
-            if not has_prompts:
-                console.print()
-                has_prompts = True
-            config.setdefault("vars", {})[key] = console.input(f"  {key}: ")
-
-    for key, val in (config.get("secrets") or {}).items():
-        if not val:
-            if not has_prompts:
-                console.print()
-                has_prompts = True
-            config.setdefault("secrets", {})[key] = console.input(f"  {key}: ")
-
-    if has_prompts:
-        console.print()
-
-    # Find and run workflow
-    config_dir = config_path.parent
-    workflow_name = config.get("workflow", "workflow.py")
-    workflow_path = config_dir / workflow_name
-
-    if not workflow_path.exists():
-        console.print(f"[red]Error:[/red] {workflow_name} not found")
-        sys.exit(1)
-
-    spec = importlib.util.spec_from_file_location("workflow", str(workflow_path))
-    module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(config_dir))
-    spec.loader.exec_module(module)
-
-    # Check if workflow uses @action/@orchestrator decorators → use engine
-    from cutip.workflow.engine import WorkflowEngine, ActionFailed
-    from cutip.workflow.decorators import _ACTION_ATTR
-
-    has_actions = any(
-        hasattr(getattr(module, attr, None), _ACTION_ATTR)
-        for attr in dir(module)
-        if callable(getattr(module, attr, None))
-    )
-
-    if has_actions:
-        _run_with_engine(module, config)
-    elif hasattr(module, "run_standalone"):
-        module.run_standalone(config)
-    elif hasattr(module, "main"):
-        module.main(config)
-    else:
-        console.print("[red]Error:[/red] workflow.py has no @action functions, run_standalone(), or main()")
-        sys.exit(1)
-
-
-def _run_with_engine(module, config):
-    """Execute a workflow using the cutip execution engine."""
-    from datetime import datetime
-    from cutip.workflow.engine import WorkflowEngine, ActionFailed, ActionEvent
-
-    project = config.get("project", "workflow")
-
-    # Set up .cutip/logs/ directory and log file
-    log_dir = Path(".cutip/logs")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file = log_dir / f"{timestamp}.log"
-    log_lines = []
-
-    def _log(line: str):
-        log_lines.append(line)
-
-    def on_event(event: ActionEvent):
-        if event.event == "stage_started":
-            console.print(f"\n[bold]── {event.action} ──[/bold]")
-            _log(f"[stage] {event.action}")
-            if event.detail:
-                console.print(f"  [dim]{event.detail}[/dim]")
-        elif event.event == "action_started":
-            label = f"  [cyan]▶[/cyan] {event.action}"
-            if event.attempt > 1:
-                label += f" [dim](attempt {event.attempt})[/dim]"
-            console.print(label)
-            _log(f"  [start] {event.action}" + (f" (attempt {event.attempt})" if event.attempt > 1 else ""))
-        elif event.event == "action_completed":
-            console.print(f"  [green]✓[/green] {event.action}")
-            _log(f"  [done] {event.action}")
-        elif event.event == "action_failed":
-            console.print(f"  [red]✗[/red] {event.action}: {event.error}")
-            _log(f"  [FAIL] {event.action}: {event.error}")
-        elif event.event == "action_retrying":
-            console.print(f"  [yellow]↻[/yellow] {event.action} — {event.detail}")
-            _log(f"  [retry] {event.action} — {event.detail}")
-        elif event.event == "action_skipped":
-            console.print(f"  [dim]○[/dim] {event.action} [dim](skipped)[/dim]")
-            _log(f"  [skip] {event.action}")
-        elif event.event == "stage_completed":
-            pass
-
-    engine = WorkflowEngine(module, config, on_event=on_event)
-
-    try:
-        ctx = engine.run()
-        console.print(f"\n[green]✓ {project} complete[/green]")
-        _log(f"\n[OK] {project} complete")
-    except ActionFailed as e:
-        console.print(f"\n[red]✗ {project} failed:[/red] {e}")
-        _log(f"\n[FAIL] {project}: {e}")
-        log_file.write_text("\n".join(log_lines) + "\n")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        console.print(f"\n[yellow]⚠ {project} interrupted[/yellow]")
-        _log(f"\n[INTERRUPTED] {project}")
-        log_file.write_text("\n".join(log_lines) + "\n")
-        sys.exit(130)
-
-    log_file.write_text("\n".join(log_lines) + "\n")
-    console.print(f"  [dim]log: {log_file}[/dim]")
-
-
-def cmd_init(args):
-    """Scaffold a new project."""
-    if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip init[/bold] <project-name>")
-        return
-
-    name = args.get("name")
-    if not name:
-        console.print("[bold]cutip init[/bold] <project-name>")
-        sys.exit(1)
-
-    target = Path(args.get("path") or name)
-
-    if (target / "config.yaml").exists():
-        console.print(f"[red]Error:[/red] config.yaml already exists in {target}")
-        sys.exit(1)
-
-    target.mkdir(parents=True, exist_ok=True)
-
-    (target / "config.yaml").write_text(f"""project: {name}
-host: local                  # local | container | remote
-# container_runtime: podman  # docker | podman (only when host: container)
-
-vars:
-  greeting: "hello from {name}"
-
-secrets:
-  # api_key: ""              # prompted if empty at runtime
-""")
-
-    (target / "workflow.py").write_text(f'''"""{name} workflow."""
-
-from cutip.workflow import action, orchestrator, stage
-
-
-@orchestrator
-def main(ctx):
-    stage("Setup")
-    check_environment(ctx)
-
-    stage("Run")
-    greet(ctx)
-
-
-@action(name="Check environment")
-def check_environment(ctx):
-    from rsty import shell
-    result = shell.run("echo ready", check=False)
-    return result.stdout.strip()
-
-
-@action(name="Greet")
-def greet(ctx):
-    print(f"  {{ctx.vars['greeting']}}")
-''')
-
-    console.print(f"[green]✓[/green] Created [bold]{name}[/bold] at {target}")
-    console.print(f"  config.yaml + workflow.py")
-    console.print()
-    console.print(f"  [bold]Next:[/bold]")
-    console.print(f"    cd {name}")
-    console.print(f"    cutip show          # see what will happen")
-    console.print(f"    cutip run           # execute the workflow")
-
-
-def cmd_verify(args):
-    """Check prerequisites and environment."""
-    import subprocess
-    import platform
-
-    table = Table(title=f"cutip v{VERSION}", box=box.ROUNDED, show_header=False)
-    table.add_column("Check", style="bold")
-    table.add_column("Status")
-
-    table.add_row("Platform", f"{platform.system()} {platform.machine()}")
-
-    # Python — try both python and python3
-    python_found = False
-    for cmd in (["python", "--version"], ["python3", "--version"]):
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if r.returncode == 0:
-                table.add_row("Python", f"[green]✓[/green] {r.stdout.strip()}")
-                python_found = True
-                break
-        except Exception:
-            continue
-    if not python_found:
-        table.add_row("Python", "[red]✗ not found[/red]")
-
-    checks = [
-        ("Docker", ["docker", "--version"]),
-        ("Podman", ["podman", "--version"]),
-    ]
-    for name, cmd in checks:
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if r.returncode == 0:
-                table.add_row(name, f"[green]✓[/green] {r.stdout.strip()}")
-            else:
-                table.add_row(name, "[dim]· not found[/dim]")
-        except Exception:
-            table.add_row(name, "[dim]· not found[/dim]")
-
-    # Check cutip-blocks
-    try:
-        import rsty
-        table.add_row("rsty", "[green]✓[/green] installed")
-    except ImportError:
-        table.add_row("rsty", "[red]✗ not installed[/red] (pip install rsty)")
-
-    # Check Rust core
-    try:
-        from cutip._core import validate
-        table.add_row("cutip core", "[green]✓[/green] loaded")
-    except ImportError:
-        table.add_row("cutip core", "[red]✗ not loaded[/red]")
-
-    console.print(table)
-
-
 def cmd_plan(args):
     """Show execution plan without running."""
-    import yaml
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+    host = _resolve_host(config)
+    project = config.get("project", project_path.stem)
+    workflow_path = _resolve_workflow(project_path, config)
 
-    if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip plan[/bold]")
-        console.print("Shows what cutip run will do without executing")
-        return
-
-    path = args.get("path")
-    config_path = Path(path) if path else Path("config.yaml")
-    if not config_path.exists():
-        console.print("[red]Error:[/red] No config.yaml found")
-        sys.exit(1)
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f) or {}
-
-    project = config.get("project", "project")
-    host = config.get("host")
-    if not host:
-        backend = config.get("backend", "local")
-        host = "container" if backend in ("docker", "podman") else backend
-    runtime = config.get("container_runtime") or config.get("backend", "podman")
-    workflow_name = config.get("workflow", "workflow.py")
-    workflow_path = config_path.parent / workflow_name
-
-    # Header
     console.print(f"\n[bold]{project}[/bold] — execution plan\n")
 
-    # Config summary
     console.print(f"  Host:     [cyan]{host}[/cyan]")
     if host == "container":
-        console.print(f"  Runtime:  [cyan]{runtime}[/cyan]")
-    console.print(f"  Workflow: [cyan]{workflow_name}[/cyan]")
+        rt = config.get("container.rt", "auto")
+        console.print(f"  Runtime:  [cyan]{rt}[/cyan]")
+    console.print(f"  Workflow: [cyan]{workflow_path.name}[/cyan]")
 
     vars_dict = config.get("vars") or {}
     secrets_dict = config.get("secrets") or {}
@@ -601,9 +398,11 @@ def cmd_plan(args):
         else:
             console.print()
 
-    # Workflow actions
+    if config.get("connections"):
+        console.print(f"  Connections: {len(config['connections'])}")
+
     if not workflow_path.exists():
-        console.print(f"\n  [red]Workflow not found:[/red] {workflow_name}")
+        console.print(f"\n  [red]Workflow not found:[/red] {workflow_path.name}")
         sys.exit(1)
 
     from cutip.workflow.introspect import extract_staged_action_order
@@ -641,13 +440,299 @@ def cmd_plan(args):
     console.print(f"  [dim]{action_num} action(s) across {len(groups)} stage(s)[/dim]\n")
 
 
+def cmd_run(args):
+    """Run a workflow."""
+    import yaml
+
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip run[/bold] [project.yaml]")
+        console.print("  Reads project YAML, runs the workflow")
+        return
+
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+
+    # Prompt for empty vars/secrets
+    has_prompts = False
+    for key, val in (config.get("vars") or {}).items():
+        if not val:
+            if not has_prompts:
+                console.print()
+                has_prompts = True
+            config.setdefault("vars", {})[key] = console.input(f"  {key}: ")
+
+    for key, val in (config.get("secrets") or {}).items():
+        if not val:
+            if not has_prompts:
+                console.print()
+                has_prompts = True
+            config.setdefault("secrets", {})[key] = console.input(f"  {key}: ")
+
+    if has_prompts:
+        console.print()
+
+    # Load hosts file (for remote connections)
+    import yaml
+    hosts = None
+    hosts_path_arg = args.get("hosts")
+    if hosts_path_arg:
+        hosts_path = Path(hosts_path_arg)
+    else:
+        hosts_path = project_path.parent / "hosts.yaml"
+
+    if hosts_path.exists():
+        with open(hosts_path) as f:
+            hosts = yaml.safe_load(f) or {}
+
+    # Pre-run validation
+    workflow_path = _resolve_workflow(project_path, config)
+    from cutip.workflow.validate import validate_project
+    errors = validate_project(project_path, config, hosts=hosts, workflow_path=workflow_path)
+    if errors:
+        console.print(f"\n[red]Validation failed:[/red]")
+        for err in errors:
+            console.print(f"  [red]✗[/red] {err}")
+        sys.exit(1)
+
+    # Find and load workflow
+    workflow_path = _resolve_workflow(project_path, config)
+
+    if not workflow_path.exists():
+        console.print(f"[red]Error:[/red] {workflow_path.name} not found")
+        sys.exit(1)
+
+    config_dir = project_path.parent
+    spec = importlib.util.spec_from_file_location("workflow", str(workflow_path))
+    module = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(config_dir))
+    spec.loader.exec_module(module)
+
+    # Check if workflow uses @action/@orchestrator decorators → use engine
+    from cutip.workflow.engine import WorkflowEngine, ActionFailed
+    from cutip.workflow.decorators import _ACTION_ATTR
+
+    has_actions = any(
+        hasattr(getattr(module, attr, None), _ACTION_ATTR)
+        for attr in dir(module)
+        if callable(getattr(module, attr, None))
+    )
+
+    if has_actions:
+        _run_with_engine(module, config, project_path, hosts)
+    elif hasattr(module, "run_standalone"):
+        module.run_standalone(config)
+    elif hasattr(module, "main"):
+        module.main(config)
+    else:
+        console.print("[red]Error:[/red] workflow has no @action functions, run_standalone(), or main()")
+        sys.exit(1)
+
+
+def _run_with_engine(module, config, project_path, hosts=None):
+    """Execute a workflow using the cutip execution engine."""
+    from datetime import datetime
+    from cutip.workflow.engine import WorkflowEngine, ActionFailed, ActionEvent
+
+    project = config.get("project", "workflow")
+
+    # Set up .cutip/logs/ relative to project YAML
+    log_dir = project_path.parent / ".cutip" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file = log_dir / f"{timestamp}.log"
+    log_lines = []
+
+    def _log(line: str):
+        log_lines.append(line)
+
+    def on_event(event: ActionEvent):
+        if event.event == "stage_started":
+            console.print(f"\n[bold]── {event.action} ──[/bold]")
+            _log(f"[stage] {event.action}")
+            if event.detail:
+                console.print(f"  [dim]{event.detail}[/dim]")
+        elif event.event == "action_started":
+            label = f"  [cyan]▶[/cyan] {event.action}"
+            if event.attempt > 1:
+                label += f" [dim](attempt {event.attempt})[/dim]"
+            console.print(label)
+            _log(f"  [start] {event.action}" + (f" (attempt {event.attempt})" if event.attempt > 1 else ""))
+        elif event.event == "action_completed":
+            console.print(f"  [green]✓[/green] {event.action}")
+            _log(f"  [done] {event.action}")
+        elif event.event == "action_failed":
+            console.print(f"  [red]✗[/red] {event.action}: {event.error}")
+            _log(f"  [FAIL] {event.action}: {event.error}")
+        elif event.event == "action_retrying":
+            console.print(f"  [yellow]↻[/yellow] {event.action} — {event.detail}")
+            _log(f"  [retry] {event.action} — {event.detail}")
+        elif event.event == "action_skipped":
+            console.print(f"  [dim]○[/dim] {event.action} [dim](skipped)[/dim]")
+            _log(f"  [skip] {event.action}")
+        elif event.event == "stage_completed":
+            pass
+
+    engine = WorkflowEngine(module, config, on_event=on_event, hosts=hosts)
+
+    try:
+        ctx = engine.run()
+        console.print(f"\n[green]✓ {project} complete[/green]")
+        _log(f"\n[OK] {project} complete")
+    except ActionFailed as e:
+        console.print(f"\n[red]✗ {project} failed:[/red] {e}")
+        _log(f"\n[FAIL] {project}: {e}")
+        log_file.write_text("\n".join(log_lines) + "\n")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        console.print(f"\n[yellow]⚠ {project} interrupted[/yellow]")
+        _log(f"\n[INTERRUPTED] {project}")
+        log_file.write_text("\n".join(log_lines) + "\n")
+        sys.exit(130)
+
+    log_file.write_text("\n".join(log_lines) + "\n")
+    console.print(f"  [dim]log: {log_file}[/dim]")
+
+
+def cmd_init(args):
+    """Scaffold a new project."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        console.print("[bold]cutip init[/bold] <name>")
+        console.print("  Creates <name>.yaml + <name>.workflow.py in current directory")
+        return
+
+    name = args.get("name")
+    if not name:
+        console.print("[bold]cutip init[/bold] <name>")
+        sys.exit(1)
+
+    yaml_path = Path(f"{name}.yaml")
+    workflow_path = Path(f"{name}.workflow.py")
+
+    if yaml_path.exists():
+        console.print(f"[red]Error:[/red] {yaml_path} already exists")
+        sys.exit(1)
+
+    yaml_path.write_text(f"""project: {name}
+host: local                  # local | container | remote
+# container.rt: auto        # auto | podman | docker (only when host: container)
+
+vars:
+  greeting: "hello from {name}"
+
+secrets:
+  # api_key: ""              # prompted if empty at runtime
+""")
+
+    workflow_path.write_text(f'''"""{name} workflow."""
+
+from cutip.workflow import action, orchestrator, stage
+
+
+@orchestrator
+def main(ctx):
+    stage("Setup")
+    check_environment(ctx)
+
+    stage("Run")
+    greet(ctx)
+
+
+@action(name="Check environment")
+def check_environment(ctx):
+    from rsty import shell
+    result = shell.run("echo ready", check=False)
+    return result.stdout.strip()
+
+
+@action(name="Greet")
+def greet(ctx):
+    print(f"  {{ctx.vars['greeting']}}")
+''')
+
+    # Create .gitignore if it doesn't exist
+    gitignore = Path(".gitignore")
+    if not gitignore.exists():
+        gitignore.write_text("hosts.yaml\n.cutip/\n")
+    else:
+        content = gitignore.read_text()
+        additions = []
+        if "hosts.yaml" not in content:
+            additions.append("hosts.yaml")
+        if ".cutip/" not in content:
+            additions.append(".cutip/")
+        if additions:
+            with open(gitignore, "a") as f:
+                f.write("\n" + "\n".join(additions) + "\n")
+
+    console.print(f"[green]✓[/green] Created [bold]{name}[/bold]")
+    console.print(f"  {yaml_path}")
+    console.print(f"  {workflow_path}")
+    console.print()
+    console.print(f"  [bold]Next:[/bold]")
+    console.print(f"    cutip show {yaml_path}")
+    console.print(f"    cutip run {yaml_path}")
+
+
+def cmd_verify(args):
+    """Check prerequisites and environment."""
+    import subprocess
+    import platform
+
+    table = Table(title=f"cutip v{VERSION}", box=box.ROUNDED, show_header=False)
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+
+    table.add_row("Platform", f"{platform.system()} {platform.machine()}")
+
+    python_found = False
+    for cmd in (["python", "--version"], ["python3", "--version"]):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                table.add_row("Python", f"[green]✓[/green] {r.stdout.strip()}")
+                python_found = True
+                break
+        except Exception:
+            continue
+    if not python_found:
+        table.add_row("Python", "[red]✗ not found[/red]")
+
+    checks = [
+        ("Docker", ["docker", "--version"]),
+        ("Podman", ["podman", "--version"]),
+    ]
+    for name, cmd in checks:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                table.add_row(name, f"[green]✓[/green] {r.stdout.strip()}")
+            else:
+                table.add_row(name, "[dim]· not found[/dim]")
+        except Exception:
+            table.add_row(name, "[dim]· not found[/dim]")
+
+    try:
+        import rsty
+        table.add_row("rsty", "[green]✓[/green] installed")
+    except ImportError:
+        table.add_row("rsty", "[red]✗ not installed[/red] (pip install rsty)")
+
+    try:
+        from cutip._core import validate
+        table.add_row("cutip core", "[green]✓[/green] loaded")
+    except ImportError:
+        table.add_row("cutip core", "[red]✗ not loaded[/red]")
+
+    console.print(table)
+
+
 COMMANDS = {
+    "init": cmd_init,
     "validate": cmd_validate,
-    "tree": cmd_tree,
     "show": cmd_show,
     "plan": cmd_plan,
     "run": cmd_run,
-    "init": cmd_init,
+    "tree": cmd_tree,
     "verify": cmd_verify,
 }
 
@@ -661,18 +746,18 @@ def main():
             "[bold]cutip[/bold] — workflow automation framework\n\n"
             "[bold]Commands:[/bold]\n"
             "  init       Scaffold a new project\n"
-            "  validate   Validate config.yaml\n"
+            "  validate   Validate project config\n"
             "  show       Project summary or config section\n"
             "  plan       Show execution plan (dry run)\n"
             "  run        Execute workflow\n"
             "  tree       Print config structure\n"
             "  verify     Check prerequisites\n\n"
-            "[bold]Options:[/bold]\n"
-            "  --path     Path to config.yaml\n"
-            "  --json     Output as JSON (validate, tree)\n\n"
             "[bold]Usage:[/bold]\n"
-            "  cutip validate\n"
-            "  python -m cutip validate",
+            "  cutip init myproject\n"
+            "  cutip run myproject.yaml\n"
+            "  cutip plan myproject.yaml\n"
+            "  cutip show myproject.yaml\n"
+            "  cutip validate myproject.yaml",
             title=f"cutip v{VERSION}",
             box=box.ROUNDED,
         ))
@@ -688,24 +773,45 @@ def main():
         console.print(f"Available: {', '.join(COMMANDS)}")
         sys.exit(1)
 
-    # Parse remaining args into a dict
+    # Parse remaining args
     parsed = {}
     i = 1
+    positional_consumed = False
     while i < len(args):
         if args[i] in ("-h", "--help"):
             parsed["help"] = True
             i += 1
-        elif args[i] == "--path" and i + 1 < len(args):
-            parsed["path"] = args[i + 1]
-            i += 2
         elif args[i] == "--json":
             parsed["json"] = True
             i += 1
-        elif command == "show" and "section" not in parsed:
-            parsed["section"] = args[i]
+        elif args[i] == "--hosts" and i + 1 < len(args):
+            parsed["hosts"] = args[i + 1]
+            i += 2
+        elif args[i] == "--path" and i + 1 < len(args):
+            # Backward compat
+            parsed["project"] = args[i + 1]
+            i += 2
+        elif not args[i].startswith("-") and not positional_consumed:
+            if command == "init":
+                parsed["name"] = args[i]
+            elif command == "show" and "project" in parsed:
+                parsed["section"] = args[i]
+            elif command == "show" and args[i].endswith(".yaml"):
+                parsed["project"] = args[i]
+            elif command == "show":
+                # Could be section or project — if it looks like a file, it's project
+                if Path(args[i]).exists() or args[i].endswith(".yaml"):
+                    parsed["project"] = args[i]
+                else:
+                    parsed["section"] = args[i]
+            else:
+                parsed["project"] = args[i]
+            positional_consumed = True
             i += 1
-        elif command == "init" and "name" not in parsed:
-            parsed["name"] = args[i]
+        elif not args[i].startswith("-") and positional_consumed:
+            # Second positional — for show command (section after project)
+            if command == "show" and "section" not in parsed:
+                parsed["section"] = args[i]
             i += 1
         else:
             i += 1
