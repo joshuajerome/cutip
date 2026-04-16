@@ -87,6 +87,7 @@ class WorkflowContext:
     host: str = "local"
     container_runtime: str = "podman"
     _connections: dict[str, Any] = field(default_factory=dict, repr=False)
+    _connection_meta: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
 
     @property
     def backend(self) -> str:
@@ -117,6 +118,7 @@ class WorkflowContext:
         from rsty._core import ssh_connect
         session = ssh_connect(host=host, username=username, password=password, port=port)
         self._connections[name] = session
+        self._connection_meta[name] = {"host": host, "username": username, "port": str(port)}
         return session
 
     def kubectl(self, name: str, *, session: str, namespace: str) -> Any:
@@ -160,6 +162,14 @@ class WorkflowContext:
         self._connections[name] = rt
         return rt
 
+    def connection_host(self, name: str) -> str:
+        """Get the host/IP of a named connection.
+
+        Useful for constructing HTTP URLs to the same host as an SSH connection.
+        """
+        meta = self._connection_meta.get(name, {})
+        return meta.get("host", "")
+
     def __getattr__(self, name: str) -> Any:
         """Allow accessing named connections as ctx.{name}."""
         connections = object.__getattribute__(self, "_connections")
@@ -177,26 +187,62 @@ class WorkflowContext:
                     pass
         self._connections.clear()
 
+    def _init_connections(self, hosts: dict | None = None) -> None:
+        """Initialize connections from config YAML + hosts file.
+
+        Reads `connections:` from config, merges credentials from hosts dict,
+        and registers all connections on ctx automatically.
+        """
+        connections_config = self.config.get("connections") or {}
+        hosts = hosts or {}
+
+        for name, conn in connections_config.items():
+            conn_type = conn.get("type", "")
+            host_creds = hosts.get(name, {})
+
+            if conn_type == "ssh":
+                host = host_creds.get("host", conn.get("host", ""))
+                username = host_creds.get("username", conn.get("username", ""))
+                password = host_creds.get("password", conn.get("password", ""))
+                port = host_creds.get("port", conn.get("port", 22))
+                if host and username and password:
+                    self.ssh(name, host=host, username=username, password=password, port=port)
+
+            elif conn_type == "kubectl":
+                session = conn.get("session", "")
+                namespace = conn.get("namespace", "default")
+                if session and session in self._connections:
+                    self.kubectl(name, session=session, namespace=namespace)
+
+            elif conn_type == "container":
+                socket = host_creds.get("socket", conn.get("socket"))
+                self.container(name, socket=socket)
+
     @classmethod
-    def from_config(cls, config: dict) -> WorkflowContext:
+    def from_config(cls, config: dict, hosts: dict | None = None) -> WorkflowContext:
         # Resolve host from new or legacy fields
         host = config.get("host")
         if not host:
             backend = config.get("backend", "local")
             host = "container" if backend in ("docker", "podman") else backend
 
-        runtime = config.get("container_runtime")
+        runtime = config.get("container.rt", config.get("container_runtime"))
         if not runtime:
             backend = config.get("backend", "podman")
-            runtime = backend if backend in ("docker", "podman") else "podman"
+            runtime = backend if backend in ("docker", "podman") else "auto"
 
-        return cls(
+        ctx = cls(
             config=config,
-            vars=config.get("vars", {}),
-            secrets=config.get("secrets", {}),
+            vars=config.get("vars") or {},
+            secrets=config.get("secrets") or {},
             host=host,
             container_runtime=runtime,
         )
+
+        # Auto-initialize connections from config + hosts
+        ctx._init_connections(hosts)
+
+        return ctx
 
 
 # ── Engine ──────────────────────────────────────────────────────────────────
@@ -227,10 +273,11 @@ class WorkflowEngine:
         module: ModuleType,
         config: dict,
         on_event: EventCallback | None = None,
+        hosts: dict | None = None,
     ):
         self.module = module
         self.config = config
-        self.ctx = WorkflowContext.from_config(config)
+        self.ctx = WorkflowContext.from_config(config, hosts=hosts)
         self.on_event = on_event or (lambda e: None)
 
         # Build function lookup: func_name → (callable, ActionMeta)
