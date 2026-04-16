@@ -1,8 +1,0 @@
-apiVersion: cutip/v1
-kind: Group
-metadata:
-  name: hello
-spec:
-  units:
-    - ref: units/hello
-  workflow: workflow.py
