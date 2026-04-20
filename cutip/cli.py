@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 console = Console()
 
 
@@ -487,12 +487,15 @@ def cmd_run(args):
     # Pre-run validation
     workflow_path = _resolve_workflow(project_path, config)
     from cutip.workflow.validate import validate_project
-    errors = validate_project(project_path, config, hosts=hosts, workflow_path=workflow_path)
+    errors, warnings = validate_project(project_path, config, hosts=hosts, workflow_path=workflow_path)
     if errors:
         console.print(f"\n[red]Validation failed:[/red]")
         for err in errors:
             console.print(f"  [red]✗[/red] {err}")
         sys.exit(1)
+    if warnings:
+        for w in warnings:
+            console.print(f"  [yellow]⚠[/yellow] {w}")
 
     # Find and load workflow
     workflow_path = _resolve_workflow(project_path, config)
@@ -726,6 +729,225 @@ def cmd_verify(args):
     console.print(table)
 
 
+def _yaml_read(path: Path) -> dict:
+    """Read a YAML file, return dict (empty dict if missing or null)."""
+    import yaml
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def _yaml_write(path: Path, data: dict) -> None:
+    """Write a dict to a YAML file, preserving key order."""
+    import yaml
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+
+def cmd_vars(args):
+    """Manage project variables."""
+    subcmd = args.get("subcmd")
+    if not subcmd or subcmd == "help":
+        console.print("[bold]cutip vars[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print("  list   Show all vars and their values")
+        console.print("  get    Get a single var value")
+        console.print("  set    Set one or more vars")
+        return
+
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+
+    if subcmd == "list":
+        vars_dict = config.get("vars") or {}
+        if not vars_dict:
+            console.print("[dim]No vars defined[/dim]")
+            return
+        for k, v in vars_dict.items():
+            if v:
+                console.print(f"  {k} = [dim]{v}[/dim]")
+            else:
+                console.print(f"  {k} = [yellow](empty)[/yellow]")
+
+    elif subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip vars get [project.yaml] <key>")
+            sys.exit(1)
+        vars_dict = config.get("vars") or {}
+        if key in vars_dict:
+            console.print(vars_dict[key] or "")
+        else:
+            console.print(f"[red]Error:[/red] var '{key}' not found")
+            sys.exit(1)
+
+    elif subcmd == "set":
+        pairs = args.get("pairs", [])
+        if not pairs:
+            console.print("[red]Usage:[/red] cutip vars set [project.yaml] key=value ...")
+            sys.exit(1)
+        if "vars" not in config or config["vars"] is None:
+            config["vars"] = {}
+        for pair in pairs:
+            if "=" not in pair:
+                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
+                sys.exit(1)
+            k, v = pair.split("=", 1)
+            config["vars"][k] = v
+            console.print(f"  [green]✓[/green] {k} = {v}")
+        _yaml_write(project_path, config)
+
+
+def cmd_secrets(args):
+    """Manage project secrets."""
+    subcmd = args.get("subcmd")
+    if not subcmd or subcmd == "help":
+        console.print("[bold]cutip secrets[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print("  list   Show all secret keys (values masked)")
+        console.print("  get    Get a single secret value")
+        console.print("  set    Set one or more secrets")
+        return
+
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+
+    if subcmd == "list":
+        secrets_dict = config.get("secrets") or {}
+        if not secrets_dict:
+            console.print("[dim]No secrets defined[/dim]")
+            return
+        for k, v in secrets_dict.items():
+            if v:
+                console.print(f"  {k} = [dim]****[/dim]")
+            else:
+                console.print(f"  {k} = [yellow](empty)[/yellow]")
+
+    elif subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip secrets get [project.yaml] <key>")
+            sys.exit(1)
+        secrets_dict = config.get("secrets") or {}
+        if key in secrets_dict:
+            console.print(secrets_dict[key] or "")
+        else:
+            console.print(f"[red]Error:[/red] secret '{key}' not found")
+            sys.exit(1)
+
+    elif subcmd == "set":
+        pairs = args.get("pairs", [])
+        if not pairs:
+            console.print("[red]Usage:[/red] cutip secrets set [project.yaml] key=value ...")
+            sys.exit(1)
+        if "secrets" not in config or config["secrets"] is None:
+            config["secrets"] = {}
+        for pair in pairs:
+            if "=" not in pair:
+                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
+                sys.exit(1)
+            k, v = pair.split("=", 1)
+            config["secrets"][k] = v
+            console.print(f"  [green]✓[/green] {k} = ****")
+        _yaml_write(project_path, config)
+
+
+def cmd_hosts(args):
+    """Manage connection credentials (hosts.yaml)."""
+    subcmd = args.get("subcmd")
+    if not subcmd or subcmd == "help":
+        console.print("[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [conn.field=value ...]")
+        console.print("  list   Show connections and credential status")
+        console.print("  get    Show credentials for a connection")
+        console.print("  set    Set connection credentials")
+        return
+
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+    hosts_path = project_path.parent / "hosts.yaml"
+    hosts = _yaml_read(hosts_path)
+
+    connections = config.get("connections") or {}
+
+    if subcmd == "list":
+        if not connections:
+            console.print("[dim]No connections defined[/dim]")
+            return
+        for name, conn in connections.items():
+            conn_type = conn.get("type", "unknown")
+            host_creds = hosts.get(name, {})
+
+            status_parts = []
+            if conn_type == "ssh":
+                for field in ("host", "username", "password"):
+                    val = host_creds.get(field, conn.get(field, ""))
+                    if val:
+                        if field == "password":
+                            status_parts.append(f"{field}=[dim]****[/dim]")
+                        else:
+                            status_parts.append(f"{field}=[dim]{val}[/dim]")
+                    else:
+                        status_parts.append(f"{field}=[yellow](empty)[/yellow]")
+            elif conn_type == "kubectl":
+                session = conn.get("session", "")
+                ns = conn.get("namespace", "default")
+                status_parts.append(f"session={session}")
+                status_parts.append(f"namespace={ns}")
+            elif conn_type == "container":
+                socket = host_creds.get("socket", conn.get("socket", ""))
+                status_parts.append(f"socket={socket or 'auto'}")
+
+            status = "  ".join(status_parts)
+            console.print(f"  {name} [cyan]({conn_type})[/cyan]  {status}")
+
+    elif subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip hosts get [project.yaml] <connection>")
+            sys.exit(1)
+        if key not in connections:
+            console.print(f"[red]Error:[/red] connection '{key}' not defined in project")
+            sys.exit(1)
+        host_creds = hosts.get(key, {})
+        conn = connections[key]
+        console.print(f"  [bold]{key}[/bold] ({conn.get('type', 'unknown')})")
+        all_fields = {**conn, **host_creds}
+        for field, val in all_fields.items():
+            if field == "type":
+                continue
+            if field == "password" and val:
+                console.print(f"    {field}: [dim]****[/dim]")
+            elif val:
+                console.print(f"    {field}: [dim]{val}[/dim]")
+            else:
+                console.print(f"    {field}: [yellow](empty)[/yellow]")
+
+    elif subcmd == "set":
+        pairs = args.get("pairs", [])
+        if not pairs:
+            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] conn.field=value ...")
+            sys.exit(1)
+        for pair in pairs:
+            if "=" not in pair:
+                console.print(f"[red]Error:[/red] invalid format '{pair}', expected conn.field=value")
+                sys.exit(1)
+            key_path, val = pair.split("=", 1)
+            if "." not in key_path:
+                console.print(f"[red]Error:[/red] '{key_path}' must be conn.field (e.g. vm.host)")
+                sys.exit(1)
+            conn_name, field = key_path.split(".", 1)
+            if conn_name not in connections:
+                console.print(f"[red]Error:[/red] connection '{conn_name}' not defined in project")
+                sys.exit(1)
+            if conn_name not in hosts:
+                hosts[conn_name] = {}
+            hosts[conn_name][field] = val
+            if field == "password":
+                console.print(f"  [green]✓[/green] {conn_name}.{field} = ****")
+            else:
+                console.print(f"  [green]✓[/green] {conn_name}.{field} = {val}")
+        _yaml_write(hosts_path, hosts)
+
+
 COMMANDS = {
     "init": cmd_init,
     "validate": cmd_validate,
@@ -733,6 +955,9 @@ COMMANDS = {
     "plan": cmd_plan,
     "run": cmd_run,
     "tree": cmd_tree,
+    "vars": cmd_vars,
+    "secrets": cmd_secrets,
+    "hosts": cmd_hosts,
     "verify": cmd_verify,
 }
 
@@ -751,12 +976,15 @@ def main():
             "  plan       Show execution plan (dry run)\n"
             "  run        Execute workflow\n"
             "  tree       Print config structure\n"
+            "  vars       Manage project variables (list/get/set)\n"
+            "  secrets    Manage project secrets (list/get/set)\n"
+            "  hosts      Manage connection credentials (list/get/set)\n"
             "  verify     Check prerequisites\n\n"
             "[bold]Usage:[/bold]\n"
             "  cutip init myproject\n"
             "  cutip run myproject.yaml\n"
-            "  cutip plan myproject.yaml\n"
-            "  cutip show myproject.yaml\n"
+            "  cutip vars set gui.yaml greeting=hello\n"
+            "  cutip hosts set gui.yaml vm.host=10.0.0.1\n"
             "  cutip validate myproject.yaml",
             title=f"cutip v{VERSION}",
             box=box.ROUNDED,
@@ -775,43 +1003,66 @@ def main():
 
     # Parse remaining args
     parsed = {}
-    i = 1
+    remaining = args[1:]
+
+    # Handle subcommand groups (vars, secrets, hosts)
+    if command in ("vars", "secrets", "hosts"):
+        if remaining and remaining[0] in ("list", "get", "set", "help"):
+            parsed["subcmd"] = remaining[0]
+            remaining = remaining[1:]
+        # Parse project file and key=value pairs
+        pairs = []
+        for arg in remaining:
+            if arg in ("-h", "--help"):
+                parsed["subcmd"] = "help"
+            elif "=" in arg:
+                pairs.append(arg)
+            elif arg.endswith(".yaml") or Path(arg).exists():
+                parsed["project"] = arg
+            elif parsed.get("subcmd") == "get" and "key" not in parsed:
+                parsed["key"] = arg
+            elif not parsed.get("project"):
+                parsed["project"] = arg
+        if pairs:
+            parsed["pairs"] = pairs
+        COMMANDS[command](parsed)
+        return
+
+    i = 0
     positional_consumed = False
-    while i < len(args):
-        if args[i] in ("-h", "--help"):
+    while i < len(remaining):
+        arg = remaining[i]
+        if arg in ("-h", "--help"):
             parsed["help"] = True
             i += 1
-        elif args[i] == "--json":
+        elif arg == "--json":
             parsed["json"] = True
             i += 1
-        elif args[i] == "--hosts" and i + 1 < len(args):
-            parsed["hosts"] = args[i + 1]
+        elif arg == "--hosts" and i + 1 < len(remaining):
+            parsed["hosts"] = remaining[i + 1]
             i += 2
-        elif args[i] == "--path" and i + 1 < len(args):
-            # Backward compat
-            parsed["project"] = args[i + 1]
+        elif arg == "--path" and i + 1 < len(remaining):
+            parsed["project"] = remaining[i + 1]
             i += 2
-        elif not args[i].startswith("-") and not positional_consumed:
+        elif not arg.startswith("-") and not positional_consumed:
             if command == "init":
-                parsed["name"] = args[i]
+                parsed["name"] = arg
             elif command == "show" and "project" in parsed:
-                parsed["section"] = args[i]
-            elif command == "show" and args[i].endswith(".yaml"):
-                parsed["project"] = args[i]
+                parsed["section"] = arg
+            elif command == "show" and arg.endswith(".yaml"):
+                parsed["project"] = arg
             elif command == "show":
-                # Could be section or project — if it looks like a file, it's project
-                if Path(args[i]).exists() or args[i].endswith(".yaml"):
-                    parsed["project"] = args[i]
+                if Path(arg).exists() or arg.endswith(".yaml"):
+                    parsed["project"] = arg
                 else:
-                    parsed["section"] = args[i]
+                    parsed["section"] = arg
             else:
-                parsed["project"] = args[i]
+                parsed["project"] = arg
             positional_consumed = True
             i += 1
-        elif not args[i].startswith("-") and positional_consumed:
-            # Second positional — for show command (section after project)
+        elif not arg.startswith("-") and positional_consumed:
             if command == "show" and "section" not in parsed:
-                parsed["section"] = args[i]
+                parsed["section"] = arg
             i += 1
         else:
             i += 1

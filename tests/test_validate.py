@@ -13,7 +13,7 @@ class TestValidateProject:
     def test_valid_local_project(self, tmp_path):
         wf = tmp_path / "test.workflow.py"
         wf.write_text("from cutip.workflow import action, orchestrator\n")
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "host": "local"},
             workflow_path=wf,
@@ -21,11 +21,11 @@ class TestValidateProject:
         assert errors == []
 
     def test_missing_project_name(self, tmp_path):
-        errors = validate_project(tmp_path / "test.yaml", {})
+        errors, warnings = validate_project(tmp_path / "test.yaml", {})
         assert any("project" in e.lower() for e in errors)
 
     def test_invalid_host(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "host": "invalid"},
         )
@@ -33,7 +33,7 @@ class TestValidateProject:
 
     def test_valid_hosts(self, tmp_path):
         for host in ("local", "container", "remote"):
-            errors = validate_project(
+            errors, warnings = validate_project(
                 tmp_path / "test.yaml",
                 {"project": "test", "host": host},
             )
@@ -41,7 +41,7 @@ class TestValidateProject:
             assert host_errors == [], f"host={host} should be valid"
 
     def test_invalid_container_rt(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "host": "container", "container.rt": "orbstack"},
         )
@@ -49,7 +49,7 @@ class TestValidateProject:
 
     def test_valid_container_rt(self, tmp_path):
         for rt in ("auto", "podman", "docker"):
-            errors = validate_project(
+            errors, warnings = validate_project(
                 tmp_path / "test.yaml",
                 {"project": "test", "host": "container", "container.rt": rt},
             )
@@ -58,7 +58,7 @@ class TestValidateProject:
 
     def test_missing_workflow(self, tmp_path):
         wf = tmp_path / "nonexistent.py"
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test"},
             workflow_path=wf,
@@ -68,7 +68,7 @@ class TestValidateProject:
     def test_workflow_syntax_error(self, tmp_path):
         wf = tmp_path / "bad.py"
         wf.write_text("def foo(\n")  # syntax error
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test"},
             workflow_path=wf,
@@ -78,7 +78,7 @@ class TestValidateProject:
     def test_valid_workflow_syntax(self, tmp_path):
         wf = tmp_path / "good.py"
         wf.write_text("def foo(): pass\n")
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test"},
             workflow_path=wf,
@@ -86,21 +86,21 @@ class TestValidateProject:
         assert not any("syntax" in e.lower() for e in errors)
 
     def test_connection_missing_type(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "connections": {"vm": {}}},
         )
         assert any("type" in e for e in errors)
 
     def test_connection_invalid_type(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "connections": {"vm": {"type": "ftp"}}},
         )
         assert any("invalid type" in e.lower() for e in errors)
 
     def test_kubectl_missing_session(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "connections": {
                 "k8s": {"type": "kubectl"},
@@ -109,7 +109,7 @@ class TestValidateProject:
         assert any("session" in e for e in errors)
 
     def test_kubectl_session_not_defined(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "connections": {
                 "k8s": {"type": "kubectl", "session": "vm"},
@@ -118,7 +118,7 @@ class TestValidateProject:
         assert any("not defined" in e for e in errors)
 
     def test_kubectl_valid_session_reference(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "connections": {
                 "vm": {"type": "ssh"},
@@ -129,7 +129,7 @@ class TestValidateProject:
         assert kubectl_errors == []
 
     def test_remote_ssh_missing_hosts(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {
                 "project": "test",
@@ -141,7 +141,7 @@ class TestValidateProject:
         assert any("hosts.yaml" in e for e in errors)
 
     def test_remote_ssh_missing_credentials(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {
                 "project": "test",
@@ -154,7 +154,7 @@ class TestValidateProject:
         assert any("password" in e for e in errors)
 
     def test_remote_ssh_complete_credentials(self, tmp_path):
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {
                 "project": "test",
@@ -170,7 +170,7 @@ class TestValidateProject:
 
     def test_legacy_backend_mapped(self, tmp_path):
         """backend: podman should be treated as host: container."""
-        errors = validate_project(
+        errors, warnings = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "backend": "podman"},
         )
