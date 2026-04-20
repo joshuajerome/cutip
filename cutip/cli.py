@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 console = Console()
 
 
@@ -852,99 +852,44 @@ def cmd_secrets(args):
 
 
 def cmd_hosts(args):
-    """Manage connection credentials (hosts.yaml)."""
+    """Manage SSH credentials (hosts.yaml)."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
-        console.print("[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [conn.field=value ...]")
-        console.print("  list   Show connections and credential status")
-        console.print("  get    Show credentials for a connection")
-        console.print("  set    Set connection credentials")
+        console.print("[bold]cutip hosts[/bold] <list|set> [project.yaml] [key=value ...]")
+        console.print("  list   Show SSH credential status")
+        console.print("  set    Set SSH credentials (host, username, password)")
         return
 
     project_path = _resolve_project(args.get("project"))
-    config = _load_config(project_path)
     hosts_path = project_path.parent / "hosts.yaml"
     hosts = _yaml_read(hosts_path)
 
-    connections = config.get("connections") or {}
-
     if subcmd == "list":
-        if not connections:
-            console.print("[dim]No connections defined[/dim]")
-            return
-        for name, conn in connections.items():
-            conn_type = conn.get("type", "unknown")
-            host_creds = hosts.get(name, {})
-
-            status_parts = []
-            if conn_type == "ssh":
-                for field in ("host", "username", "password"):
-                    val = host_creds.get(field, conn.get(field, ""))
-                    if val:
-                        if field == "password":
-                            status_parts.append(f"{field}=[dim]****[/dim]")
-                        else:
-                            status_parts.append(f"{field}=[dim]{val}[/dim]")
-                    else:
-                        status_parts.append(f"{field}=[yellow](empty)[/yellow]")
-            elif conn_type == "kubectl":
-                session = conn.get("session", "")
-                ns = conn.get("namespace", "default")
-                status_parts.append(f"session={session}")
-                status_parts.append(f"namespace={ns}")
-            elif conn_type == "container":
-                socket = host_creds.get("socket", conn.get("socket", ""))
-                status_parts.append(f"socket={socket or 'auto'}")
-
-            status = "  ".join(status_parts)
-            console.print(f"  {name} [cyan]({conn_type})[/cyan]  {status}")
-
-    elif subcmd == "get":
-        key = args.get("key")
-        if not key:
-            console.print("[red]Usage:[/red] cutip hosts get [project.yaml] <connection>")
-            sys.exit(1)
-        if key not in connections:
-            console.print(f"[red]Error:[/red] connection '{key}' not defined in project")
-            sys.exit(1)
-        host_creds = hosts.get(key, {})
-        conn = connections[key]
-        console.print(f"  [bold]{key}[/bold] ({conn.get('type', 'unknown')})")
-        all_fields = {**conn, **host_creds}
-        for field, val in all_fields.items():
-            if field == "type":
-                continue
-            if field == "password" and val:
-                console.print(f"    {field}: [dim]****[/dim]")
-            elif val:
-                console.print(f"    {field}: [dim]{val}[/dim]")
+        for field in ("host", "username", "password"):
+            val = hosts.get(field, "")
+            if val:
+                if field == "password":
+                    console.print(f"  {field} = [dim]****[/dim]")
+                else:
+                    console.print(f"  {field} = [dim]{val}[/dim]")
             else:
-                console.print(f"    {field}: [yellow](empty)[/yellow]")
+                console.print(f"  {field} = [yellow](empty)[/yellow]")
 
     elif subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
-            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] conn.field=value ...")
+            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] host=<ip> username=<user> password=<pw>")
             sys.exit(1)
         for pair in pairs:
             if "=" not in pair:
-                console.print(f"[red]Error:[/red] invalid format '{pair}', expected conn.field=value")
+                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
                 sys.exit(1)
-            key_path, val = pair.split("=", 1)
-            if "." not in key_path:
-                console.print(f"[red]Error:[/red] '{key_path}' must be conn.field (e.g. vm.host)")
-                sys.exit(1)
-            conn_name, field = key_path.split(".", 1)
-            if conn_name not in connections:
-                console.print(f"[red]Error:[/red] connection '{conn_name}' not defined in project")
-                sys.exit(1)
-            if conn_name not in hosts:
-                hosts[conn_name] = {}
-            hosts[conn_name][field] = val
-            if field == "password":
-                console.print(f"  [green]✓[/green] {conn_name}.{field} = ****")
+            k, v = pair.split("=", 1)
+            hosts[k] = v
+            if k == "password":
+                console.print(f"  [green]✓[/green] {k} = ****")
             else:
-                console.print(f"  [green]✓[/green] {conn_name}.{field} = {val}")
+                console.print(f"  [green]✓[/green] {k} = {v}")
         _yaml_write(hosts_path, hosts)
 
 

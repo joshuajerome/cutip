@@ -53,31 +53,22 @@ EventCallback = Callable[[ActionEvent], None]
 
 @dataclass
 class WorkflowContext:
-    """Lightweight context passed to workflow actions.
+    """Context passed to workflow actions.
 
     Attributes:
-        config: Full parsed config.yaml as a dict.
-        vars: User-defined variables from config.yaml vars section.
-        secrets: Sensitive values from config.yaml secrets section.
+        config: Full parsed project YAML as a dict.
+        data: Workflow data section — freeform key-value pairs from data: in YAML.
+        vars: User-defined variables from vars: section.
+        secrets: Sensitive values from secrets: section.
         results: Action return values, keyed by action name.
         host: Execution target — "local", "container", or "remote".
-        container_runtime: Container engine — "docker" or "podman" (only when host is "container").
+        container_runtime: Container engine — "auto", "podman", or "docker".
+        ssh_host: SSH host IP (from hosts.yaml, for HTTP URL construction).
 
-    Connection management::
-
-        @orchestrator
-        def main(ctx):
-            ctx.ssh("vm", host="10.0.0.1", username="root", password=ctx.secrets["pass"])
-            ctx.kubectl("k8s", session="vm", namespace="prod")
-            ctx.container("rt")
-
-            stage("Deploy")
-            deploy(ctx)
-
-        @action(name="Deploy")
-        def deploy(ctx):
-            ctx.k8s.patch_deployment(...)
-            ctx.vm.exec("systemctl restart nginx")
+    Typed connections (lazy, created on first access):
+        ctx.ssh       → SSHSession (host: remote only, from hosts.yaml)
+        ctx.kubectl   → KubectlSession (bound to ctx.ssh, namespace from config)
+        ctx.container → ContainerRuntime (auto-detected)
     """
 
     config: dict[str, Any]
@@ -85,164 +76,132 @@ class WorkflowContext:
     secrets: dict[str, str] = field(default_factory=dict)
     results: dict[str, Any] = field(default_factory=dict)
     host: str = "local"
-    container_runtime: str = "podman"
-    _connections: dict[str, Any] = field(default_factory=dict, repr=False)
-    _connection_meta: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
+    container_runtime: str = "auto"
+    ssh_host: str = ""
+    _hosts: dict[str, str] = field(default_factory=dict, repr=False)
+    _ssh: Any = field(default=None, repr=False)
+    _kubectl: Any = field(default=None, repr=False)
+    _container: Any = field(default=None, repr=False)
+
+    @property
+    def data(self) -> dict[str, Any]:
+        """Workflow data — freeform config from data: section.
+
+        Falls back to full config for backward compat (projects without data: section).
+        """
+        d = self.config.get("data")
+        if d is not None:
+            return d
+        # Backward compat: return config minus cutip schema keys
+        return {k: v for k, v in self.config.items()
+                if k not in ("project", "host", "container.rt", "container_runtime",
+                             "backend", "workflow", "vars", "secrets", "data",
+                             "image", "container", "containers", "network", "networks")}
 
     @property
     def backend(self) -> str:
-        """Backward compat — maps host to legacy backend value."""
+        """Backward compat."""
         if self.host == "container":
             return self.container_runtime
         return self.host
 
-    def ssh(self, name: str, *, host: str, username: str, password: str, port: int = 22) -> Any:
-        """Create or retrieve a named SSH session.
-
-        The session persists across actions and is closed on workflow exit.
-        Accessible as ctx.{name} after creation.
-
-        Args:
-            name: Connection name (becomes an attribute on ctx).
-            host: Remote host IP or hostname.
-            username: SSH username.
-            password: SSH password.
-            port: SSH port (default 22).
+    @property
+    def ssh(self) -> Any:
+        """SSH session — created on first access from hosts.yaml credentials.
 
         Returns:
-            SSHSession with .exec(cmd) and .probe() methods.
+            SSHSession with .exec(cmd), .probe(), .close() methods.
         """
-        if name in self._connections:
-            return self._connections[name]
+        if self._ssh is not None:
+            return self._ssh
+
+        host = self._hosts.get("host", "")
+        username = self._hosts.get("username", "")
+        password = self._hosts.get("password", "")
+        port = int(self._hosts.get("port", "22"))
+
+        if not host or not username or not password:
+            raise RuntimeError(
+                "SSH credentials not set. Run: cutip hosts set host=<ip> username=<user> password=<pw>"
+            )
 
         from rsty._core import ssh_connect
-        session = ssh_connect(host=host, username=username, password=password, port=port)
-        self._connections[name] = session
-        self._connection_meta[name] = {"host": host, "username": username, "port": str(port)}
-        return session
+        self._ssh = ssh_connect(host=host, username=username, password=password, port=port)
+        self.ssh_host = host
+        return self._ssh
 
-    def kubectl(self, name: str, *, session: str, namespace: str) -> Any:
-        """Create or retrieve a named kubectl session bound to an SSH connection.
+    @property
+    def kubectl(self) -> Any:
+        """Kubectl session — bound to ctx.ssh, namespace from config.
 
-        Args:
-            name: Connection name (becomes an attribute on ctx).
-            session: Name of an existing SSH session (registered via ctx.ssh()).
-            namespace: Default Kubernetes namespace.
+        Reads namespace from config["kubernetes"]["namespace"] or
+        data["kubernetes"]["namespace"].
 
         Returns:
             KubectlSession with get/exec/patch/rollout methods.
         """
-        if name in self._connections:
-            return self._connections[name]
+        if self._kubectl is not None:
+            return self._kubectl
 
-        ssh_session = self._connections.get(session)
-        if ssh_session is None:
-            raise RuntimeError(f"SSH session '{session}' not found. Call ctx.ssh('{session}', ...) first.")
+        # Find namespace from config
+        ns = "default"
+        k8s_config = (self.config.get("data") or self.config).get("kubernetes", {})
+        if isinstance(k8s_config, dict):
+            ns = k8s_config.get("namespace", "default")
+
+        ssh_session = self.ssh  # triggers SSH connection if not already established
 
         from rsty._core import kubectl_connect
-        kube = kubectl_connect(ssh_session, namespace=namespace)
-        self._connections[name] = kube
-        return kube
+        self._kubectl = kubectl_connect(ssh_session, namespace=ns)
+        return self._kubectl
 
-    def container(self, name: str, *, socket: str | None = None) -> Any:
-        """Create or retrieve a named container runtime connection.
-
-        Args:
-            name: Connection name (becomes an attribute on ctx).
-            socket: Optional Docker/Podman socket path.
+    @property
+    def container(self) -> Any:
+        """Container runtime — auto-detected on first access.
 
         Returns:
             ContainerRuntime with build/create/start/stop/exec methods.
         """
-        if name in self._connections:
-            return self._connections[name]
+        if self._container is not None:
+            return self._container
 
         from rsty._core import container_connect
-        rt = container_connect(socket=socket)
-        self._connections[name] = rt
-        return rt
-
-    def connection_host(self, name: str) -> str:
-        """Get the host/IP of a named connection.
-
-        Useful for constructing HTTP URLs to the same host as an SSH connection.
-        """
-        meta = self._connection_meta.get(name, {})
-        return meta.get("host", "")
-
-    def __getattr__(self, name: str) -> Any:
-        """Allow accessing named connections as ctx.{name}."""
-        connections = object.__getattribute__(self, "_connections")
-        if name in connections:
-            return connections[name]
-        raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+        self._container = container_connect()
+        return self._container
 
     def _close_connections(self) -> None:
-        """Close all managed connections. Called by the engine on workflow exit."""
-        for name, conn in self._connections.items():
-            if hasattr(conn, "close"):
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-        self._connections.clear()
-
-    def _init_connections(self, hosts: dict | None = None) -> None:
-        """Initialize connections from config YAML + hosts file.
-
-        Reads `connections:` from config, merges credentials from hosts dict,
-        and registers all connections on ctx automatically.
-        """
-        connections_config = self.config.get("connections") or {}
-        hosts = hosts or {}
-
-        for name, conn in connections_config.items():
-            conn_type = conn.get("type", "")
-            host_creds = hosts.get(name, {})
-
-            if conn_type == "ssh":
-                host = host_creds.get("host", conn.get("host", ""))
-                username = host_creds.get("username", conn.get("username", ""))
-                password = host_creds.get("password", conn.get("password", ""))
-                port = host_creds.get("port", conn.get("port", 22))
-                if host and username and password:
-                    self.ssh(name, host=host, username=username, password=password, port=port)
-
-            elif conn_type == "kubectl":
-                session = conn.get("session", "")
-                namespace = conn.get("namespace", "default")
-                if session and session in self._connections:
-                    self.kubectl(name, session=session, namespace=namespace)
-
-            elif conn_type == "container":
-                socket = host_creds.get("socket", conn.get("socket"))
-                self.container(name, socket=socket)
+        """Close all connections. Called by the engine on workflow exit."""
+        if self._ssh is not None:
+            try:
+                self._ssh.close()
+            except Exception:
+                pass
+            self._ssh = None
+        self._kubectl = None
+        self._container = None
 
     @classmethod
     def from_config(cls, config: dict, hosts: dict | None = None) -> WorkflowContext:
-        # Resolve host from new or legacy fields
+        # Resolve host
         host = config.get("host")
         if not host:
             backend = config.get("backend", "local")
             host = "container" if backend in ("docker", "podman") else backend
 
+        # Resolve container runtime
         runtime = config.get("container.rt", config.get("container_runtime"))
         if not runtime:
-            backend = config.get("backend", "podman")
+            backend = config.get("backend", "")
             runtime = backend if backend in ("docker", "podman") else "auto"
 
-        ctx = cls(
+        return cls(
             config=config,
             vars=config.get("vars") or {},
             secrets=config.get("secrets") or {},
             host=host,
             container_runtime=runtime,
+            _hosts=hosts or {},
         )
-
-        # Auto-initialize connections from config + hosts
-        ctx._init_connections(hosts)
-
-        return ctx
 
 
 # ── Engine ──────────────────────────────────────────────────────────────────
@@ -277,7 +236,7 @@ class WorkflowEngine:
     ):
         self.module = module
         self.config = config
-        self.ctx = WorkflowContext.from_config(config, hosts=hosts)
+        self.ctx = WorkflowContext.from_config(config, hosts)
         self.on_event = on_event or (lambda e: None)
 
         # Build function lookup: func_name → (callable, ActionMeta)

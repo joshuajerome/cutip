@@ -85,57 +85,10 @@ class TestValidateProject:
         )
         assert not any("syntax" in e.lower() for e in errors)
 
-    def test_connection_missing_type(self, tmp_path):
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "connections": {"vm": {}}},
-        )
-        assert any("type" in e for e in errors)
-
-    def test_connection_invalid_type(self, tmp_path):
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "connections": {"vm": {"type": "ftp"}}},
-        )
-        assert any("invalid type" in e.lower() for e in errors)
-
-    def test_kubectl_missing_session(self, tmp_path):
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "connections": {
-                "k8s": {"type": "kubectl"},
-            }},
-        )
-        assert any("session" in e for e in errors)
-
-    def test_kubectl_session_not_defined(self, tmp_path):
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "connections": {
-                "k8s": {"type": "kubectl", "session": "vm"},
-            }},
-        )
-        assert any("not defined" in e for e in errors)
-
-    def test_kubectl_valid_session_reference(self, tmp_path):
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "connections": {
-                "vm": {"type": "ssh"},
-                "k8s": {"type": "kubectl", "session": "vm", "namespace": "default"},
-            }},
-        )
-        kubectl_errors = [e for e in errors if "kubectl" in e.lower() or "session" in e.lower()]
-        assert kubectl_errors == []
-
     def test_remote_ssh_missing_hosts(self, tmp_path):
         errors, warnings = validate_project(
             tmp_path / "test.yaml",
-            {
-                "project": "test",
-                "host": "remote",
-                "connections": {"vm": {"type": "ssh"}},
-            },
+            {"project": "test", "host": "remote"},
             hosts=None,
         )
         assert any("hosts.yaml" in e for e in errors)
@@ -143,12 +96,8 @@ class TestValidateProject:
     def test_remote_ssh_missing_credentials(self, tmp_path):
         errors, warnings = validate_project(
             tmp_path / "test.yaml",
-            {
-                "project": "test",
-                "host": "remote",
-                "connections": {"vm": {"type": "ssh"}},
-            },
-            hosts={"vm": {"host": "10.0.0.1"}},  # missing username, password
+            {"project": "test", "host": "remote"},
+            hosts={"host": "10.0.0.1"},  # missing username, password
         )
         assert any("username" in e for e in errors)
         assert any("password" in e for e in errors)
@@ -156,16 +105,10 @@ class TestValidateProject:
     def test_remote_ssh_complete_credentials(self, tmp_path):
         errors, warnings = validate_project(
             tmp_path / "test.yaml",
-            {
-                "project": "test",
-                "host": "remote",
-                "connections": {"vm": {"type": "ssh"}},
-            },
-            hosts={"vm": {"host": "10.0.0.1", "username": "root", "password": "pw"}},
+            {"project": "test", "host": "remote"},
+            hosts={"host": "10.0.0.1", "username": "root", "password": "pw"},
         )
-        cred_errors = [e for e in errors if "username" in e or "password" in e or "host" in e.lower()]
-        # Filter out the "Invalid host" type errors
-        cred_errors = [e for e in cred_errors if "missing" in e.lower()]
+        cred_errors = [e for e in errors if "missing" in e.lower() and "SSH" in e]
         assert cred_errors == []
 
     def test_legacy_backend_mapped(self, tmp_path):
