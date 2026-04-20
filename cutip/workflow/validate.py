@@ -65,48 +65,20 @@ def validate_project(
     if empty_secrets:
         warnings.append(f"Empty secrets (use 'cutip secrets set' or will be prompted): {', '.join(empty_secrets)}")
 
-    # 7. Connections — check required fields
-    connections = config.get("connections") or {}
-    for name, conn in connections.items():
-        conn_type = conn.get("type")
-        if not conn_type:
-            errors.append(f"Connection '{name}' missing 'type' field")
-            continue
+    # 7. Remote host — check hosts.yaml
+    if host == "remote":
+        hosts_path = project_path.parent / "hosts.yaml"
+        if not hosts_path.exists() and not hosts:
+            errors.append("hosts.yaml not found (required for host: remote)")
+            errors.append("  Create with: cutip hosts set host=<ip> username=<user> password=<pw>")
+        else:
+            h = hosts or {}
+            missing = [f for f in ("host", "username", "password") if not h.get(f)]
+            if missing:
+                errors.append(f"Missing SSH credentials in hosts.yaml: {', '.join(missing)}")
+                errors.append(f"  Set with: cutip hosts set {' '.join(f'{f}=<value>' for f in missing)}")
 
-        valid_types = ("ssh", "kubectl", "container")
-        if conn_type not in valid_types:
-            errors.append(f"Connection '{name}' invalid type: '{conn_type}' (must be one of: {', '.join(valid_types)})")
-
-        if conn_type == "kubectl":
-            if not conn.get("session"):
-                errors.append(f"Connection '{name}' (kubectl) missing 'session' field")
-            elif conn["session"] not in connections:
-                errors.append(f"Connection '{name}' references session '{conn['session']}' which is not defined")
-
-    # 8. Remote connections — hosts.yaml
-    if host == "remote" and connections:
-        ssh_connections = [n for n, c in connections.items() if c.get("type") == "ssh"]
-        if ssh_connections and not hosts:
-            hosts_path = project_path.parent / "hosts.yaml"
-            if hosts_path.exists():
-                pass  # hosts file exists but might be empty — check below
-            else:
-                errors.append(f"hosts.yaml not found (required for remote SSH connections: {', '.join(ssh_connections)})")
-                errors.append(f"  Create with: cutip hosts set {project_path.name} {ssh_connections[0]}.host=<ip> {ssh_connections[0]}.username=<user> {ssh_connections[0]}.password=<pw>")
-
-        hosts_data = hosts or {}
-        for name in ssh_connections:
-            host_creds = hosts_data.get(name, {})
-            missing_fields = []
-            for field in ("host", "username", "password"):
-                conn_val = connections[name].get(field, "")
-                host_val = host_creds.get(field, "")
-                if not conn_val and not host_val:
-                    missing_fields.append(field)
-            if missing_fields:
-                errors.append(f"Connection '{name}' missing: {', '.join(missing_fields)} (set in hosts.yaml)")
-
-    # 9. Container runtime reachable
+    # 8. Container runtime reachable
     if host == "container":
         try:
             from rsty._core import container_connect
@@ -115,5 +87,10 @@ def validate_project(
             errors.append("rsty not installed (pip install rsty)")
         except Exception as e:
             errors.append(f"Container runtime not reachable: {e}")
+
+    # 9. Data section type check
+    data = config.get("data")
+    if data is not None and not isinstance(data, dict):
+        errors.append(f"'data' section must be a mapping, got {type(data).__name__}")
 
     return errors, warnings

@@ -60,11 +60,15 @@ pub struct Config {
     #[serde(default)]
     pub host: Option<String>,
 
-    /// Container runtime: "docker" or "podman" (only when host: container).
+    /// Container runtime: "auto", "docker", or "podman" (only when host: container).
+    #[serde(default, rename = "container.rt")]
+    pub container_rt: Option<String>,
+
+    /// Legacy container_runtime field.
     #[serde(default)]
     pub container_runtime: Option<String>,
 
-    /// Legacy backend field — maps to host + container_runtime for backward compat.
+    /// Legacy backend field — maps to host + container_rt for backward compat.
     #[serde(default)]
     pub backend: Option<String>,
 
@@ -100,7 +104,11 @@ pub struct Config {
     #[serde(default)]
     pub networks: HashMap<String, NetworkConfig>,
 
-    /// Extra config sections (keycloak, kubernetes, etc.) passed through as-is.
+    /// Workflow data — freeform key-value pairs accessed as ctx.data in workflows.
+    #[serde(default)]
+    pub data: HashMap<String, serde_yaml::Value>,
+
+    /// Extra config sections not in a known field — passed through for backward compat.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_yaml::Value>,
 }
@@ -238,15 +246,18 @@ impl Config {
         }
     }
 
-    /// Resolved container runtime — prefers `container_runtime`, falls back to `backend`.
+    /// Resolved container runtime — prefers `container.rt`, falls back to `container_runtime` or `backend`.
     pub fn resolved_runtime(&self) -> String {
+        if let Some(ref rt) = self.container_rt {
+            return rt.clone();
+        }
         if let Some(ref rt) = self.container_runtime {
             return rt.clone();
         }
         match self.backend.as_deref() {
             Some("docker") => "docker".to_string(),
             Some("podman") => "podman".to_string(),
-            _ => "podman".to_string(),
+            _ => "auto".to_string(),
         }
     }
 }

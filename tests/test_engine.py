@@ -57,38 +57,51 @@ class TestWorkflowContext:
         ctx.results["action1"] = "result1"
         assert ctx.results["action1"] == "result1"
 
-    def test_connection_host(self):
-        ctx = WorkflowContext.from_config({"project": "test"})
-        ctx._connection_meta["vm"] = {"host": "10.0.0.1", "username": "root"}
-        assert ctx.connection_host("vm") == "10.0.0.1"
+    def test_ssh_host_from_hosts(self):
+        ctx = WorkflowContext.from_config(
+            {"project": "test", "host": "remote"},
+            hosts={"host": "10.0.0.1", "username": "root", "password": "pw"},
+        )
+        assert ctx.ssh_host == ""  # not set until ssh property accessed
+        assert ctx._hosts["host"] == "10.0.0.1"
 
-    def test_connection_host_missing(self):
-        ctx = WorkflowContext.from_config({"project": "test"})
-        assert ctx.connection_host("nonexistent") == ""
+    def test_ssh_missing_credentials_raises(self):
+        ctx = WorkflowContext.from_config(
+            {"project": "test", "host": "remote"},
+            hosts={},
+        )
+        with pytest.raises(RuntimeError, match="SSH credentials not set"):
+            _ = ctx.ssh
+
+    def test_data_from_data_section(self):
+        ctx = WorkflowContext.from_config({
+            "project": "test",
+            "data": {"kubernetes": {"namespace": "prod"}},
+        })
+        assert ctx.data["kubernetes"]["namespace"] == "prod"
+
+    def test_data_fallback_to_config(self):
+        """Projects without data: section fall back to extra config keys."""
+        ctx = WorkflowContext.from_config({
+            "project": "test",
+            "host": "local",
+            "kubernetes": {"namespace": "prod"},
+        })
+        assert ctx.data["kubernetes"]["namespace"] == "prod"
+        assert "project" not in ctx.data
+        assert "host" not in ctx.data
 
     def test_close_connections(self):
         ctx = WorkflowContext.from_config({"project": "test"})
 
-        class FakeConn:
+        class FakeSSH:
             closed = False
             def close(self):
                 self.closed = True
 
-        conn = FakeConn()
-        ctx._connections["fake"] = conn
+        ctx._ssh = FakeSSH()
         ctx._close_connections()
-        assert conn.closed
-        assert len(ctx._connections) == 0
-
-    def test_getattr_connection(self):
-        ctx = WorkflowContext.from_config({"project": "test"})
-        ctx._connections["myconn"] = "fake_session"
-        assert ctx.myconn == "fake_session"
-
-    def test_getattr_missing_raises(self):
-        ctx = WorkflowContext.from_config({"project": "test"})
-        with pytest.raises(AttributeError):
-            _ = ctx.nonexistent
+        assert ctx._ssh is None
 
 
 # ── WorkflowEngine ───────────────────────────────────────────────────────────
