@@ -15,12 +15,13 @@ def validate_project(
     config: dict[str, Any],
     hosts: dict[str, Any] | None = None,
     workflow_path: Path | None = None,
-) -> list[str]:
-    """Validate a project config and return a list of errors.
+) -> tuple[list[str], list[str]]:
+    """Validate a project config and return (errors, warnings).
 
-    Returns an empty list if everything is valid.
+    Errors block execution. Warnings are informational.
     """
     errors: list[str] = []
+    warnings: list[str] = []
 
     # 1. Project name
     if not config.get("project"):
@@ -52,7 +53,19 @@ def validate_project(
             except SyntaxError as e:
                 errors.append(f"Workflow syntax error: {workflow_path.name} line {e.lineno}: {e.msg}")
 
-    # 5. Connections — check required fields
+    # 5. Empty vars
+    vars_dict = config.get("vars") or {}
+    empty_vars = [k for k, v in vars_dict.items() if not v]
+    if empty_vars:
+        warnings.append(f"Empty vars (use 'cutip vars set' or will be prompted): {', '.join(empty_vars)}")
+
+    # 6. Empty secrets
+    secrets_dict = config.get("secrets") or {}
+    empty_secrets = [k for k, v in secrets_dict.items() if not v]
+    if empty_secrets:
+        warnings.append(f"Empty secrets (use 'cutip secrets set' or will be prompted): {', '.join(empty_secrets)}")
+
+    # 7. Connections — check required fields
     connections = config.get("connections") or {}
     for name, conn in connections.items():
         conn_type = conn.get("type")
@@ -70,32 +83,37 @@ def validate_project(
             elif conn["session"] not in connections:
                 errors.append(f"Connection '{name}' references session '{conn['session']}' which is not defined")
 
-    # 6. Remote connections need hosts file
+    # 8. Remote connections — hosts.yaml
     if host == "remote" and connections:
         ssh_connections = [n for n, c in connections.items() if c.get("type") == "ssh"]
         if ssh_connections and not hosts:
-            errors.append(f"host: remote with SSH connections requires hosts.yaml (missing credentials for: {', '.join(ssh_connections)})")
-        elif hosts:
-            for name in ssh_connections:
-                host_creds = hosts.get(name, {})
-                for field in ("host", "username", "password"):
-                    conn_val = connections[name].get(field, "")
-                    host_val = host_creds.get(field, "")
-                    if not conn_val and not host_val:
-                        errors.append(f"Connection '{name}' missing '{field}' (set in hosts.yaml)")
+            hosts_path = project_path.parent / "hosts.yaml"
+            if hosts_path.exists():
+                pass  # hosts file exists but might be empty — check below
+            else:
+                errors.append(f"hosts.yaml not found (required for remote SSH connections: {', '.join(ssh_connections)})")
+                errors.append(f"  Create with: cutip hosts set {project_path.name} {ssh_connections[0]}.host=<ip> {ssh_connections[0]}.username=<user> {ssh_connections[0]}.password=<pw>")
 
-    # 7. Container runtime reachable
+        hosts_data = hosts or {}
+        for name in ssh_connections:
+            host_creds = hosts_data.get(name, {})
+            missing_fields = []
+            for field in ("host", "username", "password"):
+                conn_val = connections[name].get(field, "")
+                host_val = host_creds.get(field, "")
+                if not conn_val and not host_val:
+                    missing_fields.append(field)
+            if missing_fields:
+                errors.append(f"Connection '{name}' missing: {', '.join(missing_fields)} (set in hosts.yaml)")
+
+    # 9. Container runtime reachable
     if host == "container":
         try:
             from rsty._core import container_connect
-            rt = container_connect()
-            # If we get here, runtime is reachable
+            container_connect()
         except ImportError:
             errors.append("rsty not installed (pip install rsty)")
         except Exception as e:
             errors.append(f"Container runtime not reachable: {e}")
 
-    # 8. Var/secret refs
-    # Already handled by Rust _validate, so skip here
-
-    return errors
+    return errors, warnings
