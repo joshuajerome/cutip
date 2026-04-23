@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 console = Console()
 
 
@@ -935,19 +935,25 @@ def cmd_cmd(args):
         console.print(f"  Usage: cutip cmd {cmd_name} {cmd_args_desc}")
         return
 
-    # Substitute {0}, {1}, etc. with positional args
+    import shlex
+
+    def _quote(arg):
+        """Quote an arg if it contains spaces."""
+        return shlex.quote(arg) if " " in arg else arg
+
+    # Substitute {0}, {1}, etc. with positional args (quoted if spaces)
     cmd_str = run_template
     for i, arg in enumerate(user_args):
-        cmd_str = cmd_str.replace(f"{{{i}}}", arg)
+        cmd_str = cmd_str.replace(f"{{{i}}}", _quote(arg))
 
     # Append remaining args that weren't substituted
     placeholder_count = run_template.count("{")
     if len(user_args) > placeholder_count:
-        extra = " ".join(user_args[placeholder_count:])
+        extra = " ".join(_quote(a) for a in user_args[placeholder_count:])
         cmd_str = f"{cmd_str} {extra}"
     elif placeholder_count == 0 and user_args:
         # No placeholders — append all args
-        cmd_str = f"{cmd_str} {' '.join(user_args)}"
+        cmd_str = f"{cmd_str} {' '.join(_quote(a) for a in user_args)}"
 
     # Run from project directory
     cwd = str(project_path.parent)
