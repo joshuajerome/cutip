@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.4.1"
+VERSION = "2.4.2"
 console = Console()
 
 
@@ -41,22 +41,34 @@ def _resolve_project(project_arg: str | None) -> Path:
             sys.exit(1)
         return path
 
-    # No arg — look for project YAML files in cwd
-    # First try config.yaml (backward compat)
-    if Path("config.yaml").exists():
-        return Path("config.yaml")
-
-    # Then look for *.yaml with project: field
+    # No arg — search cwd and parent directories for project YAML files
     import yaml
-    projects = []
-    for f in sorted(Path(".").glob("*.yaml")):
-        try:
-            with open(f) as fh:
-                data = yaml.safe_load(fh)
-            if isinstance(data, dict) and "project" in data:
-                projects.append(f)
-        except Exception:
-            continue
+
+    search_dir = Path.cwd()
+    while True:
+        # Check for config.yaml (backward compat)
+        if (search_dir / "config.yaml").exists():
+            return search_dir / "config.yaml"
+
+        # Check for *.yaml with project: field
+        projects = []
+        for f in sorted(search_dir.glob("*.yaml")):
+            try:
+                with open(f) as fh:
+                    data = yaml.safe_load(fh)
+                if isinstance(data, dict) and "project" in data:
+                    projects.append(f)
+            except Exception:
+                continue
+
+        if projects:
+            break
+
+        # Walk up
+        parent = search_dir.parent
+        if parent == search_dir:
+            break  # reached filesystem root
+        search_dir = parent
 
     if len(projects) == 1:
         return projects[0]
