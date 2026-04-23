@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.3.1"
+VERSION = "2.4.0"
 console = Console()
 
 
@@ -893,12 +893,76 @@ def cmd_hosts(args):
         _yaml_write(hosts_path, hosts)
 
 
+def cmd_cmd(args):
+    """Execute a project-defined command."""
+    import subprocess
+
+    project_path = _resolve_project(args.get("project"))
+    config = _load_config(project_path)
+    commands = config.get("commands") or {}
+
+    cmd_name = args.get("cmd_name")
+
+    # No command name — list all available commands
+    if not cmd_name:
+        if not commands:
+            console.print("[dim]No commands defined in project[/dim]")
+            return
+        console.print(f"[bold]Available commands:[/bold]\n")
+        for name, cmd_def in commands.items():
+            cmd_args = cmd_def.get("args", "")
+            cmd_help = cmd_def.get("help", "")
+            console.print(f"  [cyan]{name}[/cyan]  {cmd_args}  [dim]{cmd_help}[/dim]")
+        console.print(f"\n  Usage: cutip cmd [project.yaml] <command> [args...]")
+        return
+
+    # Command name given but not defined
+    if cmd_name not in commands:
+        console.print(f"[red]Unknown command:[/red] {cmd_name}")
+        if commands:
+            console.print(f"Available: {', '.join(commands)}")
+        sys.exit(1)
+
+    cmd_def = commands[cmd_name]
+    run_template = cmd_def.get("run", "")
+    cmd_args_desc = cmd_def.get("args", "")
+    cmd_help = cmd_def.get("help", "")
+    user_args = args.get("cmd_args", [])
+
+    # No args provided but command expects them — show help
+    if cmd_args_desc and not user_args:
+        console.print(f"  [bold]{cmd_name}[/bold] — {cmd_help}")
+        console.print(f"  Usage: cutip cmd {cmd_name} {cmd_args_desc}")
+        return
+
+    # Substitute {0}, {1}, etc. with positional args
+    cmd_str = run_template
+    for i, arg in enumerate(user_args):
+        cmd_str = cmd_str.replace(f"{{{i}}}", arg)
+
+    # Append remaining args that weren't substituted
+    placeholder_count = run_template.count("{")
+    if len(user_args) > placeholder_count:
+        extra = " ".join(user_args[placeholder_count:])
+        cmd_str = f"{cmd_str} {extra}"
+    elif placeholder_count == 0 and user_args:
+        # No placeholders — append all args
+        cmd_str = f"{cmd_str} {' '.join(user_args)}"
+
+    # Run from project directory
+    cwd = str(project_path.parent)
+    console.print(f"  [dim]{cmd_str}[/dim]")
+    result = subprocess.run(cmd_str, shell=True, cwd=cwd)
+    sys.exit(result.returncode)
+
+
 COMMANDS = {
     "init": cmd_init,
     "validate": cmd_validate,
     "show": cmd_show,
     "plan": cmd_plan,
     "run": cmd_run,
+    "cmd": cmd_cmd,
     "tree": cmd_tree,
     "vars": cmd_vars,
     "secrets": cmd_secrets,
@@ -920,6 +984,7 @@ def main():
             "  show       Project summary or config section\n"
             "  plan       Show execution plan (dry run)\n"
             "  run        Execute workflow\n"
+            "  cmd        Run a project-defined command\n"
             "  tree       Print config structure\n"
             "  vars       Manage project variables (list/get/set)\n"
             "  secrets    Manage project secrets (list/get/set)\n"
@@ -930,6 +995,7 @@ def main():
             "  cutip run myproject.yaml\n"
             "  cutip vars set gui.yaml greeting=hello\n"
             "  cutip hosts set gui.yaml vm.host=10.0.0.1\n"
+            "  cutip cmd gui.yaml generate sheets/my.xlsx\n"
             "  cutip validate myproject.yaml",
             title=f"cutip v{VERSION}",
             box=box.ROUNDED,
@@ -949,6 +1015,27 @@ def main():
     # Parse remaining args
     parsed = {}
     remaining = args[1:]
+
+    # Handle cmd command
+    if command == "cmd":
+        # Parse: cutip cmd [project.yaml] <command_name> [args...]
+        cmd_name = None
+        cmd_args = []
+        for arg in remaining:
+            if arg in ("-h", "--help"):
+                parsed["cmd_name"] = None
+                COMMANDS[command](parsed)
+                return
+            elif arg.endswith(".yaml") or (not cmd_name and Path(arg).exists() and arg.endswith(".yaml")):
+                parsed["project"] = arg
+            elif cmd_name is None and not arg.startswith("-"):
+                cmd_name = arg
+            else:
+                cmd_args.append(arg)
+        parsed["cmd_name"] = cmd_name
+        parsed["cmd_args"] = cmd_args
+        COMMANDS[command](parsed)
+        return
 
     # Handle subcommand groups (vars, secrets, hosts)
     if command in ("vars", "secrets", "hosts"):
