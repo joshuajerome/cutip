@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.4.2"
+VERSION = "2.5.0"
 console = Console()
 
 
@@ -863,34 +863,61 @@ def cmd_secrets(args):
         _yaml_write(project_path, config)
 
 
+def _is_sensitive(key: str) -> bool:
+    """Check if a key name suggests a sensitive value."""
+    return any(s in key.lower() for s in ("password", "secret", "token", "key"))
+
+
+def _resolve_hosts_path(project_path: Path) -> Path:
+    """Resolve hosts file path from data.hosts or default to hosts.yaml."""
+    config = _load_config(project_path)
+    data = config.get("data") or {}
+    hosts_ref = data.get("hosts", "hosts.yaml")
+    hosts_path = project_path.parent / hosts_ref
+    return hosts_path
+
+
 def cmd_hosts(args):
-    """Manage SSH credentials (hosts.yaml)."""
+    """Manage project hosts file."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
-        console.print("[bold]cutip hosts[/bold] <list|set> [project.yaml] [key=value ...]")
-        console.print("  list   Show SSH credential status")
-        console.print("  set    Set SSH credentials (host, username, password)")
+        console.print("[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print("  list   Show all host entries (passwords masked)")
+        console.print("  get    Get a single host value")
+        console.print("  set    Set one or more host values")
         return
 
     project_path = _resolve_project(args.get("project"))
-    hosts_path = project_path.parent / "hosts.yaml"
+    hosts_path = _resolve_hosts_path(project_path)
     hosts = _yaml_read(hosts_path)
 
     if subcmd == "list":
-        for field in ("host", "username", "password"):
-            val = hosts.get(field, "")
-            if val:
-                if field == "password":
-                    console.print(f"  {field} = [dim]****[/dim]")
-                else:
-                    console.print(f"  {field} = [dim]{val}[/dim]")
+        if not hosts:
+            console.print(f"[dim]No hosts defined in {hosts_path.name}[/dim]")
+            return
+        for k, v in hosts.items():
+            if not v and v != 0:
+                console.print(f"  {k} = [yellow](empty)[/yellow]")
+            elif _is_sensitive(k):
+                console.print(f"  {k} = [dim]****[/dim]")
             else:
-                console.print(f"  {field} = [yellow](empty)[/yellow]")
+                console.print(f"  {k} = [dim]{v}[/dim]")
+
+    elif subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip hosts get [project.yaml] <key>")
+            sys.exit(1)
+        if key in hosts:
+            console.print(hosts[key] or "")
+        else:
+            console.print(f"[red]Error:[/red] key '{key}' not found in {hosts_path.name}")
+            sys.exit(1)
 
     elif subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
-            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] host=<ip> username=<user> password=<pw>")
+            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] key=value ...")
             sys.exit(1)
         for pair in pairs:
             if "=" not in pair:
@@ -898,7 +925,7 @@ def cmd_hosts(args):
                 sys.exit(1)
             k, v = pair.split("=", 1)
             hosts[k] = v
-            if k == "password":
+            if _is_sensitive(k):
                 console.print(f"  [green]✓[/green] {k} = ****")
             else:
                 console.print(f"  [green]✓[/green] {k} = {v}")

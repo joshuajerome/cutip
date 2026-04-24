@@ -23,6 +23,13 @@ pub fn show(section: &str, path: Option<&str>) -> PyResult<String> {
         .map_err(|e| PyRuntimeError::new_err(format!("{e}")))?;
 
     let yaml = match section {
+        "data" => {
+            if config.data.is_empty() {
+                Ok("No data defined".to_string())
+            } else {
+                serde_yaml::to_string(&config.data)
+            }
+        }
         "vars" => serde_yaml::to_string(&config.vars),
         "secrets" => {
             let masked: HashMap<_, _> = config
@@ -62,7 +69,7 @@ pub fn show(section: &str, path: Option<&str>) -> PyResult<String> {
                 serde_yaml::to_string(value)
             } else {
                 return Err(PyRuntimeError::new_err(format!(
-                    "Unknown section: '{other}'. Available: vars, secrets, container, containers, network, networks"
+                    "Unknown section: '{other}'. Available: data, vars, secrets, container, containers, network, networks"
                 )));
             }
         }
