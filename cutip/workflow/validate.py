@@ -65,8 +65,25 @@ def validate_project(
     if empty_secrets:
         warnings.append(f"Empty secrets (use 'cutip secrets set' or will be prompted): {', '.join(empty_secrets)}")
 
-    # 7. Remote host — check hosts.yaml
-    if host == "remote":
+    # 7. Hosts file — check existence and empty values
+    data = config.get("data") or {}
+    hosts_ref = data.get("hosts")
+    if hosts_ref:
+        # Project declares a hosts file in data.hosts
+        hosts_path = project_path.parent / hosts_ref
+        if not hosts_path.exists():
+            errors.append(f"{hosts_ref} not found")
+            errors.append(f"  Create with: cutip hosts set <key>=<value>")
+        else:
+            import yaml
+            with open(hosts_path) as f:
+                h = yaml.safe_load(f) or {}
+            empty_keys = [k for k, v in h.items() if not v and v != 0]
+            if empty_keys:
+                warnings.append(f"Empty values in {hosts_ref}: {', '.join(empty_keys)}")
+                warnings.append(f"  Set with: cutip hosts set {' '.join(f'{k}=<value>' for k in empty_keys)}")
+    elif host == "remote":
+        # Fallback: host: remote without data.hosts
         hosts_path = project_path.parent / "hosts.yaml"
         if not hosts_path.exists() and not hosts:
             errors.append("hosts.yaml not found (required for host: remote)")
@@ -89,8 +106,8 @@ def validate_project(
             errors.append(f"Container runtime not reachable: {e}")
 
     # 9. Data section type check
-    data = config.get("data")
-    if data is not None and not isinstance(data, dict):
+    raw_data = config.get("data")
+    if raw_data is not None and not isinstance(raw_data, dict):
         errors.append(f"'data' section must be a mapping, got {type(data).__name__}")
 
     return errors, warnings
