@@ -33,11 +33,6 @@ class TestWorkflowContext:
         assert ctx.host == "container"
         assert ctx.container_runtime == "podman"
 
-    def test_from_config_legacy_backend(self):
-        ctx = WorkflowContext.from_config({"project": "test", "backend": "podman"})
-        assert ctx.host == "container"
-        assert ctx.backend == "podman"
-
     def test_from_config_vars_and_secrets(self):
         ctx = WorkflowContext.from_config({
             "project": "test",
@@ -79,17 +74,6 @@ class TestWorkflowContext:
             "data": {"kubernetes": {"namespace": "prod"}},
         })
         assert ctx.data["kubernetes"]["namespace"] == "prod"
-
-    def test_data_fallback_to_config(self):
-        """Projects without data: section fall back to extra config keys."""
-        ctx = WorkflowContext.from_config({
-            "project": "test",
-            "host": "local",
-            "kubernetes": {"namespace": "prod"},
-        })
-        assert ctx.data["kubernetes"]["namespace"] == "prod"
-        assert "project" not in ctx.data
-        assert "host" not in ctx.data
 
     def test_close_connections(self):
         ctx = WorkflowContext.from_config({"project": "test"})

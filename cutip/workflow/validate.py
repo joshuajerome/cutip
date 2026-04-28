@@ -28,16 +28,14 @@ def validate_project(
         errors.append("Missing 'project' field")
 
     # 2. Host type
-    host = config.get("host", config.get("backend", "local"))
-    if host in ("docker", "podman"):
-        host = "container"
+    host = config.get("host", "local")
     valid_hosts = ("local", "container", "remote")
     if host not in valid_hosts:
         errors.append(f"Invalid host: '{host}' (must be one of: {', '.join(valid_hosts)})")
 
     # 3. Container runtime
     if host == "container":
-        rt = config.get("container.rt", config.get("container_runtime", "auto"))
+        rt = config.get("container.rt", "auto")
         valid_rts = ("auto", "podman", "docker")
         if rt not in valid_rts:
             errors.append(f"Invalid container.rt: '{rt}' (must be one of: {', '.join(valid_rts)})")

@@ -10,7 +10,7 @@ use crate::config::resolve;
 /// Validate config.yaml and return results as a dict.
 ///
 /// Returns: {
-///   "project", "backend", "workflow",
+///   "project", "host", "container_runtime", "workflow",
 ///   "vars_count", "secrets_count", "containers_count", "networks_count",
 ///   "empty_secrets": [...], "warnings": [...],
 ///   "workflow_exists": bool, "valid": bool
@@ -44,10 +44,8 @@ pub fn validate(py: Python<'_>, path: Option<&str>) -> PyResult<PyObject> {
     let dict = PyDict::new(py);
     dict.set_item("path", config_path.to_string_lossy().to_string())?;
     dict.set_item("project", &config.project)?;
-    dict.set_item("host", config.resolved_host())?;
-    dict.set_item("container_runtime", config.resolved_runtime())?;
-    // backward compat
-    dict.set_item("backend", config.resolved_host())?;
+    dict.set_item("host", config.host.as_deref().unwrap_or("local"))?;
+    dict.set_item("container_runtime", config.container_rt.as_deref().unwrap_or("auto"))?;
     dict.set_item("workflow", &config.workflow)?;
     dict.set_item("vars_count", config.vars.len())?;
     dict.set_item("secrets_count", config.secrets.len())?;

@@ -85,25 +85,8 @@ class WorkflowContext:
 
     @property
     def data(self) -> dict[str, Any]:
-        """Workflow data — freeform config from data: section.
-
-        Falls back to full config for backward compat (projects without data: section).
-        """
-        d = self.config.get("data")
-        if d is not None:
-            return d
-        # Backward compat: return config minus cutip schema keys
-        return {k: v for k, v in self.config.items()
-                if k not in ("project", "host", "container.rt", "container_runtime",
-                             "backend", "workflow", "vars", "secrets", "data",
-                             "image", "container", "containers", "network", "networks")}
-
-    @property
-    def backend(self) -> str:
-        """Backward compat."""
-        if self.host == "container":
-            return self.container_runtime
-        return self.host
+        """Workflow data — freeform config from data: section."""
+        return self.config.get("data", {})
 
     @property
     def ssh(self) -> Any:
@@ -182,17 +165,8 @@ class WorkflowContext:
 
     @classmethod
     def from_config(cls, config: dict, hosts: dict | None = None) -> WorkflowContext:
-        # Resolve host
-        host = config.get("host")
-        if not host:
-            backend = config.get("backend", "local")
-            host = "container" if backend in ("docker", "podman") else backend
-
-        # Resolve container runtime
-        runtime = config.get("container.rt", config.get("container_runtime"))
-        if not runtime:
-            backend = config.get("backend", "")
-            runtime = backend if backend in ("docker", "podman") else "auto"
+        host = config.get("host", "local")
+        runtime = config.get("container.rt", "auto")
 
         return cls(
             config=config,
