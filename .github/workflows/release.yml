@@ -143,3 +143,4 @@ jobs:
         with:
           password: ${{ secrets.PYPI_TOKEN }}
           packages-dir: dist/
+          skip-existing: true

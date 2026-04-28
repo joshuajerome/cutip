@@ -234,7 +234,7 @@ toml = [
 
 [[package]]
 name = "cutip"
-version = "2.6.1"
+version = "2.6.2"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
