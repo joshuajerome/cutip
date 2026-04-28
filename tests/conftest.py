@@ -1,9 +1,5 @@
 """Shared test fixtures for cutip tests."""
 
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
 
 
@@ -24,22 +20,20 @@ def tmp_project(tmp_path):
 
         vars_block = ""
         if vars:
-            vars_block = "vars:\n" + "".join(f"  {k}: \"{v}\"\n" for k, v in vars.items())
+            vars_block = "vars:\n" + "".join(f'  {k}: "{v}"\n' for k, v in vars.items())
 
         secrets_block = ""
         if secrets:
-            secrets_block = "secrets:\n" + "".join(f"  {k}: \"{v}\"\n" for k, v in secrets.items())
+            secrets_block = "secrets:\n" + "".join(
+                f'  {k}: "{v}"\n' for k, v in secrets.items()
+            )
 
         project_file.write_text(
-            f"project: {name}\n"
-            f"host: {host}\n"
-            f"{vars_block}"
-            f"{secrets_block}"
-            f"{config_extra}"
+            f"project: {name}\nhost: {host}\n{vars_block}{secrets_block}{config_extra}"
         )
 
         if workflow_code is None:
-            workflow_code = '''
+            workflow_code = """
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -50,7 +44,7 @@ def main(ctx):
 @action(name="Hello")
 def hello(ctx):
     return "hello"
-'''
+"""
 
         workflow_file.write_text(workflow_code)
 

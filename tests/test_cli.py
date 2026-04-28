@@ -3,22 +3,20 @@
 import json
 import subprocess
 import sys
-from pathlib import Path
-
-import pytest
 
 
 def _run_cutip(*args, cwd=None):
     """Run cutip CLI via python -m and return result."""
     result = subprocess.run(
         [sys.executable, "-m", "cutip", *args],
-        capture_output=True, text=True, cwd=cwd,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
     )
     return result
 
 
 class TestCLIHelp:
-
     def test_help(self):
         r = _run_cutip("--help")
         assert r.returncode == 0
@@ -37,7 +35,6 @@ class TestCLIHelp:
 
 
 class TestCLIInit:
-
     def test_init_creates_files(self, tmp_path):
         r = _run_cutip("init", "myapp", cwd=str(tmp_path))
         assert r.returncode == 0
@@ -72,7 +69,6 @@ class TestCLIInit:
 
 
 class TestCLIValidate:
-
     def test_validate_good_project(self, simple_project):
         project_file, _ = simple_project
         r = _run_cutip("validate", str(project_file))
@@ -92,7 +88,6 @@ class TestCLIValidate:
 
 
 class TestCLIPlan:
-
     def test_plan_shows_actions(self, simple_project):
         project_file, _ = simple_project
         r = _run_cutip("plan", str(project_file))
@@ -107,7 +102,6 @@ class TestCLIPlan:
 
 
 class TestCLIRun:
-
     def test_run_executes_workflow(self, simple_project):
         project_file, _ = simple_project
         r = _run_cutip("run", str(project_file))
@@ -137,7 +131,6 @@ class TestCLIRun:
 
 
 class TestCLITree:
-
     def test_tree_output(self, simple_project):
         project_file, _ = simple_project
         r = _run_cutip("tree", str(project_file))
@@ -153,7 +146,6 @@ class TestCLITree:
 
 
 class TestCLIShow:
-
     def test_show_summary(self, simple_project):
         project_file, _ = simple_project
         r = _run_cutip("show", str(project_file))
@@ -168,7 +160,6 @@ class TestCLIShow:
 
 
 class TestCLIVerify:
-
     def test_verify(self):
         r = _run_cutip("verify")
         assert r.returncode == 0

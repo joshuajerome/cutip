@@ -31,14 +31,18 @@ def validate_project(
     host = config.get("host", "local")
     valid_hosts = ("local", "container", "remote")
     if host not in valid_hosts:
-        errors.append(f"Invalid host: '{host}' (must be one of: {', '.join(valid_hosts)})")
+        errors.append(
+            f"Invalid host: '{host}' (must be one of: {', '.join(valid_hosts)})"
+        )
 
     # 3. Container runtime
     if host == "container":
         rt = config.get("container.rt", "auto")
         valid_rts = ("auto", "podman", "docker")
         if rt not in valid_rts:
-            errors.append(f"Invalid container.rt: '{rt}' (must be one of: {', '.join(valid_rts)})")
+            errors.append(
+                f"Invalid container.rt: '{rt}' (must be one of: {', '.join(valid_rts)})"
+            )
 
     # 4. Workflow file exists and parses
     if workflow_path:
@@ -49,19 +53,25 @@ def validate_project(
                 source = workflow_path.read_text(encoding="utf-8")
                 ast.parse(source, filename=str(workflow_path))
             except SyntaxError as e:
-                errors.append(f"Workflow syntax error: {workflow_path.name} line {e.lineno}: {e.msg}")
+                errors.append(
+                    f"Workflow syntax error: {workflow_path.name} line {e.lineno}: {e.msg}"
+                )
 
     # 5. Empty vars
     vars_dict = config.get("vars") or {}
     empty_vars = [k for k, v in vars_dict.items() if not v]
     if empty_vars:
-        warnings.append(f"Empty vars (use 'cutip vars set' or will be prompted): {', '.join(empty_vars)}")
+        warnings.append(
+            f"Empty vars (use 'cutip vars set' or will be prompted): {', '.join(empty_vars)}"
+        )
 
     # 6. Empty secrets
     secrets_dict = config.get("secrets") or {}
     empty_secrets = [k for k, v in secrets_dict.items() if not v]
     if empty_secrets:
-        warnings.append(f"Empty secrets (use 'cutip secrets set' or will be prompted): {', '.join(empty_secrets)}")
+        warnings.append(
+            f"Empty secrets (use 'cutip secrets set' or will be prompted): {', '.join(empty_secrets)}"
+        )
 
     # 7. Hosts file — check existence and empty values
     data = config.get("data") or {}
@@ -71,32 +81,42 @@ def validate_project(
         hosts_path = project_path.parent / hosts_ref
         if not hosts_path.exists():
             errors.append(f"{hosts_ref} not found")
-            errors.append(f"  Create with: cutip hosts set <key>=<value>")
+            errors.append("  Create with: cutip hosts set <key>=<value>")
         else:
             import yaml
+
             with open(hosts_path) as f:
                 h = yaml.safe_load(f) or {}
             empty_keys = [k for k, v in h.items() if not v and v != 0]
             if empty_keys:
                 warnings.append(f"Empty values in {hosts_ref}: {', '.join(empty_keys)}")
-                warnings.append(f"  Set with: cutip hosts set {' '.join(f'{k}=<value>' for k in empty_keys)}")
+                warnings.append(
+                    f"  Set with: cutip hosts set {' '.join(f'{k}=<value>' for k in empty_keys)}"
+                )
     elif host == "remote":
         # Fallback: host: remote without data.hosts
         hosts_path = project_path.parent / "hosts.yaml"
         if not hosts_path.exists() and not hosts:
             errors.append("hosts.yaml not found (required for host: remote)")
-            errors.append("  Create with: cutip hosts set host=<ip> username=<user> password=<pw>")
+            errors.append(
+                "  Create with: cutip hosts set host=<ip> username=<user> password=<pw>"
+            )
         else:
             h = hosts or {}
             missing = [f for f in ("host", "username", "password") if not h.get(f)]
             if missing:
-                errors.append(f"Missing SSH credentials in hosts.yaml: {', '.join(missing)}")
-                errors.append(f"  Set with: cutip hosts set {' '.join(f'{f}=<value>' for f in missing)}")
+                errors.append(
+                    f"Missing SSH credentials in hosts.yaml: {', '.join(missing)}"
+                )
+                errors.append(
+                    f"  Set with: cutip hosts set {' '.join(f'{f}=<value>' for f in missing)}"
+                )
 
     # 8. Container runtime reachable
     if host == "container":
         try:
             from rsty._core import container_connect
+
             container_connect()
         except ImportError:
             errors.append("rsty not installed (pip install rsty)")

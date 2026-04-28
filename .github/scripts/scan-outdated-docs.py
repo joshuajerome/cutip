@@ -86,7 +86,9 @@ def main() -> int:
     )
 
     client = anthropic.Anthropic(api_key=api_key)
-    print("[scan-outdated-docs] Calling Claude to audit documentation for stale content...")
+    print(
+        "[scan-outdated-docs] Calling Claude to audit documentation for stale content..."
+    )
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
