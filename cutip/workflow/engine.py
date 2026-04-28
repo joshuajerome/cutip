@@ -22,17 +22,16 @@ from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any
 
-from cutip.workflow.decorators import ActionMeta, StageMeta, _ACTION_ATTR
+from cutip.workflow.decorators import ActionMeta, _ACTION_ATTR
 from cutip.workflow import decorators as _decorators_module
 from cutip.workflow.introspect import (
     StageGroup,
-    extract_staged_action_order,
-    get_module_actions,
     get_orchestrator,
 )
 
 
 # ── Events ──────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ActionEvent:
@@ -50,6 +49,7 @@ EventCallback = Callable[[ActionEvent], None]
 
 
 # ── Context ─────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class WorkflowContext:
@@ -109,7 +109,10 @@ class WorkflowContext:
             )
 
         from rsty._core import ssh_connect
-        self._ssh = ssh_connect(host=host, username=username, password=password, port=port)
+
+        self._ssh = ssh_connect(
+            host=host, username=username, password=password, port=port
+        )
         self.ssh_host = host
         return self._ssh
 
@@ -135,6 +138,7 @@ class WorkflowContext:
         ssh_session = self.ssh  # triggers SSH connection if not already established
 
         from rsty._core import kubectl_connect
+
         self._kubectl = kubectl_connect(ssh_session, namespace=ns)
         return self._kubectl
 
@@ -149,6 +153,7 @@ class WorkflowContext:
             return self._container
 
         from rsty._core import container_connect
+
         self._container = container_connect()
         return self._container
 
@@ -179,6 +184,7 @@ class WorkflowContext:
 
 
 # ── Engine ──────────────────────────────────────────────────────────────────
+
 
 class ActionFailed(Exception):
     """Raised when an action fails after all retries."""
@@ -263,6 +269,7 @@ class WorkflowEngine:
             def make_wrapper(fn_name: str, fn: Callable, m: ActionMeta):
                 def wrapper(*args, **kwargs):
                     return self._execute_action(m)
+
                 return wrapper
 
             setattr(self.module, func_name, make_wrapper(func_name, func, meta))
@@ -272,17 +279,21 @@ class WorkflowEngine:
 
         def _runtime_stage(title=None, description=None, parallel=False):
             if self._current_stage is not None:
-                self.on_event(ActionEvent(
-                    event="stage_completed",
-                    action=self._current_stage,
-                ))
+                self.on_event(
+                    ActionEvent(
+                        event="stage_completed",
+                        action=self._current_stage,
+                    )
+                )
             stage_title = title or "Stage"
             self._current_stage = stage_title
-            self.on_event(ActionEvent(
-                event="stage_started",
-                action=stage_title,
-                detail=description or "",
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="stage_started",
+                    action=stage_title,
+                    detail=description or "",
+                )
+            )
 
         _decorators_module.stage = _runtime_stage
 
@@ -295,10 +306,12 @@ class WorkflowEngine:
         """Restore original @action functions and stage()."""
         # Emit final stage_completed
         if self._current_stage is not None:
-            self.on_event(ActionEvent(
-                event="stage_completed",
-                action=self._current_stage,
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="stage_completed",
+                    action=self._current_stage,
+                )
+            )
 
         for func_name, original in self._originals.items():
             setattr(self.module, func_name, original)
@@ -311,21 +324,25 @@ class WorkflowEngine:
             stage = group.stage
             stage_title = stage.title or "Stage"
 
-            self.on_event(ActionEvent(
-                event="stage_started",
-                action=stage_title,
-                detail=stage.description or "",
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="stage_started",
+                    action=stage_title,
+                    detail=stage.description or "",
+                )
+            )
 
             if stage.parallel:
                 self._run_parallel(group.actions, stage_title)
             else:
                 self._run_sequential(group.actions, stage_title)
 
-            self.on_event(ActionEvent(
-                event="stage_completed",
-                action=stage_title,
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="stage_completed",
+                    action=stage_title,
+                )
+            )
 
     def _run_sequential(self, actions: list[ActionMeta], stage_title: str) -> None:
         """Execute actions one at a time, in order."""
@@ -361,7 +378,9 @@ class WorkflowEngine:
         # Find the callable
         func_name = self._name_to_func.get(meta.name)
         if func_name is None or func_name not in self._actions:
-            raise ActionFailed(meta.name, RuntimeError(f"Action '{meta.name}' not found"))
+            raise ActionFailed(
+                meta.name, RuntimeError(f"Action '{meta.name}' not found")
+            )
         func, runtime_meta = self._actions[func_name]
 
         # Runtime meta is authoritative — it has the actual decorator params
@@ -375,24 +394,27 @@ class WorkflowEngine:
             except Exception:
                 should_run = False
             if not should_run:
-                self.on_event(ActionEvent(
-                    event="action_skipped",
-                    action=meta.name,
-                    detail="when condition returned False",
-                ))
+                self.on_event(
+                    ActionEvent(
+                        event="action_skipped",
+                        action=meta.name,
+                        detail="when condition returned False",
+                    )
+                )
                 return None
 
         # Execute with retry/timeout
-        last_error: Exception | None = None
         max_attempts = meta.retry + 1
         current_delay = meta.delay
 
         for attempt in range(1, max_attempts + 1):
-            self.on_event(ActionEvent(
-                event="action_started",
-                action=meta.name,
-                attempt=attempt,
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="action_started",
+                    action=meta.name,
+                    attempt=attempt,
+                )
+            )
 
             try:
                 if meta.timeout is not None:
@@ -402,38 +424,42 @@ class WorkflowEngine:
 
                 # Success
                 self.ctx.results[meta.name] = result
-                self.on_event(ActionEvent(
-                    event="action_completed",
-                    action=meta.name,
-                    attempt=attempt,
-                    result=result,
-                ))
+                self.on_event(
+                    ActionEvent(
+                        event="action_completed",
+                        action=meta.name,
+                        attempt=attempt,
+                        result=result,
+                    )
+                )
                 return result
 
             except Exception as e:
-                last_error = e
-
                 # Check if this error type should stop retries immediately
                 if attempt < max_attempts and not self._is_fatal(e):
-                    self.on_event(ActionEvent(
-                        event="action_retrying",
-                        action=meta.name,
-                        attempt=attempt,
-                        detail=f"Retrying in {current_delay}s ({attempt}/{max_attempts}): {e}",
-                        error=e,
-                    ))
+                    self.on_event(
+                        ActionEvent(
+                            event="action_retrying",
+                            action=meta.name,
+                            attempt=attempt,
+                            detail=f"Retrying in {current_delay}s ({attempt}/{max_attempts}): {e}",
+                            error=e,
+                        )
+                    )
                     if current_delay > 0:
                         time.sleep(current_delay)
                     current_delay *= meta.backoff
                     continue
 
                 # All retries exhausted
-                self.on_event(ActionEvent(
-                    event="action_failed",
-                    action=meta.name,
-                    attempt=attempt,
-                    error=e,
-                ))
+                self.on_event(
+                    ActionEvent(
+                        event="action_failed",
+                        action=meta.name,
+                        attempt=attempt,
+                        error=e,
+                    )
+                )
 
                 # Try on_fail action
                 if meta.on_fail:
@@ -455,6 +481,7 @@ class WorkflowEngine:
         """
         try:
             from rsty.errors import AuthError, ValidationError
+
             return isinstance(error, (AuthError, ValidationError))
         except ImportError:
             pass
@@ -478,6 +505,7 @@ class WorkflowEngine:
         )
 
         if use_signal:
+
             def _alarm_handler(signum, frame):
                 raise TimeoutError(f"Action timed out after {timeout}s")
 
@@ -489,7 +517,10 @@ class WorkflowEngine:
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, old_handler)
         else:
-            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+            from concurrent.futures import (
+                ThreadPoolExecutor,
+                TimeoutError as FutureTimeout,
+            )
 
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(func, self.ctx)
@@ -505,23 +536,29 @@ class WorkflowEngine:
             return
 
         func, meta = self._actions[func_name]
-        self.on_event(ActionEvent(
-            event="action_started",
-            action=on_fail_name,
-            detail=f"on_fail triggered by: {original_error}",
-        ))
+        self.on_event(
+            ActionEvent(
+                event="action_started",
+                action=on_fail_name,
+                detail=f"on_fail triggered by: {original_error}",
+            )
+        )
 
         try:
             result = func(self.ctx)
             self.ctx.results[on_fail_name] = result
-            self.on_event(ActionEvent(
-                event="action_completed",
-                action=on_fail_name,
-                result=result,
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="action_completed",
+                    action=on_fail_name,
+                    result=result,
+                )
+            )
         except Exception as e:
-            self.on_event(ActionEvent(
-                event="action_failed",
-                action=on_fail_name,
-                error=e,
-            ))
+            self.on_event(
+                ActionEvent(
+                    event="action_failed",
+                    action=on_fail_name,
+                    error=e,
+                )
+            )

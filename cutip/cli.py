@@ -19,6 +19,7 @@ console = Console()
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+
 def _resolve_project(project_arg: str | None) -> Path:
     """Resolve a project YAML file path.
 
@@ -70,7 +71,7 @@ def _resolve_project(project_arg: str | None) -> Path:
             name = data.get("project", p.stem)
             host = data.get("host", "local")
             console.print(f"  {p}  — {name} (host: {host})")
-        console.print(f"\nUsage: cutip run <project.yaml>")
+        console.print("\nUsage: cutip run <project.yaml>")
         sys.exit(0)
 
     console.print("[red]Error:[/red] No project YAML found in current directory")
@@ -91,6 +92,7 @@ def _resolve_workflow(project_path: Path, config: dict) -> Path:
 def _load_config(project_path: Path) -> dict:
     """Load and return project config as a dict."""
     import yaml
+
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
     return config
@@ -102,6 +104,7 @@ def _resolve_host(config: dict) -> str:
 
 
 # ── Commands ────────────────────────────────────────────────────────────────
+
 
 def cmd_validate(args):
     """Validate a project YAML file."""
@@ -117,7 +120,9 @@ def cmd_validate(args):
         print(json.dumps(result, indent=2))
         return
 
-    table = Table(title="Validation", box=box.ROUNDED, show_header=False, title_style="bold")
+    table = Table(
+        title="Validation", box=box.ROUNDED, show_header=False, title_style="bold"
+    )
     table.add_column("Field", style="cyan")
     table.add_column("Value")
 
@@ -131,7 +136,10 @@ def cmd_validate(args):
     table.add_row("Vars", str(result["vars_count"]))
 
     if result["empty_secrets"]:
-        table.add_row("Secrets", f"{result['secrets_count']} ([yellow]{len(result['empty_secrets'])} empty[/yellow])")
+        table.add_row(
+            "Secrets",
+            f"{result['secrets_count']} ([yellow]{len(result['empty_secrets'])} empty[/yellow])",
+        )
     else:
         table.add_row("Secrets", f"{result['secrets_count']}, all set")
 
@@ -219,9 +227,20 @@ def cmd_tree(args):
         for name in config["networks"]:
             networks_branch.add(f"[cyan]{name}[/cyan]")
 
-    excluded = {"project", "host", "container.rt",
-                "workflow", "vars", "secrets", "connections",
-                "image", "container", "containers", "network", "networks"}
+    excluded = {
+        "project",
+        "host",
+        "container.rt",
+        "workflow",
+        "vars",
+        "secrets",
+        "connections",
+        "image",
+        "container",
+        "containers",
+        "network",
+        "networks",
+    }
     extra = {k for k in config if k not in excluded}
     if extra:
         tree.add(f"config: [dim]{', '.join(sorted(extra))}[/dim]")
@@ -263,7 +282,6 @@ def _show_summary(args):
     project_path = _resolve_project(args.get("project"))
     config = _load_config(project_path)
     host = _resolve_host(config)
-    project = config.get("project", project_path.stem)
     workflow_path = _resolve_workflow(project_path, config)
 
     # Print tree
@@ -273,12 +291,14 @@ def _show_summary(args):
     # Steps
     console.print("[bold]Steps:[/bold]")
     console.print(f"  1. Read [cyan]{project_path}[/cyan]")
-    console.print(f"  2. Validate config")
+    console.print("  2. Validate config")
 
     empty_vars = [k for k, v in (config.get("vars") or {}).items() if not v]
     step = 3
     if empty_vars:
-        console.print(f"  {step}. Prompt for empty vars: [yellow]{', '.join(empty_vars)}[/yellow]")
+        console.print(
+            f"  {step}. Prompt for empty vars: [yellow]{', '.join(empty_vars)}[/yellow]"
+        )
         step += 1
 
     if host == "local":
@@ -294,6 +314,7 @@ def _show_summary(args):
     # Workflow actions
     if workflow_path.exists():
         from cutip.workflow.introspect import extract_staged_action_order
+
         groups = extract_staged_action_order(workflow_path)
         if groups:
             console.print()
@@ -325,6 +346,7 @@ def _show_workflow(args):
         sys.exit(1)
 
     from cutip.workflow.introspect import extract_staged_action_order
+
     groups = extract_staged_action_order(workflow_path)
 
     if not groups:
@@ -399,10 +421,11 @@ def cmd_plan(args):
         sys.exit(1)
 
     from cutip.workflow.introspect import extract_staged_action_order
+
     groups = extract_staged_action_order(workflow_path)
 
     if not groups:
-        console.print(f"\n  [dim]No @action-decorated functions found[/dim]")
+        console.print("\n  [dim]No @action-decorated functions found[/dim]")
         return
 
     console.print()
@@ -430,7 +453,9 @@ def cmd_plan(args):
             console.print(f"    {action_num}. {a.name}{suffix}")
         console.print()
 
-    console.print(f"  [dim]{action_num} action(s) across {len(groups)} stage(s)[/dim]\n")
+    console.print(
+        f"  [dim]{action_num} action(s) across {len(groups)} stage(s)[/dim]\n"
+    )
 
 
 def cmd_run(args):
@@ -465,7 +490,6 @@ def cmd_run(args):
         console.print()
 
     # Load hosts file (for remote connections)
-    import yaml
     hosts = None
     hosts_path_arg = args.get("hosts")
     if hosts_path_arg:
@@ -480,9 +504,12 @@ def cmd_run(args):
     # Pre-run validation
     workflow_path = _resolve_workflow(project_path, config)
     from cutip.workflow.validate import validate_project
-    errors, warnings = validate_project(project_path, config, hosts=hosts, workflow_path=workflow_path)
+
+    errors, warnings = validate_project(
+        project_path, config, hosts=hosts, workflow_path=workflow_path
+    )
     if errors:
-        console.print(f"\n[red]Validation failed:[/red]")
+        console.print("\n[red]Validation failed:[/red]")
         for err in errors:
             console.print(f"  [red]✗[/red] {err}")
         sys.exit(1)
@@ -504,7 +531,6 @@ def cmd_run(args):
     spec.loader.exec_module(module)
 
     # Check if workflow uses @action/@orchestrator decorators → use engine
-    from cutip.workflow.engine import WorkflowEngine, ActionFailed
     from cutip.workflow.decorators import _ACTION_ATTR
 
     has_actions = any(
@@ -520,7 +546,9 @@ def cmd_run(args):
     elif hasattr(module, "main"):
         module.main(config)
     else:
-        console.print("[red]Error:[/red] workflow has no @action functions, run_standalone(), or main()")
+        console.print(
+            "[red]Error:[/red] workflow has no @action functions, run_standalone(), or main()"
+        )
         sys.exit(1)
 
 
@@ -552,7 +580,10 @@ def _run_with_engine(module, config, project_path, hosts=None):
             if event.attempt > 1:
                 label += f" [dim](attempt {event.attempt})[/dim]"
             console.print(label)
-            _log(f"  [start] {event.action}" + (f" (attempt {event.attempt})" if event.attempt > 1 else ""))
+            _log(
+                f"  [start] {event.action}"
+                + (f" (attempt {event.attempt})" if event.attempt > 1 else "")
+            )
         elif event.event == "action_completed":
             console.print(f"  [green]✓[/green] {event.action}")
             _log(f"  [done] {event.action}")
@@ -571,7 +602,7 @@ def _run_with_engine(module, config, project_path, hosts=None):
     engine = WorkflowEngine(module, config, on_event=on_event, hosts=hosts)
 
     try:
-        ctx = engine.run()
+        engine.run()
         console.print(f"\n[green]✓ {project} complete[/green]")
         _log(f"\n[OK] {project} complete")
     except ActionFailed as e:
@@ -664,7 +695,7 @@ def greet(ctx):
     console.print(f"  {yaml_path}")
     console.print(f"  {workflow_path}")
     console.print()
-    console.print(f"  [bold]Next:[/bold]")
+    console.print("  [bold]Next:[/bold]")
     console.print(f"    cutip show {yaml_path}")
     console.print(f"    cutip run {yaml_path}")
 
@@ -708,13 +739,15 @@ def cmd_verify(args):
             table.add_row(name, "[dim]· not found[/dim]")
 
     try:
-        import rsty
+        import rsty  # noqa: F401  (importability probe)
+
         table.add_row("rsty", "[green]✓[/green] installed")
     except ImportError:
         table.add_row("rsty", "[red]✗ not installed[/red] (pip install rsty)")
 
     try:
-        from cutip._core import validate
+        from cutip._core import validate  # noqa: F401  (importability probe)
+
         table.add_row("cutip core", "[green]✓[/green] loaded")
     except ImportError:
         table.add_row("cutip core", "[red]✗ not loaded[/red]")
@@ -725,6 +758,7 @@ def cmd_verify(args):
 def _yaml_read(path: Path) -> dict:
     """Read a YAML file, return dict (empty dict if missing or null)."""
     import yaml
+
     if not path.exists():
         return {}
     with open(path) as f:
@@ -734,15 +768,20 @@ def _yaml_read(path: Path) -> dict:
 def _yaml_write(path: Path, data: dict) -> None:
     """Write a dict to a YAML file, preserving key order."""
     import yaml
+
     with open(path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        yaml.dump(
+            data, f, default_flow_style=False, sort_keys=False, allow_unicode=True
+        )
 
 
 def cmd_vars(args):
     """Manage project variables."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
-        console.print("[bold]cutip vars[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print(
+            "[bold]cutip vars[/bold] <list|get|set> [project.yaml] [key=value ...]"
+        )
         console.print("  list   Show all vars and their values")
         console.print("  get    Get a single var value")
         console.print("  set    Set one or more vars")
@@ -777,13 +816,17 @@ def cmd_vars(args):
     elif subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
-            console.print("[red]Usage:[/red] cutip vars set [project.yaml] key=value ...")
+            console.print(
+                "[red]Usage:[/red] cutip vars set [project.yaml] key=value ..."
+            )
             sys.exit(1)
         if "vars" not in config or config["vars"] is None:
             config["vars"] = {}
         for pair in pairs:
             if "=" not in pair:
-                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
+                console.print(
+                    f"[red]Error:[/red] invalid format '{pair}', expected key=value"
+                )
                 sys.exit(1)
             k, v = pair.split("=", 1)
             config["vars"][k] = v
@@ -795,7 +838,9 @@ def cmd_secrets(args):
     """Manage project secrets."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
-        console.print("[bold]cutip secrets[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print(
+            "[bold]cutip secrets[/bold] <list|get|set> [project.yaml] [key=value ...]"
+        )
         console.print("  list   Show all secret keys (values masked)")
         console.print("  get    Get a single secret value")
         console.print("  set    Set one or more secrets")
@@ -830,13 +875,17 @@ def cmd_secrets(args):
     elif subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
-            console.print("[red]Usage:[/red] cutip secrets set [project.yaml] key=value ...")
+            console.print(
+                "[red]Usage:[/red] cutip secrets set [project.yaml] key=value ..."
+            )
             sys.exit(1)
         if "secrets" not in config or config["secrets"] is None:
             config["secrets"] = {}
         for pair in pairs:
             if "=" not in pair:
-                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
+                console.print(
+                    f"[red]Error:[/red] invalid format '{pair}', expected key=value"
+                )
                 sys.exit(1)
             k, v = pair.split("=", 1)
             config["secrets"][k] = v
@@ -862,7 +911,9 @@ def cmd_hosts(args):
     """Manage project hosts file."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
-        console.print("[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [key=value ...]")
+        console.print(
+            "[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [key=value ...]"
+        )
         console.print("  list   Show all host entries (passwords masked)")
         console.print("  get    Get a single host value")
         console.print("  set    Set one or more host values")
@@ -892,17 +943,23 @@ def cmd_hosts(args):
         if key in hosts:
             console.print(hosts[key] or "")
         else:
-            console.print(f"[red]Error:[/red] key '{key}' not found in {hosts_path.name}")
+            console.print(
+                f"[red]Error:[/red] key '{key}' not found in {hosts_path.name}"
+            )
             sys.exit(1)
 
     elif subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
-            console.print("[red]Usage:[/red] cutip hosts set [project.yaml] key=value ...")
+            console.print(
+                "[red]Usage:[/red] cutip hosts set [project.yaml] key=value ..."
+            )
             sys.exit(1)
         for pair in pairs:
             if "=" not in pair:
-                console.print(f"[red]Error:[/red] invalid format '{pair}', expected key=value")
+                console.print(
+                    f"[red]Error:[/red] invalid format '{pair}', expected key=value"
+                )
                 sys.exit(1)
             k, v = pair.split("=", 1)
             hosts[k] = v
@@ -940,13 +997,13 @@ def cmd_cmd(args):
         if not commands:
             console.print("[dim]No commands defined in project[/dim]")
             return
-        console.print(f"[bold]Available commands:[/bold]\n")
+        console.print("[bold]Available commands:[/bold]\n")
         for name, cmd_def in commands.items():
             cd = _normalize(cmd_def)
             cmd_args = cd.get("args", "")
             cmd_help = cd.get("help", "")
             console.print(f"  [cyan]{name}[/cyan]  {cmd_args}  [dim]{cmd_help}[/dim]")
-        console.print(f"\n  Usage: cutip cmd [project.yaml] <command> [args...]")
+        console.print("\n  Usage: cutip cmd [project.yaml] <command> [args...]")
         return
 
     # Command name given but not defined
@@ -1015,30 +1072,32 @@ def main():
     args = sys.argv[1:]
 
     if not args or args[0] in ("-h", "--help", "help"):
-        console.print(Panel(
-            "[bold]cutip[/bold] — workflow automation framework\n\n"
-            "[bold]Commands:[/bold]\n"
-            "  init       Scaffold a new project\n"
-            "  validate   Validate project config\n"
-            "  show       Project summary or config section\n"
-            "  plan       Show execution plan (dry run)\n"
-            "  run        Execute workflow\n"
-            "  cmd        Run a project-defined command\n"
-            "  tree       Print config structure\n"
-            "  vars       Manage project variables (list/get/set)\n"
-            "  secrets    Manage project secrets (list/get/set)\n"
-            "  hosts      Manage connection credentials (list/get/set)\n"
-            "  verify     Check prerequisites\n\n"
-            "[bold]Usage:[/bold]\n"
-            "  cutip init myproject\n"
-            "  cutip run myproject.yaml\n"
-            "  cutip vars set gui.yaml greeting=hello\n"
-            "  cutip hosts set gui.yaml vm.host=10.0.0.1\n"
-            "  cutip cmd gui.yaml generate sheets/my.xlsx\n"
-            "  cutip validate myproject.yaml",
-            title=f"cutip v{VERSION}",
-            box=box.ROUNDED,
-        ))
+        console.print(
+            Panel(
+                "[bold]cutip[/bold] — workflow automation framework\n\n"
+                "[bold]Commands:[/bold]\n"
+                "  init       Scaffold a new project\n"
+                "  validate   Validate project config\n"
+                "  show       Project summary or config section\n"
+                "  plan       Show execution plan (dry run)\n"
+                "  run        Execute workflow\n"
+                "  cmd        Run a project-defined command\n"
+                "  tree       Print config structure\n"
+                "  vars       Manage project variables (list/get/set)\n"
+                "  secrets    Manage project secrets (list/get/set)\n"
+                "  hosts      Manage connection credentials (list/get/set)\n"
+                "  verify     Check prerequisites\n\n"
+                "[bold]Usage:[/bold]\n"
+                "  cutip init myproject\n"
+                "  cutip run myproject.yaml\n"
+                "  cutip vars set gui.yaml greeting=hello\n"
+                "  cutip hosts set gui.yaml vm.host=10.0.0.1\n"
+                "  cutip cmd gui.yaml generate sheets/my.xlsx\n"
+                "  cutip validate myproject.yaml",
+                title=f"cutip v{VERSION}",
+                box=box.ROUNDED,
+            )
+        )
         return
 
     if args[0] in ("--version", "version"):
@@ -1065,7 +1124,9 @@ def main():
                 parsed["cmd_name"] = None
                 COMMANDS[command](parsed)
                 return
-            elif arg.endswith(".yaml") or (not cmd_name and Path(arg).exists() and arg.endswith(".yaml")):
+            elif arg.endswith(".yaml") or (
+                not cmd_name and Path(arg).exists() and arg.endswith(".yaml")
+            ):
                 parsed["project"] = arg
             elif cmd_name is None and not arg.startswith("-"):
                 cmd_name = arg

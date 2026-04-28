@@ -79,7 +79,10 @@ def main() -> None:
         sys.exit(1)
 
     changed_block = _changed_files_block()
-    if "no Python files changed" in changed_block or "no changed files list" in changed_block:
+    if (
+        "no Python files changed" in changed_block
+        or "no changed files list" in changed_block
+    ):
         print("[analyze-doc-coverage] No Python files changed — skipping.")
         return
 

@@ -163,12 +163,18 @@ def extract_staged_action_order(workflow_path: Path) -> list[StageGroup]:
     if not groups:
         all_actions: list[str] = []
         _collect_action_calls(orch_body, action_funcs, all_actions)
-        return [StageGroup(stage=StageMeta(), actions=[action_funcs[n] for n in all_actions])]
+        return [
+            StageGroup(
+                stage=StageMeta(), actions=[action_funcs[n] for n in all_actions]
+            )
+        ]
 
     # Number untitled stages
     for i, group in enumerate(groups):
         if group.stage.title is None:
-            numbered = StageMeta(title=f"Stage {i + 1}", description=group.stage.description)
+            numbered = StageMeta(
+                title=f"Stage {i + 1}", description=group.stage.description
+            )
             groups[i] = StageGroup(stage=numbered, actions=group.actions)
 
     return groups
@@ -188,7 +194,9 @@ def _collect_staged_items(
         if stage_meta is not None:
             # Flush current group if it has actions
             if current_actions:
-                groups.append(StageGroup(stage=current_stage, actions=list(current_actions)))
+                groups.append(
+                    StageGroup(stage=current_stage, actions=list(current_actions))
+                )
                 current_actions.clear()
             current_stage = stage_meta
             continue
@@ -248,7 +256,9 @@ def _collect_staged_items_with_state(
     current_actions: list[ActionMeta],
 ) -> tuple[StageMeta, list[ActionMeta]]:
     """Wrapper that threads mutable state through recursive calls."""
-    return _collect_staged_items(stmts, action_funcs, groups, current_stage, current_actions)
+    return _collect_staged_items(
+        stmts, action_funcs, groups, current_stage, current_actions
+    )
 
 
 def _extract_stage_call(stmt: ast.stmt) -> StageMeta | None:
@@ -361,7 +371,9 @@ def _extract_meta_from_decorator(deco: ast.Call) -> ActionMeta | None:
         delay=_float_kwarg(kwargs, "delay", 0.0),
         backoff=_float_kwarg(kwargs, "backoff", 1.0),
         timeout=_float_kwarg_optional(kwargs, "timeout"),
-        on_fail=kwargs.get("on_fail") if isinstance(kwargs.get("on_fail"), str) else None,
+        on_fail=kwargs.get("on_fail")
+        if isinstance(kwargs.get("on_fail"), str)
+        else None,
         continue_on_fail=bool(kwargs.get("continue_on_fail", False)),
         # `when` is a callable — can't be parsed from AST, only available at runtime
     )
@@ -420,7 +432,11 @@ def _check_call(
 ) -> None:
     """If *call* targets a known action function, append to *call_order*."""
     func = call.func
-    if isinstance(func, ast.Name) and func.id in action_funcs and func.id not in call_order:
+    if (
+        isinstance(func, ast.Name)
+        and func.id in action_funcs
+        and func.id not in call_order
+    ):
         call_order.append(func.id)
 
 

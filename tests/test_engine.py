@@ -2,7 +2,6 @@
 
 import importlib.util
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -15,8 +14,8 @@ from cutip.workflow.engine import (
 
 # ── WorkflowContext ──────────────────────────────────────────────────────────
 
-class TestWorkflowContext:
 
+class TestWorkflowContext:
     def test_from_config_local(self):
         ctx = WorkflowContext.from_config({"project": "test", "host": "local"})
         assert ctx.host == "local"
@@ -25,25 +24,31 @@ class TestWorkflowContext:
         assert ctx.results == {}
 
     def test_from_config_container(self):
-        ctx = WorkflowContext.from_config({
-            "project": "test",
-            "host": "container",
-            "container.rt": "podman",
-        })
+        ctx = WorkflowContext.from_config(
+            {
+                "project": "test",
+                "host": "container",
+                "container.rt": "podman",
+            }
+        )
         assert ctx.host == "container"
         assert ctx.container_runtime == "podman"
 
     def test_from_config_vars_and_secrets(self):
-        ctx = WorkflowContext.from_config({
-            "project": "test",
-            "vars": {"key": "value"},
-            "secrets": {"pw": "secret"},
-        })
+        ctx = WorkflowContext.from_config(
+            {
+                "project": "test",
+                "vars": {"key": "value"},
+                "secrets": {"pw": "secret"},
+            }
+        )
         assert ctx.vars == {"key": "value"}
         assert ctx.secrets == {"pw": "secret"}
 
     def test_from_config_null_vars(self):
-        ctx = WorkflowContext.from_config({"project": "test", "vars": None, "secrets": None})
+        ctx = WorkflowContext.from_config(
+            {"project": "test", "vars": None, "secrets": None}
+        )
         assert ctx.vars == {}
         assert ctx.secrets == {}
 
@@ -69,10 +74,12 @@ class TestWorkflowContext:
             _ = ctx.ssh
 
     def test_data_from_data_section(self):
-        ctx = WorkflowContext.from_config({
-            "project": "test",
-            "data": {"kubernetes": {"namespace": "prod"}},
-        })
+        ctx = WorkflowContext.from_config(
+            {
+                "project": "test",
+                "data": {"kubernetes": {"namespace": "prod"}},
+            }
+        )
         assert ctx.data["kubernetes"]["namespace"] == "prod"
 
     def test_close_connections(self):
@@ -80,6 +87,7 @@ class TestWorkflowContext:
 
         class FakeSSH:
             closed = False
+
             def close(self):
                 self.closed = True
 
@@ -89,6 +97,7 @@ class TestWorkflowContext:
 
 
 # ── WorkflowEngine ───────────────────────────────────────────────────────────
+
 
 def _load_module(code: str, name: str = "test_wf") -> object:
     """Write workflow code to a temp file and load it as a module."""
@@ -102,9 +111,8 @@ def _load_module(code: str, name: str = "test_wf") -> object:
 
 
 class TestWorkflowEngine:
-
     def test_sequential_execution(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -120,14 +128,14 @@ def a(ctx):
 @action(name="B")
 def b(ctx):
     return "b"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert ctx.results["A"] == "a"
         assert ctx.results["B"] == "b"
 
     def test_parallel_stage(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -143,14 +151,14 @@ def a(ctx):
 @action(name="B")
 def b(ctx):
     return "b"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert "A" in ctx.results
         assert "B" in ctx.results
 
     def test_retry_on_failure(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 counter = {"n": 0}
@@ -166,13 +174,13 @@ def flaky(ctx):
     if counter["n"] < 3:
         raise RuntimeError("not yet")
     return "ok"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert ctx.results["Flaky"] == "ok"
 
     def test_on_fail_triggers_recovery(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -187,14 +195,14 @@ def failing(ctx):
 @action(name="Recovery")
 def recovery(ctx):
     return "recovered"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert ctx.results["Recovery"] == "recovered"
         assert ctx.results["Failing"] is None
 
     def test_when_skips_action(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -210,14 +218,14 @@ def skipped(ctx):
 @action(name="Not skipped")
 def not_skipped(ctx):
     return "ran"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert "Skipped" not in ctx.results
         assert ctx.results["Not skipped"] == "ran"
 
     def test_continue_on_fail(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -233,13 +241,13 @@ def failing(ctx):
 @action(name="After")
 def after(ctx):
     return "continued"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         ctx = engine.run()
         assert ctx.results["After"] == "continued"
 
     def test_action_failed_on_exhausted_retries(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -250,13 +258,13 @@ def main(ctx):
 @action(name="Always fail", retry=1, delay=0)
 def always_fail(ctx):
     raise RuntimeError("nope")
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         with pytest.raises(ActionFailed):
             engine.run()
 
     def test_conditional_branching(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -275,14 +283,14 @@ def local_action(ctx):
 @action(name="Remote action")
 def remote_action(ctx):
     return "remote"
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test", "host": "local"})
         ctx = engine.run()
         assert ctx.results["Local action"] == "local"
         assert "Remote action" not in ctx.results
 
     def test_stage_events_emitted(self):
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 @orchestrator
@@ -293,9 +301,11 @@ def main(ctx):
 @action(name="A")
 def a(ctx):
     return "a"
-''')
+""")
         events = []
-        engine = WorkflowEngine(module, {"project": "test"}, on_event=lambda e: events.append(e.event))
+        engine = WorkflowEngine(
+            module, {"project": "test"}, on_event=lambda e: events.append(e.event)
+        )
         engine.run()
         assert "stage_started" in events
         assert "action_started" in events
@@ -303,12 +313,12 @@ def a(ctx):
         assert "stage_completed" in events
 
     def test_fallback_to_main_without_decorators(self):
-        module = _load_module('''
+        module = _load_module("""
 ran = False
 def main(ctx):
     global ran
     ran = True
-''')
+""")
         config = {"project": "test"}
         engine = WorkflowEngine(module, config)
         engine.run()
@@ -316,7 +326,7 @@ def main(ctx):
 
     def test_fatal_error_stops_retry(self):
         """AuthError should not be retried."""
-        module = _load_module('''
+        module = _load_module("""
 from cutip.workflow import action, orchestrator, stage
 
 counter = {"n": 0}
@@ -334,7 +344,7 @@ def auth_fail(ctx):
         pass
     AuthError.__name__ = "AuthError"
     raise AuthError("bad creds")
-''')
+""")
         engine = WorkflowEngine(module, {"project": "test"})
         with pytest.raises(ActionFailed):
             engine.run()

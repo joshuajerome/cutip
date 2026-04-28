@@ -1,15 +1,9 @@
 """Tests for cutip.workflow.validate — comprehensive project validation."""
 
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from cutip.workflow.validate import validate_project
 
 
 class TestValidateProject:
-
     def test_valid_local_project(self, tmp_path):
         wf = tmp_path / "test.workflow.py"
         wf.write_text("from cutip.workflow import action, orchestrator\n")
@@ -110,4 +104,3 @@ class TestValidateProject:
         )
         cred_errors = [e for e in errors if "missing" in e.lower() and "SSH" in e]
         assert cred_errors == []
-

@@ -167,7 +167,9 @@ Example response structure:
     try:
         file_changes: dict[str, str] = json.loads(json_part.strip())
     except json.JSONDecodeError as exc:
-        print(f"ERROR: Could not parse Claude's response as JSON: {exc}", file=sys.stderr)
+        print(
+            f"ERROR: Could not parse Claude's response as JSON: {exc}", file=sys.stderr
+        )
         print(f"--- Raw response ---\n{response_text}\n---", file=sys.stderr)
         sys.exit(1)
 

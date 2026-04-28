@@ -46,7 +46,9 @@ def _cli_help() -> str:
 def _version() -> str:
     if not PYPROJECT_PATH.exists():
         return "(unknown)"
-    match = re.search(r'^version\s*=\s*"([^"]+)"', PYPROJECT_PATH.read_text(), re.MULTILINE)
+    match = re.search(
+        r'^version\s*=\s*"([^"]+)"', PYPROJECT_PATH.read_text(), re.MULTILINE
+    )
     return match.group(1) if match else "(unknown)"
 
 
@@ -82,7 +84,9 @@ def main() -> int:
     drift_report = parts[0].strip()
     updated_sections = parts[1].strip() if len(parts) == 2 else ""
 
-    has_changes = bool(updated_sections) and "No updates required" not in updated_sections
+    has_changes = (
+        bool(updated_sections) and "No updates required" not in updated_sections
+    )
 
     print("\n## Drift Report\n")
     print(drift_report)
