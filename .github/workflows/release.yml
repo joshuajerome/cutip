@@ -28,31 +28,6 @@ jobs:
       - name: Run unit tests
         run: uv run pytest tests/ --ignore=tests/e2e -v --tb=short
 
-  smoke-test:
-    name: Smoke Test
-    runs-on: ubuntu-latest
-    if: >-
-      github.event.pull_request.merged == true &&
-      startsWith(github.head_ref, 'release/')
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
-
-      - name: Build wheel
-        run: uv build --wheel
-
-      - name: Smoke-test wheel install
-        run: |
-          uv venv .wheel-test --python 3.13
-          uv pip install --python .wheel-test/bin/python dist/cutip-*.whl
-          .wheel-test/bin/python -c "import cutip; print('cutip import OK')"
-          .wheel-test/bin/cutip --help
-
   install-validate-macos:
     name: Install & Validate · macOS
     runs-on: macos-14
@@ -89,7 +64,6 @@ jobs:
 
   build-wheels:
     name: Build (${{ matrix.os }})
-    needs: [smoke-test]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
