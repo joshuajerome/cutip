@@ -64,14 +64,6 @@ pub struct Config {
     #[serde(default, rename = "container.rt")]
     pub container_rt: Option<String>,
 
-    /// Legacy container_runtime field.
-    #[serde(default)]
-    pub container_runtime: Option<String>,
-
-    /// Legacy backend field — maps to host + container_rt for backward compat.
-    #[serde(default)]
-    pub backend: Option<String>,
-
     /// Workflow file path (default: "workflow.py").
     #[serde(default = "default_workflow")]
     pub workflow: String,
@@ -107,10 +99,6 @@ pub struct Config {
     /// Workflow data — freeform key-value pairs accessed as ctx.data in workflows.
     #[serde(default)]
     pub data: HashMap<String, serde_yaml::Value>,
-
-    /// Extra config sections not in a known field — passed through for backward compat.
-    #[serde(flatten)]
-    pub extra: HashMap<String, serde_yaml::Value>,
 }
 
 /// Image build/pull configuration.
@@ -229,37 +217,6 @@ pub struct NetworkConfig {
     /// Gateway IP.
     #[serde(default)]
     pub gateway: Option<String>,
-}
-
-impl Config {
-    /// Resolved host type — prefers `host`, falls back to `backend` for backward compat.
-    pub fn resolved_host(&self) -> String {
-        if let Some(ref h) = self.host {
-            return h.clone();
-        }
-        // Map legacy backend values
-        match self.backend.as_deref() {
-            Some("local") => "local".to_string(),
-            Some("docker") | Some("podman") => "container".to_string(),
-            Some(other) => other.to_string(),
-            None => "local".to_string(),
-        }
-    }
-
-    /// Resolved container runtime — prefers `container.rt`, falls back to `container_runtime` or `backend`.
-    pub fn resolved_runtime(&self) -> String {
-        if let Some(ref rt) = self.container_rt {
-            return rt.clone();
-        }
-        if let Some(ref rt) = self.container_runtime {
-            return rt.clone();
-        }
-        match self.backend.as_deref() {
-            Some("docker") => "docker".to_string(),
-            Some("podman") => "podman".to_string(),
-            _ => "auto".to_string(),
-        }
-    }
 }
 
 fn default_workflow() -> String { "workflow.py".to_string() }

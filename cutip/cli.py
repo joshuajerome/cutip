@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.5.1"
+VERSION = "2.6.0"
 console = Console()
 
 
@@ -27,13 +27,6 @@ def _resolve_project(project_arg: str | None) -> Path:
     """
     if project_arg:
         path = Path(project_arg)
-        if path.is_dir():
-            # User passed a directory — look for config.yaml inside (backward compat)
-            candidate = path / "config.yaml"
-            if candidate.exists():
-                return candidate
-            console.print(f"[red]Error:[/red] No config.yaml found in {path}")
-            sys.exit(1)
         if not path.suffix:
             path = path.with_suffix(".yaml")
         if not path.exists():
@@ -46,10 +39,6 @@ def _resolve_project(project_arg: str | None) -> Path:
 
     search_dir = Path.cwd()
     while True:
-        # Check for config.yaml (backward compat)
-        if (search_dir / "config.yaml").exists():
-            return search_dir / "config.yaml"
-
         # Check for *.yaml with project: field
         projects = []
         for f in sorted(search_dir.glob("*.yaml")):
@@ -95,10 +84,6 @@ def _resolve_workflow(project_path: Path, config: dict) -> Path:
     if not workflow_name:
         # Default: <stem>.workflow.py
         workflow_name = f"{project_path.stem}.workflow.py"
-        # Fallback: workflow.py (backward compat)
-        candidate = project_path.parent / workflow_name
-        if not candidate.exists():
-            workflow_name = "workflow.py"
 
     return project_path.parent / workflow_name
 
@@ -112,12 +97,8 @@ def _load_config(project_path: Path) -> dict:
 
 
 def _resolve_host(config: dict) -> str:
-    """Resolve host from config, with backward compat for 'backend'."""
-    host = config.get("host")
-    if host:
-        return host
-    backend = config.get("backend", "local")
-    return "container" if backend in ("docker", "podman") else backend
+    """Resolve host from config."""
+    return config.get("host", "local")
 
 
 # ── Commands ────────────────────────────────────────────────────────────────
@@ -141,10 +122,10 @@ def cmd_validate(args):
     table.add_column("Value")
 
     table.add_row("Project", result["project"])
-    host = result.get("host", result.get("backend", "local"))
+    host = result.get("host", "local")
     table.add_row("Host", host)
     if host == "container":
-        rt = result.get("container_runtime", result.get("container.rt", "auto"))
+        rt = result.get("container_runtime", "auto")
         table.add_row("Runtime", rt)
     table.add_row("Workflow", result.get("workflow", "workflow.py"))
     table.add_row("Vars", str(result["vars_count"]))
@@ -193,10 +174,10 @@ def cmd_tree(args):
     config = json.loads(config_json)
     tree = Tree(f"[bold]{config['project']}[/bold]")
 
-    host = config.get("host") or ("container" if config.get("backend") in ("docker", "podman") else config.get("backend", "local"))
+    host = config.get("host") or "local"
     tree.add(f"host: [cyan]{host}[/cyan]")
     if host == "container":
-        rt = config.get("container.rt", config.get("container_runtime", "auto"))
+        rt = config.get("container.rt", "auto")
         tree.add(f"container.rt: [cyan]{rt}[/cyan]")
 
     workflow = config.get("workflow", f"{project_path.stem}.workflow.py")
@@ -238,7 +219,7 @@ def cmd_tree(args):
         for name in config["networks"]:
             networks_branch.add(f"[cyan]{name}[/cyan]")
 
-    excluded = {"project", "host", "container.rt", "container_runtime", "backend",
+    excluded = {"project", "host", "container.rt",
                 "workflow", "vars", "secrets", "connections",
                 "image", "container", "containers", "network", "networks"}
     extra = {k for k in config if k not in excluded}
@@ -942,6 +923,18 @@ def cmd_cmd(args):
 
     cmd_name = args.get("cmd_name")
 
+    # Normalize: a command can be either a string shorthand or a dict.
+    #   commands:
+    #     git_branch: "git branch"                    # string shorthand
+    #     deploy:                                      # dict form
+    #       run: "ansible-playbook deploy.yml"
+    #       args: "<env>"
+    #       help: "Deploy to <env>"
+    def _normalize(cmd_def):
+        if isinstance(cmd_def, str):
+            return {"run": cmd_def, "args": "", "help": ""}
+        return cmd_def
+
     # No command name — list all available commands
     if not cmd_name:
         if not commands:
@@ -949,8 +942,9 @@ def cmd_cmd(args):
             return
         console.print(f"[bold]Available commands:[/bold]\n")
         for name, cmd_def in commands.items():
-            cmd_args = cmd_def.get("args", "")
-            cmd_help = cmd_def.get("help", "")
+            cd = _normalize(cmd_def)
+            cmd_args = cd.get("args", "")
+            cmd_help = cd.get("help", "")
             console.print(f"  [cyan]{name}[/cyan]  {cmd_args}  [dim]{cmd_help}[/dim]")
         console.print(f"\n  Usage: cutip cmd [project.yaml] <command> [args...]")
         return
@@ -962,7 +956,7 @@ def cmd_cmd(args):
             console.print(f"Available: {', '.join(commands)}")
         sys.exit(1)
 
-    cmd_def = commands[cmd_name]
+    cmd_def = _normalize(commands[cmd_name])
     run_template = cmd_def.get("run", "")
     cmd_args_desc = cmd_def.get("args", "")
     cmd_help = cmd_def.get("help", "")

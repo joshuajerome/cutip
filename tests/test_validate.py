@@ -111,11 +111,3 @@ class TestValidateProject:
         cred_errors = [e for e in errors if "missing" in e.lower() and "SSH" in e]
         assert cred_errors == []
 
-    def test_legacy_backend_mapped(self, tmp_path):
-        """backend: podman should be treated as host: container."""
-        errors, warnings = validate_project(
-            tmp_path / "test.yaml",
-            {"project": "test", "backend": "podman"},
-        )
-        host_errors = [e for e in errors if "Invalid host" in e]
-        assert host_errors == []

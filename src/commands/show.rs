@@ -65,13 +65,9 @@ pub fn show(section: &str, path: Option<&str>) -> PyResult<String> {
             }
         }
         other => {
-            if let Some(value) = config.extra.get(other) {
-                serde_yaml::to_string(value)
-            } else {
-                return Err(PyRuntimeError::new_err(format!(
-                    "Unknown section: '{other}'. Available: data, vars, secrets, container, containers, network, networks"
-                )));
-            }
+            return Err(PyRuntimeError::new_err(format!(
+                "Unknown section: '{other}'. Available: data, vars, secrets, container, containers, network, networks"
+            )));
         }
     }
     .map_err(|e| PyRuntimeError::new_err(format!("YAML error: {e}")))?;
