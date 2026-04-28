@@ -13,7 +13,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.6.1"
+VERSION = "2.6.2"
 console = Console()
 
 
