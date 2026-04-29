@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.8.3"
+VERSION = "2.8.4"
 console = Console()
 
 
@@ -1158,25 +1158,38 @@ def cmd_ps(args):
             console.print(f"[dim]No log yet for {cu_id}.[/dim]")
             return
         # Tail-follow the stdout file. Stops on Ctrl-C.
-        try:
-            with open(stdout_p) as f:
-                while True:
-                    line = f.readline()
-                    if line:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
-                    else:
-                        # Stop tailing if the process is in a terminal state
-                        meta = _proc.read_meta(cu_id)
-                        if _proc.is_terminal(meta.status):
-                            # Drain any remaining lines, then exit
-                            tail = f.read()
-                            if tail:
-                                sys.stdout.write(tail)
-                            return
-                        import time
+        # Binary mode + chunked reads — Python text-mode readline() on
+        # Windows can stop detecting new content after EOF without an
+        # explicit seek invalidation, so the live tail visibly pauses
+        # until the writing daemon finishes. Reading bytes through
+        # sys.stdout.buffer sidesteps both layers (no text decode, no
+        # line-buffer cache).
+        import time
 
-                        time.sleep(0.5)
+        try:
+            with open(stdout_p, "rb") as f:
+                while True:
+                    chunk = f.read(8192)
+                    if chunk:
+                        sys.stdout.buffer.write(chunk)
+                        sys.stdout.buffer.flush()
+                        continue
+                    # No new bytes — check if the producer is done
+                    meta = _proc.read_meta(cu_id)
+                    if _proc.is_terminal(meta.status):
+                        # One last drain in case bytes landed between the
+                        # read and the meta check
+                        tail = f.read()
+                        if tail:
+                            sys.stdout.buffer.write(tail)
+                            sys.stdout.buffer.flush()
+                        return
+                    # Force the OS to re-check the file for new content.
+                    # On Windows specifically, just re-calling read() at
+                    # the same position can return stale EOF — seeking to
+                    # the current offset invalidates any cached state.
+                    f.seek(f.tell())
+                    time.sleep(0.3)
         except KeyboardInterrupt:
             return
 
