@@ -10,6 +10,26 @@ from pathlib import Path
 from typing import Any
 
 
+def _absolute_local_path(value: Any) -> Path | None:
+    """Return a Path if `value` looks like an absolute local path, else None.
+
+    Detects Unix absolute (`/...`), home-relative (`~/...`), and Windows
+    drive-letter paths (`C:\\...` or `C:/...`). Relative paths return None
+    because they could be relative to anywhere (incl. a remote host).
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    s = value.strip()
+    if s.startswith("~"):
+        return Path(s).expanduser()
+    if s.startswith("/"):
+        return Path(s)
+    # Windows drive letters: C:\ or C:/
+    if len(s) >= 3 and s[1] == ":" and s[2] in ("/", "\\"):
+        return Path(s)
+    return None
+
+
 def validate_project(
     project_path: Path,
     config: dict[str, Any],
@@ -57,13 +77,23 @@ def validate_project(
                     f"Workflow syntax error: {workflow_path.name} line {e.lineno}: {e.msg}"
                 )
 
-    # 5. Empty vars
+    # 5. Empty vars (error — must be set before workflow runs)
     vars_dict = config.get("vars") or {}
     empty_vars = [k for k, v in vars_dict.items() if not v]
     if empty_vars:
-        warnings.append(
-            f"Empty vars (use 'cutip vars set' or will be prompted): {', '.join(empty_vars)}"
+        errors.append(f"Empty vars: {', '.join(empty_vars)}")
+        errors.append(
+            f"  Set with: cutip vars set {' '.join(f'{k}=<value>' for k in empty_vars)}"
         )
+
+    # 5b. Path-shaped vars must point to existing local paths
+    # Heuristic: only flag values that look like absolute paths (Unix /,
+    # home-relative ~/, or Windows drive C:\). Relative paths are skipped
+    # because they could be relative to anywhere (including a remote host).
+    for k, v in vars_dict.items():
+        path = _absolute_local_path(v)
+        if path is not None and not path.exists():
+            errors.append(f"vars.{k} = {v!r} — path does not exist")
 
     # 6. Empty secrets
     secrets_dict = config.get("secrets") or {}
