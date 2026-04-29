@@ -104,3 +104,64 @@ class TestValidateProject:
         )
         cred_errors = [e for e in errors if "missing" in e.lower() and "SSH" in e]
         assert cred_errors == []
+
+    def test_empty_vars_are_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "vars": {"foo": "", "bar": "set"}},
+        )
+        assert any("Empty vars" in e and "foo" in e for e in errors)
+        # 'bar' is set, shouldn't appear in the empty-vars error
+        empty_err = next(e for e in errors if "Empty vars" in e)
+        assert "bar" not in empty_err
+
+    def test_var_with_nonexistent_absolute_path_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {
+                "project": "test",
+                "host": "local",
+                "vars": {"my_repo": "/nonexistent/path/abc-test-xyz-12345"},
+            },
+        )
+        assert any("path does not exist" in e and "my_repo" in e for e in errors)
+
+    def test_var_with_existing_absolute_path_passes(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "vars": {"tmp_dir": "/tmp"}},
+        )
+        path_errors = [e for e in errors if "path does not exist" in e]
+        assert path_errors == []
+
+    def test_var_with_relative_path_skipped(self, tmp_path):
+        """Relative paths could be relative to anywhere — don't validate them."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {
+                "project": "test",
+                "host": "local",
+                "vars": {"some_path": "relative/path/that/does/not/exist"},
+            },
+        )
+        path_errors = [e for e in errors if "path does not exist" in e]
+        assert path_errors == []
+
+    def test_var_with_home_relative_path(self, tmp_path):
+        """~/ paths should be expanded and checked."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "vars": {"home": "~"}},
+        )
+        # ~ expands to a real dir
+        path_errors = [e for e in errors if "path does not exist" in e]
+        assert path_errors == []
+
+    def test_var_with_non_path_string_skipped(self, tmp_path):
+        """Plain strings (no leading /) shouldn't be path-checked."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "vars": {"greeting": "hello world"}},
+        )
+        path_errors = [e for e in errors if "path does not exist" in e]
+        assert path_errors == []
