@@ -67,6 +67,7 @@ omit = [
     "cutip/__main__.py",
     "cutip/cli.py",           # tested via subprocess integration (test_cli.py)
     "cutip/workflow/commands.py",  # AST utility, low-priority coverage
+    "cutip/daemon.py",        # tested via integration (cutip run --bg)
 ]
 
 [tool.coverage.report]
