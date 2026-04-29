@@ -49,7 +49,17 @@ def spawn_daemon(
     # Using `python -m cutip` rather than the `cutip` script is the most
     # portable: works whether installed in a venv, with `uv tool install`,
     # or via editable install. sys.executable points at the same Python.
-    cmd = [sys.executable, "-m", "cutip", "--bg-daemon", cu_id]
+    python_exe = sys.executable
+    if sys.platform == "win32":
+        # Prefer pythonw.exe (windowless) over python.exe (console subsystem).
+        # python.exe spawns a flashing/persistent PowerShell-style console
+        # window even with DETACHED_PROCESS. pythonw.exe ships with every
+        # standard Python install on Windows.
+        pythonw = Path(python_exe).with_name("pythonw.exe")
+        if pythonw.exists():
+            python_exe = str(pythonw)
+
+    cmd = [python_exe, "-m", "cutip", "--bg-daemon", cu_id]
     if hosts_path:
         cmd.extend(["--hosts", hosts_path])
 
@@ -60,9 +70,17 @@ def spawn_daemon(
     try:
         if sys.platform == "win32":
             # Windows: detach via creation flags. No fork needed.
+            # DETACHED_PROCESS — don't inherit parent's console
+            # CREATE_NEW_PROCESS_GROUP — own process group (so signals don't
+            #   propagate from the parent's Ctrl-C)
+            # CREATE_NO_WINDOW — extra belt-and-suspenders to suppress any
+            #   console window (in case pythonw fallback to python.exe)
             DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
-            creationflags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            CREATE_NO_WINDOW = 0x08000000
+            creationflags = (
+                DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+            )
             popen = subprocess.Popen(
                 cmd,
                 stdin=subprocess.DEVNULL,
