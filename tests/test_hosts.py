@@ -56,9 +56,7 @@ def test_read_missing_returns_empty(tmp_path):
 def test_resolve_flat_wraps_as_default(tmp_path):
     p = tmp_path / "h.yaml"
     hosts.write_hosts_file(p, {"host": "10.0.0.1", "username": "root"})
-    assert hosts.resolve(p) == {
-        "_default": {"host": "10.0.0.1", "username": "root"}
-    }
+    assert hosts.resolve(p) == {"_default": {"host": "10.0.0.1", "username": "root"}}
 
 
 def test_resolve_nested_passes_through(tmp_path):
