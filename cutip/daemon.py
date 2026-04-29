@@ -129,12 +129,8 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
     # means `cutip ps logs` sees nothing for long stretches even though
     # the daemon is actively writing.
     try:
-        sys.stdout.reconfigure(
-            encoding="utf-8", errors="replace", line_buffering=True
-        )
-        sys.stderr.reconfigure(
-            encoding="utf-8", errors="replace", line_buffering=True
-        )
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
     except (AttributeError, ValueError):
         # Older Python or non-text streams — leave alone.
         pass
