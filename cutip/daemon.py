@@ -100,6 +100,18 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
     """
     import yaml
 
+    # Force UTF-8 on the redirected stdout/stderr. On Windows, when stdout
+    # is redirected to a file, Python defaults to the locale encoding
+    # (cp1252) which can't encode common Unicode glyphs (── ✓ → ⚠ etc.) we
+    # use in workflow output. errors='replace' is a safety net so any
+    # unexpected byte still doesn't crash the daemon.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        # Older Python or non-text streams — leave alone.
+        pass
+
     try:
         meta = processes.read_meta(cu_id)
     except FileNotFoundError:
