@@ -91,11 +91,19 @@ def _resolve_workflow(project_path: Path, config: dict) -> Path:
 
 
 def _load_config(project_path: Path) -> dict:
-    """Load and return project config as a dict."""
+    """Load and return project config as a dict.
+
+    Expands the ``paths:`` section against the project file's directory
+    and merges the resolved values into ``config['data']`` so workflow
+    code reads them via ``ctx.data["<name>"]`` like any other entry.
+    """
     import yaml
+
+    from cutip.paths import merge_paths_into_data
 
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
+    merge_paths_into_data(config, project_path)
     return config
 
 
@@ -513,14 +521,30 @@ def cmd_run(args):
         console.print()
 
     # Load hosts file (for remote connections)
+    # Two values are produced:
+    #   `hosts`           — the raw dict (flat or nested) for backward compat
+    #                       with workflows that use ctx._hosts["host"] directly
+    #   `resolved_hosts`  — the fully resolved nested dict (with global: true
+    #                       references expanded) for ctx.host(name)
     hosts = None
+    resolved_hosts = None
     hosts_path_arg = args.get("hosts")
     if hosts_path_arg:
         hosts_path = Path(hosts_path_arg)
     else:
-        hosts_path = project_path.parent / "hosts.yaml"
+        hosts_path = _resolve_hosts_path(project_path)
 
     if hosts_path.exists():
+        from cutip import hosts as _hosts_mod
+
+        try:
+            resolved_hosts = _hosts_mod.resolve(hosts_path)
+        except _hosts_mod.HostsError as e:
+            console.print(f"[red]Error resolving hosts:[/red] {e}")
+            sys.exit(1)
+        # For flat-format files, ctx._hosts retains the original flat shape
+        # (existing workflows do ctx._hosts["host"]); for nested, ctx._hosts
+        # carries the nested raw dict.
         with open(hosts_path) as f:
             hosts = yaml.safe_load(f) or {}
 
@@ -563,7 +587,7 @@ def cmd_run(args):
     )
 
     if has_actions:
-        _run_with_engine(module, config, project_path, hosts)
+        _run_with_engine(module, config, project_path, hosts, resolved_hosts)
     elif hasattr(module, "run_standalone"):
         module.run_standalone(config)
     elif hasattr(module, "main"):
@@ -575,7 +599,7 @@ def cmd_run(args):
         sys.exit(1)
 
 
-def _run_with_engine(module, config, project_path, hosts=None):
+def _run_with_engine(module, config, project_path, hosts=None, resolved_hosts=None):
     """Execute a workflow using the cutip execution engine."""
     from datetime import datetime
     from cutip.workflow.engine import WorkflowEngine, ActionFailed, ActionEvent
@@ -623,6 +647,8 @@ def _run_with_engine(module, config, project_path, hosts=None):
             pass
 
     engine = WorkflowEngine(module, config, on_event=on_event, hosts=hosts)
+    if resolved_hosts is not None:
+        engine.ctx._resolved_hosts = resolved_hosts
 
     try:
         engine.run()
@@ -930,27 +956,33 @@ def _resolve_hosts_path(project_path: Path) -> Path:
     return hosts_path
 
 
-def cmd_hosts(args):
-    """Manage project hosts file."""
-    subcmd = args.get("subcmd")
-    if not subcmd or subcmd == "help":
-        console.print(
-            "[bold]cutip hosts[/bold] <list|get|set> [project.yaml] [key=value ...]"
-        )
-        console.print("  list   Show all host entries (passwords masked)")
-        console.print("  get    Get a single host value")
-        console.print("  set    Set one or more host values")
+def _print_hosts_dict(data: dict, label: str | None = None) -> None:
+    """Render a hosts dict (nested or flat) with sensitive values masked."""
+    from cutip import hosts as _hosts
+
+    if not data:
+        console.print(f"[dim]No hosts defined{f' in {label}' if label else ''}.[/dim]")
         return
 
-    project_path = _resolve_project(args.get("project"))
-    hosts_path = _resolve_hosts_path(project_path)
-    hosts = _yaml_read(hosts_path)
-
-    if subcmd == "list":
-        if not hosts:
-            console.print(f"[dim]No hosts defined in {hosts_path.name}[/dim]")
-            return
-        for k, v in hosts.items():
+    if _hosts.is_nested(data):
+        for name, entry in data.items():
+            if isinstance(entry, dict) and entry.get("global") is True:
+                console.print(f"  [cyan]{name}[/cyan]  [dim](→ global)[/dim]")
+                continue
+            console.print(f"  [cyan]{name}[/cyan]")
+            if not isinstance(entry, dict):
+                console.print(f"    [red]invalid entry: {entry!r}[/red]")
+                continue
+            for k, v in entry.items():
+                if not v and v != 0:
+                    console.print(f"    {k} = [yellow](empty)[/yellow]")
+                elif _is_sensitive(k):
+                    console.print(f"    {k} = [dim]****[/dim]")
+                else:
+                    console.print(f"    {k} = [dim]{v}[/dim]")
+    else:
+        # Flat (legacy) — render at top level
+        for k, v in data.items():
             if not v and v != 0:
                 console.print(f"  {k} = [yellow](empty)[/yellow]")
             elif _is_sensitive(k):
@@ -958,39 +990,199 @@ def cmd_hosts(args):
             else:
                 console.print(f"  {k} = [dim]{v}[/dim]")
 
-    elif subcmd == "get":
-        key = args.get("key")
-        if not key:
-            console.print("[red]Usage:[/red] cutip hosts get [project.yaml] <key>")
-            sys.exit(1)
-        if key in hosts:
-            console.print(hosts[key] or "")
-        else:
+
+def cmd_hosts(args):
+    """Manage project hosts file (per-project + optional global tier).
+
+    Subcommands:
+      cutip hosts list                  List local entries
+      cutip hosts list -g               List global (~/.cutip/hosts.yaml) entries
+      cutip hosts get <host>.<field>    Get a value (or `<field>` for flat files)
+      cutip hosts get -g <host>.<field> Get from global
+      cutip hosts set <host>.<field>=<value> [...]
+      cutip hosts set -g <host>.<field>=<value> [...]
+      cutip hosts path                  Print local hosts file path
+      cutip hosts path -g               Print global hosts file path
+      cutip hosts set-path -g <path>    Change global hosts file location
+      cutip hosts init -g               Create the global hosts file
+      cutip hosts migrate               Convert flat → nested in this project
+    """
+    from cutip import hosts as _hosts
+
+    subcmd = args.get("subcmd")
+    use_global = bool(args.get("global"))
+
+    if not subcmd or subcmd == "help":
+        console.print(cmd_hosts.__doc__ or "cutip hosts")
+        return
+
+    # Global-only subcommands
+    if subcmd == "init":
+        if not use_global:
             console.print(
-                f"[red]Error:[/red] key '{key}' not found in {hosts_path.name}"
+                "[red]Error:[/red] 'cutip hosts init' is global-only. Use: cutip hosts init -g"
+            )
+            console.print(
+                "  (local hosts.yaml is auto-created on first 'cutip hosts set <host>.<field>=<value>')"
             )
             sys.exit(1)
+        gp = _hosts.global_hosts_path()
+        if gp.exists():
+            console.print(f"[dim]Global hosts file already exists: {gp}[/dim]")
+            return
+        _hosts.write_hosts_file(gp, {})
+        console.print(f"  [green]✓[/green] Created [cyan]{gp}[/cyan]")
+        console.print("  Add entries with: cutip hosts set -g <host>.<field>=<value>")
+        return
 
-    elif subcmd == "set":
+    if subcmd == "set-path":
+        if not use_global:
+            console.print(
+                "[red]Error:[/red] 'cutip hosts set-path' is global-only. Use: cutip hosts set-path -g <path>"
+            )
+            sys.exit(1)
+        new_path = args.get("key")  # parser puts the bare-positional arg in 'key'
+        if not new_path:
+            console.print("[red]Usage:[/red] cutip hosts set-path -g <path>")
+            sys.exit(1)
+        _hosts.set_global_hosts_path(new_path)
+        console.print(f"  [green]✓[/green] Global hosts path → [cyan]{new_path}[/cyan]")
+        console.print(f"  (stored in {_hosts.config_path()})")
+        return
+
+    if subcmd == "path":
+        if use_global:
+            console.print(_hosts.global_hosts_path())
+        else:
+            project_path = _resolve_project(args.get("project"))
+            console.print(_resolve_hosts_path(project_path))
+        return
+
+    # Resolve target file (global or project-local) for list/get/set/migrate
+    if use_global:
+        target_path = _hosts.global_hosts_path()
+        target_label = str(target_path)
+    else:
+        project_path = _resolve_project(args.get("project"))
+        target_path = _resolve_hosts_path(project_path)
+        target_label = target_path.name
+
+    if subcmd == "list":
+        if not target_path.exists():
+            console.print(f"[dim]{target_label} does not exist.[/dim]")
+            if use_global:
+                console.print("  Create with: cutip hosts init -g")
+            return
+        data = _hosts.read_hosts_file(target_path)
+        _print_hosts_dict(data, label=target_label)
+        return
+
+    if subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print(
+                "[red]Usage:[/red] cutip hosts get [-g] <host>.<field>  (or <field> for flat files)"
+            )
+            sys.exit(1)
+        data = _hosts.read_hosts_file(target_path)
+        if "." in key:
+            host_name, field = key.split(".", 1)
+            try:
+                resolved = _hosts.resolve(target_path) if not use_global else data
+            except _hosts.HostsError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                sys.exit(1)
+            if host_name not in resolved or not isinstance(
+                resolved.get(host_name), dict
+            ):
+                console.print(
+                    f"[red]Error:[/red] host '{host_name}' not found in {target_label}"
+                )
+                sys.exit(1)
+            value = resolved[host_name].get(field)
+            console.print(value if value is not None else "")
+            return
+        # No dot — treat as flat-file lookup
+        if not _hosts.is_nested(data) and key in data:
+            console.print(data[key] if data[key] is not None else "")
+            return
+        console.print(
+            f"[red]Error:[/red] '{key}' not found in {target_label}. "
+            f"For nested files use '<host>.<field>' syntax."
+        )
+        sys.exit(1)
+
+    if subcmd == "set":
         pairs = args.get("pairs", [])
         if not pairs:
             console.print(
-                "[red]Usage:[/red] cutip hosts set [project.yaml] key=value ..."
+                "[red]Usage:[/red] cutip hosts set [-g] <host>.<field>=<value> ..."
             )
             sys.exit(1)
+        existing = _hosts.read_hosts_file(target_path)
         for pair in pairs:
             if "=" not in pair:
                 console.print(
-                    f"[red]Error:[/red] invalid format '{pair}', expected key=value"
+                    f"[red]Error:[/red] invalid format '{pair}', expected <host>.<field>=<value>"
                 )
                 sys.exit(1)
             k, v = pair.split("=", 1)
-            hosts[k] = v
-            if _is_sensitive(k):
-                console.print(f"  [green]✓[/green] {k} = ****")
+            if "." in k:
+                host_name, field = k.split(".", 1)
+                try:
+                    _hosts.set_field(target_path, host_name, field, v)
+                except _hosts.HostsError as e:
+                    console.print(f"[red]Error:[/red] {e}")
+                    sys.exit(1)
+                disp = "****" if _is_sensitive(field) else v
+                console.print(f"  [green]✓[/green] {host_name}.{field} = {disp}")
             else:
-                console.print(f"  [green]✓[/green] {k} = {v}")
-        _yaml_write(hosts_path, hosts)
+                # Flat-file backward compat: only allowed if file is flat or empty
+                if existing and _hosts.is_nested(existing):
+                    console.print(
+                        f"[red]Error:[/red] {target_label} is in nested format. "
+                        f"Use '<host>.{k}=<value>' instead of '{k}=<value>'."
+                    )
+                    sys.exit(1)
+                existing[k] = v
+                _hosts.write_hosts_file(target_path, existing)
+                disp = "****" if _is_sensitive(k) else v
+                console.print(f"  [green]✓[/green] {k} = {disp}")
+        return
+
+    if subcmd == "migrate":
+        if use_global:
+            console.print("[red]Error:[/red] migrate is project-local only (no -g).")
+            sys.exit(1)
+        if not target_path.exists():
+            console.print(
+                f"[dim]{target_label} does not exist — nothing to migrate.[/dim]"
+            )
+            return
+        existing = _hosts.read_hosts_file(target_path)
+        if _hosts.is_nested(existing):
+            console.print(f"[dim]{target_label} is already in nested format.[/dim]")
+            return
+        # Pick a default name. If the project YAML has a hint, use it; else 'default'.
+        default_name = "default"
+        try:
+            project_path = _resolve_project(args.get("project"))
+            cfg = _load_config(project_path)
+            default_name = cfg.get("project", "default")
+        except SystemExit:
+            pass
+        migrated = _hosts.migrate(target_path, default_name=default_name)
+        if migrated:
+            console.print(
+                f"  [green]✓[/green] Migrated {target_label}: flat → nested under [cyan]{default_name}[/cyan]"
+            )
+            console.print(
+                f"  Workflows should now use ctx.host_for('{default_name}') or update field references."
+            )
+        return
+
+    console.print(f"[red]Unknown hosts subcommand:[/red] {subcmd}")
+    sys.exit(1)
 
 
 def cmd_cmd(args):
@@ -1414,8 +1606,8 @@ def main():
         COMMANDS[command](parsed)
         return
 
-    # Handle subcommand groups (vars, secrets, hosts)
-    if command in ("vars", "secrets", "hosts"):
+    # Handle subcommand groups (vars, secrets)
+    if command in ("vars", "secrets"):
         if remaining and remaining[0] in ("list", "get", "set", "help"):
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
@@ -1429,6 +1621,41 @@ def main():
             elif arg.endswith(".yaml") or Path(arg).exists():
                 parsed["project"] = arg
             elif parsed.get("subcmd") == "get" and "key" not in parsed:
+                parsed["key"] = arg
+            elif not parsed.get("project"):
+                parsed["project"] = arg
+        if pairs:
+            parsed["pairs"] = pairs
+        COMMANDS[command](parsed)
+        return
+
+    # `hosts` has its own richer subcommand surface (list/get/set/path/
+    # set-path/init/migrate, plus the -g flag for global tier).
+    if command == "hosts":
+        valid_subs = {
+            "list",
+            "get",
+            "set",
+            "path",
+            "set-path",
+            "init",
+            "migrate",
+            "help",
+        }
+        if remaining and remaining[0] in valid_subs:
+            parsed["subcmd"] = remaining[0]
+            remaining = remaining[1:]
+        pairs = []
+        for arg in remaining:
+            if arg in ("-h", "--help"):
+                parsed["subcmd"] = "help"
+            elif arg in ("-g", "--global"):
+                parsed["global"] = True
+            elif "=" in arg:
+                pairs.append(arg)
+            elif arg.endswith(".yaml") or Path(arg).exists():
+                parsed["project"] = arg
+            elif parsed.get("subcmd") in ("get", "set-path") and "key" not in parsed:
                 parsed["key"] = arg
             elif not parsed.get("project"):
                 parsed["project"] = arg

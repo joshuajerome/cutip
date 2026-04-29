@@ -158,4 +158,36 @@ def validate_project(
     if raw_data is not None and not isinstance(raw_data, dict):
         errors.append(f"'data' section must be a mapping, got {type(data).__name__}")
 
+    # 10. Paths section
+    raw_paths = config.get("paths")
+    if raw_paths is not None:
+        if not isinstance(raw_paths, dict):
+            errors.append(
+                f"'paths' section must be a mapping, got {type(raw_paths).__name__}"
+            )
+        else:
+            from cutip.paths import _looks_absolute, expand_path
+
+            for key, value in raw_paths.items():
+                if not isinstance(value, str):
+                    errors.append(
+                        f"paths.{key} must be a string, got {type(value).__name__}"
+                    )
+                    continue
+                if not value:
+                    errors.append(f"paths.{key} is empty")
+                    errors.append(
+                        f"  Set with: cutip vars set {key}=<path>  (or edit {project_path.name})"
+                    )
+                    continue
+                was_absolute = _looks_absolute(value)
+                resolved = expand_path(value, project_path.parent)
+                if not Path(resolved).exists():
+                    if was_absolute:
+                        errors.append(f"paths.{key} = {value!r} — path does not exist")
+                    else:
+                        warnings.append(
+                            f"paths.{key} = {value!r} → {resolved} (does not exist)"
+                        )
+
     return errors, warnings

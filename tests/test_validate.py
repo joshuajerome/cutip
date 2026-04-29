@@ -165,3 +165,65 @@ class TestValidateProject:
         )
         path_errors = [e for e in errors if "path does not exist" in e]
         assert path_errors == []
+
+    # ── paths section ───────────────────────────────────────────────────────
+
+    def test_paths_empty_value_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": {"build": ""}},
+        )
+        assert any("paths.build is empty" in e for e in errors)
+
+    def test_paths_absolute_missing_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {
+                "project": "test",
+                "host": "local",
+                "paths": {"build": "/nonexistent/cutip-xyz-99999"},
+            },
+        )
+        assert any("paths.build" in e and "does not exist" in e for e in errors)
+
+    def test_paths_absolute_existing_passes(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": {"tmp": "/tmp"}},
+        )
+        path_errors = [e for e in errors if "paths.tmp" in e]
+        assert path_errors == []
+
+    def test_paths_relative_missing_warns(self, tmp_path):
+        errors, warnings = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": {"build": "./missing"}},
+        )
+        path_errors = [e for e in errors if "paths.build" in e]
+        assert path_errors == []
+        assert any("paths.build" in w for w in warnings)
+
+    def test_paths_relative_existing_passes(self, tmp_path):
+        (tmp_path / "build").mkdir()
+        errors, warnings = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": {"build": "./build"}},
+        )
+        path_errors = [e for e in errors if "paths.build" in e]
+        path_warnings = [w for w in warnings if "paths.build" in w]
+        assert path_errors == []
+        assert path_warnings == []
+
+    def test_paths_non_mapping_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": "not a dict"},
+        )
+        assert any("paths" in e and "mapping" in e for e in errors)
+
+    def test_paths_non_string_value_errors(self, tmp_path):
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "local", "paths": {"build": 42}},
+        )
+        assert any("paths.build" in e and "string" in e for e in errors)
