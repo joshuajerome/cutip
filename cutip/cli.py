@@ -1,5 +1,6 @@
 """cutip CLI — Python wrapper over Rust core, formatted with rich."""
 
+import os
 import sys
 import json
 import importlib.util
@@ -463,12 +464,34 @@ def cmd_run(args):
     import yaml
 
     if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip run[/bold] [project.yaml]")
+        console.print("[bold]cutip run[/bold] [project.yaml] [--bg]")
         console.print("  Reads project YAML, runs the workflow")
+        console.print("  --bg   Detach: print cu-id and return; track via 'cutip ps'")
         return
 
     project_path = _resolve_project(args.get("project"))
     config = _load_config(project_path)
+
+    # Background mode: spawn a detached daemon and exit
+    if args.get("bg"):
+        from cutip import processes as _proc
+        from cutip.daemon import spawn_daemon
+
+        workflow_path = _resolve_workflow(project_path, config)
+        if not workflow_path.exists():
+            console.print(f"[red]Error:[/red] {workflow_path.name} not found")
+            sys.exit(1)
+        cu_id = _proc.make_cu_id(config.get("project", project_path.stem))
+        pid = spawn_daemon(
+            cu_id,
+            project_path,
+            workflow_path,
+            hosts_path=args.get("hosts"),
+        )
+        console.print(f"  [green]✓[/green] Spawned [cyan]{cu_id}[/cyan] (pid {pid})")
+        console.print(f"  Tail logs:  cutip ps logs {cu_id}")
+        console.print(f"  Stop:       cutip ps stop {cu_id}")
+        return
 
     # Prompt for empty vars/secrets
     has_prompts = False
@@ -1052,6 +1075,230 @@ def cmd_cmd(args):
     sys.exit(result.returncode)
 
 
+# ── Background processes ────────────────────────────────────────────────────
+
+
+def cmd_ps(args):
+    """List/inspect/stop background cutip runs.
+
+    Subcommands:
+      cutip ps              List all background processes
+      cutip ps logs <id>    Tail stdout of a process
+      cutip ps stop <id>    SIGTERM the process + cascade-kill remote PIDs
+      cutip ps inspect <id> Show full meta + remote PID list
+      cutip ps clean        Prune completed processes older than N days
+    """
+    from cutip import processes as _proc
+
+    subcmd = args.get("subcmd") or "list"
+    target = args.get("key")  # cu-id (or prefix)
+
+    if subcmd in ("help", "--help"):
+        console.print("[bold]cutip ps[/bold] [list|logs|stop|inspect|clean] [<cu-id>]")
+        console.print("  list      List background processes (default)")
+        console.print("  logs      Tail stdout of a process")
+        console.print("  stop      Request stop + cascade-kill remote PIDs")
+        console.print("  inspect   Show meta + tracked remote PIDs")
+        console.print("  clean     Delete completed processes older than 7 days")
+        return
+
+    if subcmd == "list":
+        rows = list(_proc.list_processes())
+        if not rows:
+            console.print("[dim]No background processes.[/dim]")
+            return
+        table = Table(box=box.ROUNDED, title_style="bold")
+        table.add_column("cu-id", style="cyan")
+        table.add_column("project")
+        table.add_column("status")
+        table.add_column("started")
+        table.add_column("pid")
+        for m in rows:
+            color = {
+                "running": "green",
+                "starting": "yellow",
+                "succeeded": "green",
+                "failed": "red",
+                "stopped": "yellow",
+            }.get(m.status, "dim")
+            table.add_row(
+                m.cu_id,
+                m.project,
+                f"[{color}]{m.status}[/{color}]",
+                m.started_at,
+                str(m.host_pid or ""),
+            )
+        console.print(table)
+        return
+
+    if subcmd == "clean":
+        pruned = _proc.prune(older_than_days=7)
+        if pruned:
+            console.print(f"Pruned {len(pruned)} process(es):")
+            for cu in pruned:
+                console.print(f"  {cu}")
+        else:
+            console.print("[dim]Nothing to prune.[/dim]")
+        return
+
+    # All other subcommands need a target cu-id
+    if not target:
+        console.print(f"[red]Usage:[/red] cutip ps {subcmd} <cu-id>")
+        sys.exit(1)
+
+    try:
+        cu_id = _proc.resolve_cu_id(target)
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+
+    if subcmd == "logs":
+        stdout_p = _proc.stdout_path(cu_id)
+        if not stdout_p.exists():
+            console.print(f"[dim]No log yet for {cu_id}.[/dim]")
+            return
+        # Tail-follow the stdout file. Stops on Ctrl-C.
+        try:
+            with open(stdout_p) as f:
+                while True:
+                    line = f.readline()
+                    if line:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    else:
+                        # Stop tailing if the process is in a terminal state
+                        meta = _proc.read_meta(cu_id)
+                        if _proc.is_terminal(meta.status):
+                            # Drain any remaining lines, then exit
+                            tail = f.read()
+                            if tail:
+                                sys.stdout.write(tail)
+                            return
+                        import time
+
+                        time.sleep(0.5)
+        except KeyboardInterrupt:
+            return
+
+    if subcmd == "stop":
+        meta = _proc.read_meta(cu_id)
+        if _proc.is_terminal(meta.status):
+            console.print(f"[dim]{cu_id} is already {meta.status}.[/dim]")
+            return
+        _proc.request_stop(cu_id)
+        console.print(f"  Stop requested for [cyan]{cu_id}[/cyan]")
+
+        # Cascade-kill: SIGTERM remote PIDs immediately so the daemon's
+        # shell session unwinds without having to wait for it to poll.
+        remote = _proc.list_remote_pids(cu_id)
+        if remote:
+            console.print(f"  Killing {len(remote)} remote process(es)...")
+            from rsty import ssh
+            from collections import defaultdict
+
+            by_host: dict[tuple[str, str], list[int]] = defaultdict(list)
+            for r in remote:
+                by_host[(r.host, r.username)].append(r.pid)
+            for (host, user), pids in by_host.items():
+                # We need the host's password — read from the cu-id's hosts cache
+                # if we cached it, otherwise fall back to user's hosts.yaml. For
+                # now keep it simple: we ONLY know the cu-id's project root.
+                # Best-effort: skip if we can't auth. The local SIGTERM (next)
+                # will at minimum kill the daemon and close SSH, which usually
+                # unwinds remote processes.
+                try:
+                    project_path = Path(meta.project_path)
+                    hp = project_path.parent / "hosts.yaml"
+                    if hp.exists():
+                        import yaml as _yaml
+
+                        with open(hp) as fh:
+                            h = _yaml.safe_load(fh) or {}
+                        password = h.get("password", "")
+                        if not password:
+                            console.print(
+                                f"  [yellow]⚠[/yellow] No password for {host} — "
+                                f"local SIGTERM only"
+                            )
+                            continue
+                        sesh = ssh.open(host=host, username=user, password=password)
+                        for pid in pids:
+                            try:
+                                ssh.signal(sesh, pid, "TERM")
+                                console.print(f"    SIGTERM → {host}:{pid}")
+                            except Exception as e:
+                                console.print(
+                                    f"    [yellow]⚠[/yellow] {host}:{pid} — {e}"
+                                )
+                        sesh.close()
+                except Exception as e:
+                    console.print(f"  [yellow]⚠[/yellow] {host}: {e}")
+
+        # Local SIGTERM the daemon
+        if meta.host_pid:
+            try:
+                if sys.platform == "win32":
+                    import signal
+
+                    os.kill(meta.host_pid, signal.CTRL_BREAK_EVENT)
+                else:
+                    import signal
+
+                    os.kill(meta.host_pid, signal.SIGTERM)
+                console.print(f"  SIGTERM → daemon pid {meta.host_pid}")
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                console.print(
+                    f"  [yellow]⚠[/yellow] No permission to signal {meta.host_pid}"
+                )
+
+        # Safety net: if the daemon doesn't update its own meta within 2s
+        # (e.g., it died before its SIGTERM handler ran), force the meta
+        # to "stopped" so `cutip ps` doesn't show a phantom "running" entry.
+        import time as _time
+
+        for _ in range(20):
+            _time.sleep(0.1)
+            if _proc.is_terminal(_proc.read_meta(cu_id).status):
+                return
+        _proc.update_meta(
+            cu_id,
+            status="stopped",
+            finished_at=_proc.now_iso(),
+            error="forced stop (daemon did not update meta)",
+        )
+        _proc.clear_stop(cu_id)
+        return
+
+    if subcmd == "inspect":
+        meta = _proc.read_meta(cu_id)
+        from dataclasses import asdict
+
+        console.print(
+            Panel(
+                json.dumps(asdict(meta), indent=2),
+                title=f"cutip ps inspect {cu_id}",
+                box=box.ROUNDED,
+            )
+        )
+        remote = _proc.list_remote_pids(cu_id)
+        if remote:
+            t = Table(title="Tracked remote processes", box=box.ROUNDED)
+            t.add_column("host", style="cyan")
+            t.add_column("user")
+            t.add_column("pid")
+            t.add_column("label")
+            t.add_column("started")
+            for r in remote:
+                t.add_row(r.host, r.username, str(r.pid), r.label, r.started_at)
+            console.print(t)
+        return
+
+    console.print(f"[red]Unknown ps subcommand:[/red] {subcmd}")
+    sys.exit(1)
+
+
 COMMANDS = {
     "init": cmd_init,
     "validate": cmd_validate,
@@ -1064,12 +1311,28 @@ COMMANDS = {
     "secrets": cmd_secrets,
     "hosts": cmd_hosts,
     "verify": cmd_verify,
+    "ps": cmd_ps,
 }
 
 
 def main():
     """Entry point for `cutip` and `python -m cutip`."""
     args = sys.argv[1:]
+
+    # Internal: daemon stage of `cutip run --bg`. The parent process spawns
+    # us with `cutip --bg-daemon <cu-id> [--hosts <path>]` and we run the
+    # workflow with stdout/stderr already redirected by the parent.
+    if args and args[0] == "--bg-daemon":
+        if len(args) < 2:
+            print("usage: cutip --bg-daemon <cu-id> [--hosts <path>]", file=sys.stderr)
+            sys.exit(2)
+        cu_id = args[1]
+        hosts_path = None
+        if len(args) >= 4 and args[2] == "--hosts":
+            hosts_path = args[3]
+        from cutip.daemon import run_daemon
+
+        sys.exit(run_daemon(cu_id, hosts_path))
 
     if not args or args[0] in ("-h", "--help", "help"):
         console.print(
@@ -1086,7 +1349,8 @@ def main():
                 "  vars       Manage project variables (list/get/set)\n"
                 "  secrets    Manage project secrets (list/get/set)\n"
                 "  hosts      Manage connection credentials (list/get/set)\n"
-                "  verify     Check prerequisites\n\n"
+                "  verify     Check prerequisites\n"
+                "  ps         List/inspect/stop background runs (cutip run --bg)\n\n"
                 "[bold]Usage:[/bold]\n"
                 "  cutip init myproject\n"
                 "  cutip run myproject.yaml\n"
@@ -1160,6 +1424,23 @@ def main():
         COMMANDS[command](parsed)
         return
 
+    if command == "ps":
+        # cutip ps [list|logs|stop|inspect|clean] [<cu-id>]
+        if remaining and remaining[0] in (
+            "list",
+            "logs",
+            "stop",
+            "inspect",
+            "clean",
+            "help",
+        ):
+            parsed["subcmd"] = remaining[0]
+            remaining = remaining[1:]
+        if remaining:
+            parsed["key"] = remaining[0]
+        COMMANDS[command](parsed)
+        return
+
     i = 0
     positional_consumed = False
     while i < len(remaining):
@@ -1169,6 +1450,9 @@ def main():
             i += 1
         elif arg == "--json":
             parsed["json"] = True
+            i += 1
+        elif arg == "--bg":
+            parsed["bg"] = True
             i += 1
         elif arg == "--hosts" and i + 1 < len(remaining):
             parsed["hosts"] = remaining[i + 1]
