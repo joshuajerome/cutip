@@ -123,9 +123,18 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
     # (cp1252) which can't encode common Unicode glyphs (── ✓ → ⚠ etc.) we
     # use in workflow output. errors='replace' is a safety net so any
     # unexpected byte still doesn't crash the daemon.
+    #
+    # line_buffering=True forces a flush on every newline. Without this,
+    # Python uses block buffering when stdout is a file (~8KB), which
+    # means `cutip ps logs` sees nothing for long stretches even though
+    # the daemon is actively writing.
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(
+            encoding="utf-8", errors="replace", line_buffering=True
+        )
+        sys.stderr.reconfigure(
+            encoding="utf-8", errors="replace", line_buffering=True
+        )
     except (AttributeError, ValueError):
         # Older Python or non-text streams — leave alone.
         pass
