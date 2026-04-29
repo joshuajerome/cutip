@@ -109,6 +109,10 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
 
     processes.update_meta(cu_id, status="running")
 
+    # Expose cu-id to workflow code so ctx.exec_tracked() can register
+    # remote PIDs against this run for cascade-kill on `cutip ps stop`.
+    os.environ["CUTIP_BG_CU_ID"] = cu_id
+
     # Install SIGTERM handler so `cutip ps stop` can interrupt us cleanly.
     # Without this, a SIGTERM from the parent kills us mid-action and the
     # meta.json never transitions out of "running".

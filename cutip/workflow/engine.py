@@ -13,6 +13,7 @@ Usage::
 
 from __future__ import annotations
 
+import os
 import signal
 import sys
 import time
@@ -167,6 +168,97 @@ class WorkflowContext:
             self._ssh = None
         self._kubectl = None
         self._container = None
+
+    def exec_tracked(
+        self,
+        sesh: Any,
+        cmd: str,
+        *,
+        label: str = "",
+        timeout: int = 3600,
+        line_timeout: int = 900,
+        on_line: Any = None,
+    ) -> Any:
+        """Run a remote command via streaming exec, tracking the remote PID.
+
+        When this workflow is running under ``cutip run --bg``, the remote PID
+        is appended to ``~/.cutip/processes/<cu-id>/remote.json`` so
+        ``cutip ps stop`` can cascade-kill it on the actual remote host.
+
+        For foreground runs (no cu-id env var), behaves identically to
+        ``ssh.exec_stream`` — no tracking overhead.
+
+        Args:
+            sesh: An open SSHSession (rsty.ssh.SSHSession).
+            cmd: Shell command to run on the remote host.
+            label: Human-readable label for `cutip ps inspect` (e.g. 'make-blueprint').
+            timeout: Total wall-clock timeout in seconds.
+            line_timeout: Per-line read timeout — bump for commands that go
+                silent for long stretches (docker pulls, big downloads).
+            on_line: Optional callback invoked per output line.
+
+        Returns:
+            The StreamResult from rsty.ssh.exec_stream (exit_code + lines).
+        """
+        from rsty import ssh
+
+        cu_id = os.environ.get("CUTIP_BG_CU_ID")
+        if not cu_id:
+            # Foreground run — no tracking, just stream
+            return ssh.exec_stream(
+                sesh, cmd, on_line=on_line, timeout=timeout, line_timeout=line_timeout
+            )
+
+        # Background run — wrap to capture remote PID, register, then run
+        from cutip import processes as _proc
+
+        # Use shell_with_pid to launch the cmd in the background and capture
+        # the remote PID. Then we read until completion.
+        pid, shell = ssh.shell_with_pid(sesh, cmd)
+
+        # Determine host + username from the session's host attribute
+        # (rsty exposes them as the first arg of ssh.open). We approximate
+        # via ctx._hosts since the session doesn't currently expose them.
+        host = self.ssh_host or self._hosts.get("host", "")
+        username = self._hosts.get("username", "")
+
+        _proc.append_remote_pid(
+            cu_id,
+            _proc.RemoteProc(
+                host=host, username=username, pid=pid, label=label or cmd[:40]
+            ),
+        )
+
+        # Drain output until the EXIT sentinel from shell_with_pid wrapper
+        try:
+            from rsty.ssh import _EXIT_RE  # type: ignore
+
+            lines: list[str] = []
+            import time as _time
+
+            deadline = _time.monotonic() + timeout
+            while True:
+                remaining = deadline - _time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"exec_tracked timed out after {timeout}s")
+                line = shell.read_line(timeout=min(line_timeout, int(remaining) + 1))
+                line = line.rstrip("\r\n")
+                m = _EXIT_RE.search(line)
+                if m:
+                    pre = line[: m.start()].rstrip()
+                    if pre:
+                        lines.append(pre)
+                        if on_line is not None:
+                            on_line(pre)
+                    return ssh.StreamResult(exit_code=int(m.group(1)), lines=lines)
+                lines.append(line)
+                if on_line is not None:
+                    on_line(line)
+        finally:
+            try:
+                shell.close()
+            except Exception:
+                pass
 
     @classmethod
     def from_config(cls, config: dict, hosts: dict | None = None) -> WorkflowContext:
