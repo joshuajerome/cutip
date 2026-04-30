@@ -73,6 +73,56 @@ class TestWorkflowContext:
         with pytest.raises(RuntimeError, match="SSH credentials not set"):
             _ = ctx.ssh
 
+    def test_ssh_uses_single_nested_entry(self, monkeypatch):
+        """ctx.ssh transparently uses the only named entry from a nested file."""
+        import sys
+        import types
+
+        captured = {}
+
+        def fake_connect(*, host, username, password, port):
+            captured.update(
+                {"host": host, "username": username, "password": password, "port": port}
+            )
+            return object()
+
+        # rsty isn't installed in the cutip dev env. Inject a fake module so
+        # the lazy `from rsty._core import ssh_connect` inside ctx.ssh works.
+        fake_core = types.ModuleType("rsty._core")
+        fake_core.ssh_connect = fake_connect
+        fake_rsty = types.ModuleType("rsty")
+        fake_rsty._core = fake_core
+        monkeypatch.setitem(sys.modules, "rsty", fake_rsty)
+        monkeypatch.setitem(sys.modules, "rsty._core", fake_core)
+
+        ctx = WorkflowContext.from_config(
+            {"project": "test", "host": "remote"},
+            hosts={"ub20": {"host": "10.0.0.1", "username": "u", "password": "p"}},
+        )
+        ctx._resolved_hosts = {
+            "ub20": {"host": "10.0.0.1", "username": "u", "password": "p"}
+        }
+        _ = ctx.ssh
+        assert captured == {
+            "host": "10.0.0.1",
+            "username": "u",
+            "password": "p",
+            "port": 22,
+        }
+
+    def test_ssh_multi_nested_entries_errors(self):
+        """Multiple named entries → ctx.ssh demands explicit host_for selection."""
+        ctx = WorkflowContext.from_config(
+            {"project": "test", "host": "remote"},
+            hosts={"a": {"host": "h1"}, "b": {"host": "h2"}},
+        )
+        ctx._resolved_hosts = {
+            "a": {"host": "h1", "username": "u", "password": "p"},
+            "b": {"host": "h2", "username": "u", "password": "p"},
+        }
+        with pytest.raises(RuntimeError, match="ambiguous"):
+            _ = ctx.ssh
+
     def test_data_from_data_section(self):
         ctx = WorkflowContext.from_config(
             {
