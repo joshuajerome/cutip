@@ -1439,18 +1439,36 @@ def cmd_ps(args):
                 except Exception as e:
                     console.print(f"  [yellow]⚠[/yellow] {host}: {e}")
 
-        # Local SIGTERM the daemon
+        # Local stop the daemon
+        # Windows: CTRL_BREAK_EVENT can't reach a DETACHED_PROCESS daemon
+        # (no shared console), and the daemon's SIGTERM handler is Unix-only
+        # anyway. Use taskkill /T to cascade-kill the whole process tree;
+        # the safety net below will mark meta as stopped.
         if meta.host_pid:
             try:
                 if sys.platform == "win32":
-                    import signal
+                    import subprocess
 
-                    os.kill(meta.host_pid, signal.CTRL_BREAK_EVENT)
+                    result = subprocess.run(
+                        ["taskkill", "/PID", str(meta.host_pid), "/T", "/F"],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        console.print(f"  Killed daemon tree (pid {meta.host_pid})")
+                    elif result.returncode == 128:
+                        # 128 = process not found (already exited)
+                        pass
+                    else:
+                        console.print(
+                            f"  [yellow]⚠[/yellow] taskkill rc={result.returncode}: "
+                            f"{(result.stderr or result.stdout).strip()}"
+                        )
                 else:
                     import signal
 
                     os.kill(meta.host_pid, signal.SIGTERM)
-                console.print(f"  SIGTERM → daemon pid {meta.host_pid}")
+                    console.print(f"  SIGTERM → daemon pid {meta.host_pid}")
             except ProcessLookupError:
                 pass
             except PermissionError:
