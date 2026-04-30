@@ -177,17 +177,29 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
         pass
 
     # Load config + hosts the same way cmd_run does
+    from cutip.paths import merge_paths_into_data
+
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
+    merge_paths_into_data(config, project_path)
 
     hosts: dict | None = None
+    resolved_hosts: dict | None = None
     if hosts_path_arg:
         hp = Path(hosts_path_arg)
     else:
-        hp = project_path.parent / "hosts.yaml"
+        # Honor data.hosts in the project YAML
+        data_hosts = (config.get("data") or {}).get("hosts", "hosts.yaml")
+        hp = project_path.parent / data_hosts
     if hp.exists():
+        from cutip import hosts as _hosts_mod
+
         with open(hp) as f:
             hosts = yaml.safe_load(f) or {}
+        try:
+            resolved_hosts = _hosts_mod.resolve(hp)
+        except _hosts_mod.HostsError as e:
+            print(f"[daemon] hosts resolve error: {e}", file=sys.stderr)
 
     # Import the workflow module
     import importlib.util
@@ -232,6 +244,8 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
                     print(f"  ○ {event.action} (skipped)")
 
             engine = WorkflowEngine(module, config, on_event=on_event, hosts=hosts)
+            if resolved_hosts is not None:
+                engine.ctx._resolved_hosts = resolved_hosts
             try:
                 engine.run()
             except ActionFailed as e:

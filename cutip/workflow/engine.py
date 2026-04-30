@@ -169,6 +169,46 @@ class WorkflowContext:
         self._kubectl = None
         self._container = None
 
+    def host_for(self, name: str) -> dict[str, str]:
+        """Return the resolved host config for the given name.
+
+        Works regardless of the hosts file format:
+          - **Nested** (current): returns ``{"host": ..., "username": ...,
+            "password": ...}`` for the named entry. Resolves
+            ``global: true`` references against ``~/.cutip/hosts.yaml``
+            transparently.
+          - **Flat** (legacy): the entire flat dict is treated as a single
+            unnamed host. ``ctx.host_for("default")`` (or any name) returns it.
+
+        Raises:
+            KeyError: if ``name`` isn't found in the resolved hosts.
+
+        Example::
+
+            ub20 = ctx.host_for("ub20")
+            sesh = ssh.open(host=ub20["host"], username=ub20["username"],
+                           password=ub20["password"])
+        """
+        # If we already have resolved nested data, look it up
+        resolved = getattr(self, "_resolved_hosts", None)
+        if resolved is not None:
+            if name in resolved:
+                return dict(resolved[name])
+            # For flat-file backward compat: any name returns the flat dict
+            if "_default" in resolved:
+                return dict(resolved["_default"])
+            raise KeyError(
+                f"host '{name}' not found in hosts file. "
+                f"Available: {', '.join(sorted(resolved.keys()))}"
+            )
+
+        # Fall back to the raw _hosts dict (flat, legacy path)
+        if self._hosts:
+            return dict(self._hosts)
+        raise KeyError(
+            f"host '{name}' requested but no hosts file is loaded for this project"
+        )
+
     def exec_tracked(
         self,
         sesh: Any,
