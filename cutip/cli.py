@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.9.0"
+VERSION = "2.11.0"
 console = Console()
 
 
@@ -172,6 +172,32 @@ def cmd_validate(args):
         console.print("\n[yellow]⚠ Validation passed with warnings[/yellow]")
     else:
         console.print("\n[green]✓ Validation passed[/green]")
+
+    if args.get("all"):
+        # --all: also do live SSH probes against the project's hosts
+        console.print()
+        from cutip import hosts as _hosts_mod
+
+        hosts_path = _resolve_hosts_path(project_path)
+        if not hosts_path.exists():
+            console.print(
+                f"[dim]No hosts file at {hosts_path.name} — skipping probes.[/dim]"
+            )
+            return
+        try:
+            to_probe = _hosts_mod.resolve(hosts_path)
+        except _hosts_mod.HostsError as e:
+            console.print(f"[red]Error resolving hosts:[/red] {e}")
+            sys.exit(1)
+        if not to_probe:
+            return
+        failed = _print_probe_results(to_probe, hosts_path.name)
+        if failed:
+            sys.exit(1)
+    else:
+        console.print(
+            "\n[dim]Network checks skipped. Use 'cutip hosts validate' or 'cutip validate --all' for live probes.[/dim]"
+        )
 
 
 def cmd_tree(args):
@@ -1006,6 +1032,8 @@ def cmd_hosts(args):
       cutip hosts set-path -g <path>    Change global hosts file location
       cutip hosts init -g               Create the global hosts file
       cutip hosts migrate               Convert flat → nested in this project
+      cutip hosts validate              Probe each host via SSH (project's hosts)
+      cutip hosts validate -g           Probe every entry in the global file
     """
     from cutip import hosts as _hosts
 
@@ -1181,8 +1209,78 @@ def cmd_hosts(args):
             )
         return
 
+    if subcmd == "validate":
+        # Build the dict to probe.
+        # -g: probe everything in the global file.
+        # otherwise: probe everything referenced by the project's hosts file
+        #            (with `global: true` references resolved against global).
+        if use_global:
+            if not target_path.exists():
+                console.print(f"[red]Error:[/red] {target_path} does not exist")
+                console.print("  Create with: cutip hosts init -g")
+                sys.exit(1)
+            data = _hosts.read_hosts_file(target_path)
+            if not _hosts.is_nested(data):
+                console.print(
+                    f"[red]Error:[/red] global hosts file at {target_path} is not in nested format"
+                )
+                sys.exit(1)
+            to_probe = data
+            label = str(target_path)
+        else:
+            if not target_path.exists():
+                console.print(f"[red]Error:[/red] {target_label} not found")
+                sys.exit(1)
+            try:
+                to_probe = _hosts.resolve(target_path)
+            except _hosts.HostsError as e:
+                console.print(f"[red]Error resolving hosts:[/red] {e}")
+                sys.exit(1)
+            label = target_label
+
+        if not to_probe:
+            console.print(f"[dim]No hosts to probe in {label}.[/dim]")
+            return
+
+        failed = _print_probe_results(to_probe, label)
+        if failed:
+            sys.exit(1)
+        return
+
     console.print(f"[red]Unknown hosts subcommand:[/red] {subcmd}")
     sys.exit(1)
+
+
+def _print_probe_results(hosts_dict: dict, label: str) -> int:
+    """Run live probes and render a result table.
+
+    Returns the number of failed hosts (0 = all ok).
+    """
+    from cutip.hosts_validate import probe_hosts
+
+    console.print(f"  Probing {len(hosts_dict)} host(s) from [cyan]{label}[/cyan]…")
+    results = probe_hosts(hosts_dict)
+
+    table = Table(box=box.ROUNDED, title_style="bold")
+    table.add_column("host", style="cyan")
+    table.add_column("address")
+    table.add_column("time", justify="right")
+    table.add_column("status")
+    for r in results:
+        time_cell = f"{r.elapsed:.2f}s" if r.elapsed > 0 else "—"
+        if r.ok:
+            status = "[green]✓ ok[/green]"
+        else:
+            status = f"[red]✗[/red] {r.error or 'failed'}"
+        table.add_row(r.name, r.host or "—", time_cell, status)
+    console.print(table)
+
+    failed = sum(1 for r in results if not r.ok)
+    if failed:
+        console.print(f"  [red]✗[/red] {failed} of {len(results)} host(s) failed")
+    else:
+        console.print(f"  [green]✓[/green] All {len(results)} host(s) reachable")
+    return failed
 
 
 def cmd_cmd(args):
@@ -1658,6 +1756,7 @@ def main():
             "set-path",
             "init",
             "migrate",
+            "validate",
             "help",
         }
         if remaining and remaining[0] in valid_subs:
@@ -1711,6 +1810,9 @@ def main():
             i += 1
         elif arg == "--bg":
             parsed["bg"] = True
+            i += 1
+        elif arg == "--all":
+            parsed["all"] = True
             i += 1
         elif arg == "--hosts" and i + 1 < len(remaining):
             parsed["hosts"] = remaining[i + 1]
