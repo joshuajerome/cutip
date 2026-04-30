@@ -99,14 +99,42 @@ class WorkflowContext:
         if self._ssh is not None:
             return self._ssh
 
-        host = self._hosts.get("host", "")
-        username = self._hosts.get("username", "")
-        password = self._hosts.get("password", "")
-        port = int(self._hosts.get("port", "22"))
+        # Backward-compat resolution order:
+        # 1. Flat top-level fields on _hosts (legacy: host: …, username: …)
+        # 2. Single-entry nested hosts file (the named entry's fields)
+        # 3. Error — multiple entries means workflow must use ctx.host_for(name).
+        creds = {
+            "host": self._hosts.get("host", ""),
+            "username": self._hosts.get("username", ""),
+            "password": self._hosts.get("password", ""),
+            "port": self._hosts.get("port", "22"),
+        }
+        if not creds["host"] or not creds["username"] or not creds["password"]:
+            resolved = getattr(self, "_resolved_hosts", None) or {}
+            named = {k: v for k, v in resolved.items() if k != "_default"}
+            if len(named) == 1:
+                only = next(iter(named.values()))
+                creds = {
+                    "host": only.get("host", ""),
+                    "username": only.get("username", ""),
+                    "password": only.get("password", ""),
+                    "port": only.get("port", "22"),
+                }
+            elif len(named) > 1:
+                raise RuntimeError(
+                    "ctx.ssh is ambiguous: hosts.yaml has multiple named entries "
+                    f"({', '.join(sorted(named.keys()))}). Use ctx.host_for('<name>') "
+                    "to pick one explicitly."
+                )
+
+        host = creds["host"]
+        username = creds["username"]
+        password = creds["password"]
+        port = int(creds["port"])
 
         if not host or not username or not password:
             raise RuntimeError(
-                "SSH credentials not set. Run: cutip hosts set host=<ip> username=<user> password=<pw>"
+                "SSH credentials not set. Run: cutip hosts set <name>.host=<ip> <name>.username=<user> <name>.password=<pw>"
             )
 
         from rsty._core import ssh_connect
