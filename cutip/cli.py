@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.13.0"
+VERSION = "2.14.0"
 console = Console()
 
 
@@ -1338,6 +1338,109 @@ def _print_probe_results(hosts_dict: dict, label: str) -> int:
     return failed
 
 
+def cmd_data(args):
+    """Manage the global data store at ~/.cutip/data.yaml.
+
+    Subcommands:
+      cutip data list                 List entries (flattened, dotted paths)
+      cutip data get <dotted.path>    Print one value
+      cutip data set <dotted.path>=<value> [...]
+                                      Set one or more values
+      cutip data path                 Print the data file path
+      cutip data init                 Create an empty data file
+    """
+    from cutip import globals as _globals
+
+    subcmd = args.get("subcmd")
+
+    if not subcmd or subcmd == "help":
+        console.print(cmd_data.__doc__ or "cutip data")
+        return
+
+    gp = _globals.globals_path()
+
+    if subcmd == "path":
+        console.print(gp)
+        return
+
+    if subcmd == "init":
+        if gp.exists():
+            console.print(f"[dim]Global data file already exists: {gp}[/dim]")
+            return
+        _globals.write_globals({}, gp)
+        console.print(f"  [green]✓[/green] Created [cyan]{gp}[/cyan]")
+        console.print("  Add entries with: cutip data set <dotted.path>=<value>")
+        return
+
+    if subcmd == "list":
+        if not gp.exists():
+            console.print(f"[dim]{gp} does not exist.[/dim]")
+            console.print("  Create with: cutip data init")
+            return
+        data = _globals.read_globals(gp)
+        if not data:
+            console.print("[dim]No entries.[/dim]")
+            return
+        flat = _globals.flatten(data)
+        for k in sorted(flat):
+            # Mask if any segment of the dotted path looks sensitive —
+            # 'passwords.v22' should hide its value even though 'v22' alone
+            # doesn't match the sensitive list.
+            disp = (
+                "****" if any(_is_sensitive(seg) for seg in k.split(".")) else flat[k]
+            )
+            console.print(f"  [cyan]{k}[/cyan] = {disp}")
+        return
+
+    if subcmd == "get":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip data get <dotted.path>")
+            sys.exit(1)
+        data = _globals.read_globals(gp)
+        value = _globals.lookup(data, key)
+        if value is None:
+            console.print(f"[red]Error:[/red] '{key}' not found in {gp.name}")
+            sys.exit(1)
+        if isinstance(value, dict):
+            console.print(
+                f"[red]Error:[/red] '{key}' is a mapping, not a scalar. "
+                f"Drill deeper or use 'cutip data list'."
+            )
+            sys.exit(1)
+        console.print(value)
+        return
+
+    if subcmd == "set":
+        pairs = args.get("pairs", [])
+        if not pairs:
+            console.print(
+                "[red]Usage:[/red] cutip data set <dotted.path>=<value> [...]"
+            )
+            sys.exit(1)
+        data = _globals.read_globals(gp)
+        for pair in pairs:
+            if "=" not in pair:
+                console.print(
+                    f"[red]Error:[/red] invalid format '{pair}', "
+                    f"expected <dotted.path>=<value>"
+                )
+                sys.exit(1)
+            k, v = pair.split("=", 1)
+            try:
+                _globals.set_dotted(data, k, v)
+            except _globals.GlobalsError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                sys.exit(1)
+            disp = "****" if any(_is_sensitive(seg) for seg in k.split(".")) else v
+            console.print(f"  [green]✓[/green] {k} = {disp}")
+        _globals.write_globals(data, gp)
+        return
+
+    console.print(f"[red]Unknown data subcommand:[/red] {subcmd}")
+    sys.exit(1)
+
+
 def cmd_cmd(args):
     """Execute a project-defined command."""
     import subprocess
@@ -1686,6 +1789,7 @@ COMMANDS = {
     "vars": cmd_vars,
     "secrets": cmd_secrets,
     "hosts": cmd_hosts,
+    "data": cmd_data,
     "verify": cmd_verify,
     "ps": cmd_ps,
 }
@@ -1725,6 +1829,7 @@ def main():
                 "  vars       Manage project variables (list/get/set)\n"
                 "  secrets    Manage project secrets (list/get/set)\n"
                 "  hosts      Manage connection credentials (list/get/set)\n"
+                "  data       Manage global data store (~/.cutip/data.yaml)\n"
                 "  verify     Check prerequisites\n"
                 "  ps         List/inspect/stop background runs (cutip run --bg)\n\n"
                 "[bold]Usage:[/bold]\n"
@@ -1841,6 +1946,24 @@ def main():
             parsed["pairs"] = pairs
         if names:
             parsed["names"] = names
+        COMMANDS[command](parsed)
+        return
+
+    if command == "data":
+        valid_subs = {"list", "get", "set", "path", "init", "help"}
+        if remaining and remaining[0] in valid_subs:
+            parsed["subcmd"] = remaining[0]
+            remaining = remaining[1:]
+        pairs = []
+        for arg in remaining:
+            if arg in ("-h", "--help"):
+                parsed["subcmd"] = "help"
+            elif "=" in arg:
+                pairs.append(arg)
+            elif parsed.get("subcmd") == "get" and "key" not in parsed:
+                parsed["key"] = arg
+        if pairs:
+            parsed["pairs"] = pairs
         COMMANDS[command](parsed)
         return
 

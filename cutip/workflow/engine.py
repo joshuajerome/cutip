@@ -90,6 +90,24 @@ class WorkflowContext:
         return self.config.get("data", {})
 
     @property
+    def globals(self) -> dict[str, str]:
+        """Flattened global data from ~/.cutip/data.yaml.
+
+        Returns dotted-path keys mapped to scalar string values, suitable
+        for passing as the ``globals`` argument to
+        ``rsty.config.substitute_vars``. The underlying file is loaded
+        once per workflow run.
+        """
+        cached = getattr(self, "_globals_cache", None)
+        if cached is not None:
+            return cached
+        from cutip import globals as _globals
+
+        flat = _globals.flatten(_globals.read_globals())
+        self._globals_cache = flat
+        return flat
+
+    @property
     def ssh(self) -> Any:
         """SSH session — created on first access from hosts.yaml credentials.
 
