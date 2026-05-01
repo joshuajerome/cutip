@@ -177,3 +177,136 @@ def test_get_field_returns_none_for_missing(tmp_path):
     assert hosts.get_field(p, "ub20", "host") == "h"
     assert hosts.get_field(p, "ub20", "username") is None
     assert hosts.get_field(p, "nonexistent", "host") is None
+
+
+# ── Promote (local → global) ────────────────────────────────────────────────
+
+
+def test_promote_copies_to_global_and_replaces_local(tmp_path, isolated_home):
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(
+        local, {"ub20": {"host": "1.2.3.4", "username": "u", "password": "p"}}
+    )
+    result = hosts.promote_to_global(local, names=["ub20"])
+    assert result.promoted == ["ub20"]
+    assert result.conflicts == []
+    # Local now references global
+    assert hosts.read_hosts_file(local) == {"ub20": {"global": True}}
+    # Global has the credentials
+    gp = hosts.global_hosts_path()
+    assert hosts.read_hosts_file(gp) == {
+        "ub20": {"host": "1.2.3.4", "username": "u", "password": "p"}
+    }
+
+
+def test_promote_all_when_no_names_given(tmp_path, isolated_home):
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(
+        local,
+        {
+            "ub20": {"host": "1", "username": "u", "password": "p"},
+            "sfm": {"host": "2", "username": "u", "password": "p"},
+        },
+    )
+    result = hosts.promote_to_global(local, names=None)
+    assert sorted(result.promoted) == ["sfm", "ub20"]
+    assert hosts.read_hosts_file(local) == {
+        "ub20": {"global": True},
+        "sfm": {"global": True},
+    }
+
+
+def test_promote_conflict_without_force_skips(tmp_path, isolated_home):
+    """Existing global entry with different values blocks the promote."""
+    gp = hosts.global_hosts_path()
+    hosts.write_hosts_file(
+        gp, {"ub20": {"host": "OLD", "username": "u", "password": "old-pw"}}
+    )
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(
+        local, {"ub20": {"host": "NEW", "username": "u", "password": "new-pw"}}
+    )
+    result = hosts.promote_to_global(local, names=["ub20"])
+    assert result.promoted == []
+    assert result.conflicts == ["ub20"]
+    # Neither side mutated
+    assert hosts.read_hosts_file(gp)["ub20"]["host"] == "OLD"
+    assert hosts.read_hosts_file(local)["ub20"]["host"] == "NEW"
+
+
+def test_promote_conflict_with_force_overwrites(tmp_path, isolated_home):
+    gp = hosts.global_hosts_path()
+    hosts.write_hosts_file(
+        gp, {"ub20": {"host": "OLD", "username": "u", "password": "old-pw"}}
+    )
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(
+        local, {"ub20": {"host": "NEW", "username": "u", "password": "new-pw"}}
+    )
+    result = hosts.promote_to_global(local, names=["ub20"], force=True)
+    assert result.promoted == ["ub20"]
+    assert result.conflicts == []
+    assert hosts.read_hosts_file(gp)["ub20"]["host"] == "NEW"
+    assert hosts.read_hosts_file(local) == {"ub20": {"global": True}}
+
+
+def test_promote_identical_global_entry_promotes_silently(tmp_path, isolated_home):
+    """If global already matches local exactly, promote still rewrites local
+    to {global: true} — there's no conflict."""
+    creds = {"host": "1", "username": "u", "password": "p"}
+    gp = hosts.global_hosts_path()
+    hosts.write_hosts_file(gp, {"ub20": creds})
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(local, {"ub20": creds})
+    result = hosts.promote_to_global(local, names=["ub20"])
+    assert result.promoted == ["ub20"]
+    assert result.conflicts == []
+    assert hosts.read_hosts_file(local) == {"ub20": {"global": True}}
+
+
+def test_promote_skips_already_global_entries(tmp_path, isolated_home):
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(local, {"ub20": {"global": True}})
+    result = hosts.promote_to_global(local, names=["ub20"])
+    assert result.promoted == []
+    assert result.skipped_already_global == ["ub20"]
+    # Local file unchanged
+    assert hosts.read_hosts_file(local) == {"ub20": {"global": True}}
+
+
+def test_promote_missing_name_is_reported(tmp_path, isolated_home):
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(local, {"ub20": {"host": "h"}})
+    result = hosts.promote_to_global(local, names=["nonexistent"])
+    assert result.promoted == []
+    assert result.skipped_missing == ["nonexistent"]
+
+
+def test_promote_rejects_flat_local_file(tmp_path, isolated_home):
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(local, {"host": "h", "username": "u", "password": "p"})
+    with pytest.raises(hosts.HostsError, match="flat \\(legacy\\) format"):
+        hosts.promote_to_global(local)
+
+
+def test_promote_partial_with_some_conflicts(tmp_path, isolated_home):
+    """Mixed batch: one entry promotes cleanly, another conflicts. The
+    clean one moves; the conflicting one stays put with original values."""
+    gp = hosts.global_hosts_path()
+    hosts.write_hosts_file(
+        gp, {"sfm": {"host": "OLD", "username": "u", "password": "old"}}
+    )
+    local = tmp_path / "local.yaml"
+    hosts.write_hosts_file(
+        local,
+        {
+            "ub20": {"host": "1", "username": "u", "password": "p"},
+            "sfm": {"host": "NEW", "username": "u", "password": "new"},
+        },
+    )
+    result = hosts.promote_to_global(local, names=None)
+    assert result.promoted == ["ub20"]
+    assert result.conflicts == ["sfm"]
+    final_local = hosts.read_hosts_file(local)
+    assert final_local["ub20"] == {"global": True}
+    assert final_local["sfm"] == {"host": "NEW", "username": "u", "password": "new"}

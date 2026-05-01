@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.12.0"
+VERSION = "2.13.0"
 console = Console()
 
 
@@ -1036,6 +1036,11 @@ def cmd_hosts(args):
       cutip hosts migrate               Convert flat → nested in this project
       cutip hosts validate              Probe each host via SSH (project's hosts)
       cutip hosts validate -g           Probe every entry in the global file
+      cutip hosts promote [<name>...]   Move local entries to ~/.cutip/hosts.yaml
+                                        and replace each with `{global: true}`.
+                                        Without name, promotes ALL entries.
+                                        Use -f / --force to overwrite conflicting
+                                        global values; otherwise conflicts abort.
     """
     from cutip import hosts as _hosts
 
@@ -1209,6 +1214,54 @@ def cmd_hosts(args):
             console.print(
                 f"  Workflows should now use ctx.host_for('{default_name}') or update field references."
             )
+        return
+
+    if subcmd == "promote":
+        if use_global:
+            console.print(
+                "[red]Error:[/red] promote moves entries FROM local TO global; -g doesn't apply."
+            )
+            sys.exit(1)
+        project_path = _resolve_project(args.get("project"))
+        local_path = _resolve_hosts_path(project_path)
+        if not local_path.exists():
+            console.print(f"[red]Error:[/red] {local_path.name} not found")
+            sys.exit(1)
+        names = args.get("names")  # None = promote all
+        force = bool(args.get("force"))
+        try:
+            result = _hosts.promote_to_global(local_path, names=names, force=force)
+        except _hosts.HostsError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            sys.exit(1)
+
+        gp = _hosts.global_hosts_path()
+        for name in result.promoted:
+            console.print(f"  [green]✓[/green] Promoted [cyan]{name}[/cyan] → {gp}")
+        for name in result.skipped_already_global:
+            console.print(f"  [dim]○ {name} is already 'global: true' (skipped)[/dim]")
+        for name in result.skipped_missing:
+            console.print(
+                f"  [yellow]⚠[/yellow] '{name}' not found in {local_path.name}"
+            )
+        if result.conflicts:
+            console.print(
+                f"\n[red]✗[/red] {len(result.conflicts)} conflict(s) — "
+                f"global already has different values for:"
+            )
+            for name in result.conflicts:
+                console.print(f"    [red]•[/red] {name}")
+            console.print(
+                "\n  Use [cyan]-f[/cyan] (or [cyan]--force[/cyan]) to overwrite the global entries."
+            )
+            sys.exit(1)
+        if result.promoted:
+            console.print(
+                f"\n  Local {local_path.name} now references global creds. "
+                f"Run [cyan]cutip hosts list[/cyan] to confirm."
+            )
+        elif not (result.skipped_already_global or result.skipped_missing):
+            console.print("[dim]Nothing to promote.[/dim]")
         return
 
     if subcmd == "validate":
@@ -1759,27 +1812,35 @@ def main():
             "init",
             "migrate",
             "validate",
+            "promote",
             "help",
         }
         if remaining and remaining[0] in valid_subs:
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
         pairs = []
+        names: list[str] = []
         for arg in remaining:
             if arg in ("-h", "--help"):
                 parsed["subcmd"] = "help"
             elif arg in ("-g", "--global"):
                 parsed["global"] = True
+            elif arg in ("-f", "--force"):
+                parsed["force"] = True
             elif "=" in arg:
                 pairs.append(arg)
             elif arg.endswith(".yaml") or Path(arg).exists():
                 parsed["project"] = arg
             elif parsed.get("subcmd") in ("get", "set-path") and "key" not in parsed:
                 parsed["key"] = arg
+            elif parsed.get("subcmd") == "promote":
+                names.append(arg)
             elif not parsed.get("project"):
                 parsed["project"] = arg
         if pairs:
             parsed["pairs"] = pairs
+        if names:
+            parsed["names"] = names
         COMMANDS[command](parsed)
         return
 
