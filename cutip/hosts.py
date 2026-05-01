@@ -31,6 +31,7 @@ explicit via ``cutip hosts migrate``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -218,6 +219,98 @@ def set_field(path: Path, host_name: str, field: str, value: str) -> None:
         )
     data[host_name][field] = value
     write_hosts_file(path, data)
+
+
+# ── Promotion (local → global) ──────────────────────────────────────────────
+
+
+@dataclass
+class PromoteResult:
+    """Outcome of a promote_to_global() call."""
+
+    promoted: list[str]  # names successfully copied to global
+    conflicts: list[str]  # names that exist in global with different values (skipped)
+    skipped_already_global: list[str]  # names already `global: true` in local
+    skipped_missing: list[str]  # names requested but not in local file
+
+
+def promote_to_global(
+    local_path: Path,
+    names: list[str] | None = None,
+    *,
+    force: bool = False,
+) -> PromoteResult:
+    """Copy local hosts entries to ``~/.cutip/hosts.yaml`` and replace each
+    promoted local entry with ``{global: true}``.
+
+    Args:
+        local_path: Path to the project's hosts.yaml.
+        names: Specific host names to promote. ``None`` means every entry
+            in the local file.
+        force: Overwrite global entries that already exist with different
+            values. Without ``force``, conflicts are reported and the
+            promotion of those names is skipped.
+
+    Returns:
+        ``PromoteResult`` describing what happened. The local file is only
+        modified for names that were actually promoted (no partial writes
+        on errors).
+
+    Raises:
+        HostsError: if the local file is in flat format (run ``migrate``
+            first) or if a requested entry isn't a mapping.
+    """
+    local = read_hosts_file(local_path)
+    if local and not is_nested(local):
+        raise HostsError(
+            f"{local_path.name} is in flat (legacy) format. "
+            "Run 'cutip hosts migrate' first, then re-run promote."
+        )
+
+    global_path = global_hosts_path()
+    global_data = read_hosts_file(global_path) if global_path.exists() else {}
+    if global_data and not is_nested(global_data):
+        raise HostsError(f"global hosts file at {global_path} is not in nested format")
+
+    targets: list[str] = list(names) if names else list(local.keys())
+    promoted: list[str] = []
+    conflicts: list[str] = []
+    skipped_already_global: list[str] = []
+    skipped_missing: list[str] = []
+
+    for name in targets:
+        if name not in local:
+            skipped_missing.append(name)
+            continue
+        entry = local[name]
+        if not isinstance(entry, dict):
+            raise HostsError(
+                f"local entry '{name}' is not a mapping (got {type(entry).__name__})"
+            )
+        if entry.get("global") is True:
+            skipped_already_global.append(name)
+            continue
+        # Conflict: existing global entry with different fields
+        existing = global_data.get(name)
+        if isinstance(existing, dict) and existing != entry and not force:
+            conflicts.append(name)
+            continue
+        global_data[name] = dict(entry)
+        promoted.append(name)
+
+    # Only persist if we actually moved something. Empty promote = no-op.
+    if promoted:
+        write_hosts_file(global_path, global_data)
+        for name in promoted:
+            local[name] = {"global": True}
+        write_hosts_file(local_path, local)
+
+    return PromoteResult(
+        promoted=promoted,
+        conflicts=conflicts,
+        skipped_already_global=skipped_already_global,
+        skipped_missing=skipped_missing,
+    )
 
 
 # ── Migration ───────────────────────────────────────────────────────────────
