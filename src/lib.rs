@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
-mod config;
 mod commands;
+mod config;
 
 /// cutip._core — Rust core for the cutip Python package.
 #[pymodule]

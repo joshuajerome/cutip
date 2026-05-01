@@ -2,6 +2,6 @@
 //!
 //! One file replaces cutip.yaml + paths.yaml + secrets.yaml + cards + units + groups.
 
-pub mod model;
 pub mod loader;
+pub mod model;
 pub mod resolve;

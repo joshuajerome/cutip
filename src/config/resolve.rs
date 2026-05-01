@@ -1,14 +1,15 @@
-//! Template resolution for {{ vars.X }}, {{ paths.X }}, and {{ secrets.X }}
-//! placeholders.
+//! Template resolution for `{{ vars.X }}`, `{{ paths.X }}`, `{{ secrets.X }}`,
+//! and `{{ globals.X.Y.Z }}` placeholders.
 
 use std::collections::HashMap;
 
 use super::model::Config;
 
-/// Resolve all `{{ vars.X }}`, `{{ paths.X }}`, and `{{ secrets.X }}`
-/// placeholders in a string against the provided maps.
+/// Resolve all `{{ vars.X }}`, `{{ paths.X }}`, `{{ secrets.X }}`, and
+/// `{{ globals.X.Y.Z }}` placeholders in a string against the provided maps.
 ///
-/// Substitution order: vars first, then paths, then secrets. Within each
+/// `globals` keys are pre-flattened dotted paths (e.g. `"passwords.v22"`).
+/// Substitution order: vars → paths → secrets → globals. Within each
 /// namespace both `{{ ns.key }}` (with spaces) and `{{ns.key}}` (without)
 /// are supported.
 pub fn resolve_string(
@@ -16,6 +17,7 @@ pub fn resolve_string(
     vars: &HashMap<String, String>,
     paths: &HashMap<String, String>,
     secrets: &HashMap<String, String>,
+    globals: &HashMap<String, String>,
 ) -> String {
     let mut result = template.to_string();
 
@@ -43,6 +45,16 @@ pub fn resolve_string(
         let patterns = [
             format!("{{{{ secrets.{key} }}}}"),
             format!("{{{{secrets.{key}}}}}"),
+        ];
+        for pattern in &patterns {
+            result = result.replace(pattern, value);
+        }
+    }
+
+    for (key, value) in globals {
+        let patterns = [
+            format!("{{{{ globals.{key} }}}}"),
+            format!("{{{{globals.{key}}}}}"),
         ];
         for pattern in &patterns {
             result = result.replace(pattern, value);
@@ -112,6 +124,7 @@ mod tests {
             &map(&[]),
             &map(&[("repo", "/home/u/proj")]),
             &map(&[]),
+            &map(&[]),
         );
         assert_eq!(result, "src: /home/u/proj");
     }
@@ -123,37 +136,73 @@ mod tests {
             &map(&[]),
             &map(&[("repo", "/home/u/proj")]),
             &map(&[]),
+            &map(&[]),
         );
         assert_eq!(result, "src: /home/u/proj");
     }
 
     #[test]
     fn resolve_paths_does_not_collide_with_vars() {
-        // Same key in both vars and paths — paths wins for {{ paths.X }},
-        // vars wins for {{ vars.X }}. They never overlap by construction.
         let result = resolve_string(
             "v={{ vars.x }} p={{ paths.x }}",
             &map(&[("x", "from-vars")]),
             &map(&[("x", "from-paths")]),
+            &map(&[]),
             &map(&[]),
         );
         assert_eq!(result, "v=from-vars p=from-paths");
     }
 
     #[test]
-    fn resolve_all_three_namespaces() {
+    fn resolve_all_four_namespaces() {
         let result = resolve_string(
-            "{{ vars.a }}|{{ paths.b }}|{{ secrets.c }}",
+            "{{ vars.a }}|{{ paths.b }}|{{ secrets.c }}|{{ globals.d.e }}",
             &map(&[("a", "VA")]),
             &map(&[("b", "PB")]),
             &map(&[("c", "SC")]),
+            &map(&[("d.e", "GD")]),
         );
-        assert_eq!(result, "VA|PB|SC");
+        assert_eq!(result, "VA|PB|SC|GD");
     }
 
     #[test]
-    fn find_unresolved_picks_up_paths() {
-        let unresolved = find_unresolved("src: {{ paths.missing }}");
-        assert_eq!(unresolved, vec!["{{ paths.missing }}"]);
+    fn resolve_globals_dotted_paths() {
+        let result = resolve_string(
+            "pw={{ globals.passwords.v22 }} url={{globals.constants.artifactory}}",
+            &map(&[]),
+            &map(&[]),
+            &map(&[]),
+            &map(&[
+                ("passwords.v22", "DefaultPw123"),
+                ("constants.artifactory", "http://artifactory.internal/"),
+            ]),
+        );
+        assert_eq!(
+            result,
+            "pw=DefaultPw123 url=http://artifactory.internal/"
+        );
+    }
+
+    #[test]
+    fn resolve_globals_missing_leaves_placeholder() {
+        let result = resolve_string(
+            "{{ globals.missing.path }}",
+            &map(&[]),
+            &map(&[]),
+            &map(&[]),
+            &map(&[]),
+        );
+        assert_eq!(result, "{{ globals.missing.path }}");
+    }
+
+    #[test]
+    fn find_unresolved_picks_up_paths_and_globals() {
+        let unresolved = find_unresolved(
+            "src: {{ paths.missing }}, pw: {{ globals.x.y }}"
+        );
+        assert_eq!(
+            unresolved,
+            vec!["{{ paths.missing }}", "{{ globals.x.y }}"]
+        );
     }
 }
