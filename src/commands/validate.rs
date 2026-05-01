@@ -20,14 +20,15 @@ use crate::config::resolve;
 pub fn validate(py: Python<'_>, path: Option<&str>) -> PyResult<PyObject> {
     let config_path = match path {
         Some(p) => std::path::PathBuf::from(p),
-        None => loader::find_config(&std::env::current_dir().map_err(|e| {
-            PyRuntimeError::new_err(format!("Failed to get current dir: {e}"))
-        })?)
+        None => loader::find_config(
+            &std::env::current_dir()
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to get current dir: {e}")))?,
+        )
         .map_err(|e| PyRuntimeError::new_err(format!("{e}")))?,
     };
 
-    let config = loader::load_config(&config_path)
-        .map_err(|e| PyRuntimeError::new_err(format!("{e}")))?;
+    let config =
+        loader::load_config(&config_path).map_err(|e| PyRuntimeError::new_err(format!("{e}")))?;
 
     let ref_errors = resolve::validate_refs(&config);
 
@@ -45,9 +46,13 @@ pub fn validate(py: Python<'_>, path: Option<&str>) -> PyResult<PyObject> {
     dict.set_item("path", config_path.to_string_lossy().to_string())?;
     dict.set_item("project", &config.project)?;
     dict.set_item("host", config.host.as_deref().unwrap_or("local"))?;
-    dict.set_item("container_runtime", config.container_rt.as_deref().unwrap_or("auto"))?;
+    dict.set_item(
+        "container_runtime",
+        config.container_rt.as_deref().unwrap_or("auto"),
+    )?;
     dict.set_item("workflow", &config.workflow)?;
     dict.set_item("vars_count", config.vars.len())?;
+    dict.set_item("paths_count", config.paths.len())?;
     dict.set_item("secrets_count", config.secrets.len())?;
     dict.set_item(
         "containers_count",

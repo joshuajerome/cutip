@@ -6,8 +6,10 @@
 //! container_runtime: podman  # docker | podman (only when host: container)
 //!
 //! vars:
-//!   repo_path: "/home/user/dev/my-app"
 //!   node_env: development
+//!
+//! paths:
+//!   repo_path: "/home/user/dev/my-app"   # validated, expansions applied
 //!
 //! secrets:
 //!   db_password: ""        # prompted if empty
@@ -24,7 +26,7 @@
 //!   environment:
 //!     NODE_ENV: "{{ vars.node_env }}"
 //!   mounts:
-//!     - source: "{{ vars.repo_path }}"
+//!     - source: "{{ paths.repo_path }}"
 //!       target: /app
 //!
 //! # Multi-container projects use containers: instead
@@ -47,8 +49,8 @@
 //!   backend: { driver: bridge, subnet: "172.21.0.0/24" }
 //! ```
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Root config.yaml structure.
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -75,6 +77,12 @@ pub struct Config {
     /// Sensitive values. Referenced as {{ secrets.key }}. Prompted if empty.
     #[serde(default)]
     pub secrets: HashMap<String, String>,
+
+    /// Filesystem paths. Referenced as {{ paths.key }} in YAML values.
+    /// Validated at `cutip validate` time (existence checks, ~/$VAR
+    /// expansion, project-relative resolution).
+    #[serde(default)]
+    pub paths: HashMap<String, String>,
 
     /// Single image definition (mutually exclusive with containers).
     #[serde(default)]
@@ -183,7 +191,7 @@ pub struct ContainerConfig {
 /// Mount/volume configuration.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct MountConfig {
-    /// Source path on host (supports {{ vars.X }}).
+    /// Source path on host (supports {{ vars.X }} and {{ paths.X }}).
     pub source: String,
 
     /// Target path in container.
@@ -219,7 +227,15 @@ pub struct NetworkConfig {
     pub gateway: Option<String>,
 }
 
-fn default_workflow() -> String { "workflow.py".to_string() }
-fn default_tag() -> String { "latest".to_string() }
-fn default_mount_type() -> String { "bind".to_string() }
-fn default_driver() -> String { "bridge".to_string() }
+fn default_workflow() -> String {
+    "workflow.py".to_string()
+}
+fn default_tag() -> String {
+    "latest".to_string()
+}
+fn default_mount_type() -> String {
+    "bind".to_string()
+}
+fn default_driver() -> String {
+    "bridge".to_string()
+}
