@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.11.0"
+VERSION = "2.12.0"
 console = Console()
 
 
@@ -143,6 +143,8 @@ def cmd_validate(args):
         table.add_row("Runtime", rt)
     table.add_row("Workflow", result.get("workflow", "workflow.py"))
     table.add_row("Vars", str(result["vars_count"]))
+    if result.get("paths_count", 0):
+        table.add_row("Paths", str(result["paths_count"]))
 
     if result["empty_secrets"]:
         table.add_row(
