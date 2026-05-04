@@ -105,6 +105,56 @@ class TestValidateProject:
         cred_errors = [e for e in errors if "missing" in e.lower() and "SSH" in e]
         assert cred_errors == []
 
+    def test_remote_ssh_nested_complete_credentials(self, tmp_path):
+        """Nested hosts.yaml with full creds passes."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "remote"},
+            hosts={
+                "sfm": {"host": "10.0.0.1", "username": "root", "password": "pw"},
+            },
+        )
+        cred_errors = [e for e in errors if "missing" in e.lower()]
+        assert cred_errors == []
+
+    def test_remote_ssh_nested_missing_credentials(self, tmp_path):
+        """Nested entry with missing fields surfaces a per-entry error."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "remote"},
+            hosts={
+                "sfm": {"host": "10.0.0.1"},  # missing username + password
+            },
+        )
+        assert any("sfm" in e and "username" in e for e in errors)
+        assert any("sfm" in e and "password" in e for e in errors)
+
+    def test_remote_ssh_nested_global_ref_skipped(self, tmp_path):
+        """Entries with `{global: true}` are skipped — credentials come from
+        ~/.cutip/hosts.yaml at run time and aren't checked at validate."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "remote"},
+            hosts={"sfm": {"global": True}},
+        )
+        cred_errors = [e for e in errors if "missing" in e.lower()]
+        assert cred_errors == []
+
+    def test_remote_ssh_nested_multi_entry(self, tmp_path):
+        """Per-entry checks: one entry full, one missing fields → only the
+        bad one errors."""
+        errors, _ = validate_project(
+            tmp_path / "test.yaml",
+            {"project": "test", "host": "remote"},
+            hosts={
+                "good": {"host": "h", "username": "u", "password": "p"},
+                "bad": {"host": "h2"},  # missing username/password
+            },
+        )
+        # Bad entry surfaces; good entry doesn't
+        assert any("bad" in e and "missing" in e for e in errors)
+        assert not any("'good'" in e for e in errors)
+
     def test_empty_vars_are_errors(self, tmp_path):
         errors, _ = validate_project(
             tmp_path / "test.yaml",

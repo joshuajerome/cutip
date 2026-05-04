@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.14.0"
+VERSION = "2.15.0"
 console = Console()
 
 
@@ -93,16 +93,43 @@ def _resolve_workflow(project_path: Path, config: dict) -> Path:
 def _load_config(project_path: Path) -> dict:
     """Load and return project config as a dict.
 
-    Expands the ``paths:`` section against the project file's directory
-    and merges the resolved values into ``config['data']`` so workflow
-    code reads them via ``ctx.data["<name>"]`` like any other entry.
+    Resolution stages (in order):
+      1. Parse YAML.
+      2. Read globals from ``~/.cutip/data.yaml`` (flat dotted keys).
+      3. Resolve globals into ``vars`` / ``paths`` / ``secrets`` so they
+         carry final values before the rest of the config is processed.
+      4. Walk the entire config dict and substitute every ``{{ ns.key }}``
+         placeholder using the resolved vars/paths/secrets/globals maps.
+      5. Expand the ``paths:`` section against the project's directory
+         and merge the resolved values into ``config['data']`` so
+         workflow code reads them via ``ctx.data["<name>"]``.
     """
     import yaml
 
+    from cutip import globals as _globals
     from cutip.paths import merge_paths_into_data
+    from cutip.templating import resolve_substitution_maps, substitute_in_obj
 
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
+
+    globals_flat = _globals.flatten(_globals.read_globals())
+
+    # Stage 3: resolve globals into vars/paths/secrets.
+    vars_resolved, paths_resolved, secrets_resolved = resolve_substitution_maps(
+        config, globals_flat
+    )
+
+    # Stage 4: substitute all four namespaces across the entire config.
+    config = substitute_in_obj(
+        config,
+        vars=vars_resolved,
+        paths=paths_resolved,
+        secrets=secrets_resolved,
+        globals=globals_flat,
+    )
+
+    # Stage 5: existing path-section merge into data.
     merge_paths_into_data(config, project_path)
     return config
 
@@ -563,7 +590,9 @@ def cmd_run(args):
         hosts_path = _resolve_hosts_path(project_path)
 
     if hosts_path.exists():
+        from cutip import globals as _globals
         from cutip import hosts as _hosts_mod
+        from cutip.templating import substitute_in_obj
 
         try:
             resolved_hosts = _hosts_mod.resolve(hosts_path)
@@ -575,6 +604,24 @@ def cmd_run(args):
         # carries the nested raw dict.
         with open(hosts_path) as f:
             hosts = yaml.safe_load(f) or {}
+
+        # Substitute templates in resolved hosts using project's vars/paths/
+        # secrets (already resolved against globals at config-load time).
+        globals_flat = _globals.flatten(_globals.read_globals())
+        resolved_hosts = substitute_in_obj(
+            resolved_hosts,
+            vars=config.get("vars") or {},
+            paths=config.get("paths") or {},
+            secrets=config.get("secrets") or {},
+            globals=globals_flat,
+        )
+        hosts = substitute_in_obj(
+            hosts,
+            vars=config.get("vars") or {},
+            paths=config.get("paths") or {},
+            secrets=config.get("secrets") or {},
+            globals=globals_flat,
+        )
 
     # Pre-run validation
     workflow_path = _resolve_workflow(project_path, config)
