@@ -176,18 +176,59 @@ def test_end_to_end_hosts_yaml_shape():
     """Hosts entries can pull credentials from globals while keeping a
     per-project IP."""
     resolved_hosts = {
-        "sfm": {
-            "host": "100.94.115.88",
-            "username": "{{ globals.sfm.cred.username }}",
-            "password": "{{ globals.sfm.cred.password }}",
+        "myhost": {
+            "host": "10.0.0.1",
+            "username": "{{ globals.myhost.cred.username }}",
+            "password": "{{ globals.myhost.cred.password }}",
         }
     }
-    globals_flat = {"sfm.cred.username": "root", "sfm.cred.password": "Dell@force10"}
+    globals_flat = {
+        "myhost.cred.username": "test-user",
+        "myhost.cred.password": "test-pw",
+    }
     out = substitute_in_obj(resolved_hosts, globals=globals_flat)
     assert out == {
-        "sfm": {
-            "host": "100.94.115.88",
-            "username": "root",
-            "password": "Dell@force10",
+        "myhost": {
+            "host": "10.0.0.1",
+            "username": "test-user",
+            "password": "test-pw",
+        }
+    }
+
+
+def test_cli_resolved_hosts_with_substitution(tmp_path, monkeypatch):
+    """cutip.cli._resolved_hosts_with_substitution reads project + globals
+    and returns hosts with templates resolved. Covers the cmd_hosts get /
+    list / validate code path."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    # Set up project YAML
+    project_path = tmp_path / "proj.yaml"
+    project_path.write_text("project: smoke\nhost: remote\n")
+
+    # hosts.yaml with template references
+    hosts_path = tmp_path / "hosts.yaml"
+    hosts_path.write_text(
+        "myhost:\n"
+        "  host: 10.0.0.1\n"
+        "  username: '{{ globals.myhost.cred.username }}'\n"
+        "  password: '{{ globals.myhost.cred.password }}'\n"
+    )
+
+    # Globals data
+    cutip_dir = tmp_path / ".cutip"
+    cutip_dir.mkdir()
+    (cutip_dir / "data.yaml").write_text(
+        "myhost:\n  cred:\n    username: test-user\n    password: test-pw\n"
+    )
+
+    from cutip.cli import _resolved_hosts_with_substitution
+
+    resolved = _resolved_hosts_with_substitution(project_path, hosts_path)
+    assert resolved == {
+        "myhost": {
+            "host": "10.0.0.1",
+            "username": "test-user",
+            "password": "test-pw",
         }
     }
