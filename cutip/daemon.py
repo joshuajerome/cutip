@@ -176,11 +176,26 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
     except OSError:
         pass
 
-    # Load config + hosts the same way cmd_run does
+    # Load config + hosts the same way cmd_run does (template substitution
+    # included so daemon-mode behaves identically to foreground runs).
+    from cutip import globals as _globals
     from cutip.paths import merge_paths_into_data
+    from cutip.templating import resolve_substitution_maps, substitute_in_obj
 
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
+
+    globals_flat = _globals.flatten(_globals.read_globals())
+    vars_resolved, paths_resolved, secrets_resolved = resolve_substitution_maps(
+        config, globals_flat
+    )
+    config = substitute_in_obj(
+        config,
+        vars=vars_resolved,
+        paths=paths_resolved,
+        secrets=secrets_resolved,
+        globals=globals_flat,
+    )
     merge_paths_into_data(config, project_path)
 
     hosts: dict | None = None
@@ -200,6 +215,21 @@ def run_daemon(cu_id: str, hosts_path_arg: str | None = None) -> int:
             resolved_hosts = _hosts_mod.resolve(hp)
         except _hosts_mod.HostsError as e:
             print(f"[daemon] hosts resolve error: {e}", file=sys.stderr)
+        if resolved_hosts is not None:
+            resolved_hosts = substitute_in_obj(
+                resolved_hosts,
+                vars=vars_resolved,
+                paths=paths_resolved,
+                secrets=secrets_resolved,
+                globals=globals_flat,
+            )
+        hosts = substitute_in_obj(
+            hosts,
+            vars=vars_resolved,
+            paths=paths_resolved,
+            secrets=secrets_resolved,
+            globals=globals_flat,
+        )
 
     # Import the workflow module
     import importlib.util

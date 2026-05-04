@@ -129,18 +129,42 @@ def validate_project(
         if not hosts_path.exists() and not hosts:
             errors.append("hosts.yaml not found (required for host: remote)")
             errors.append(
-                "  Create with: cutip hosts set host=<ip> username=<user> password=<pw>"
+                "  Create with: cutip hosts set <name>.host=<ip> "
+                "<name>.username=<user> <name>.password=<pw>"
             )
         else:
             h = hosts or {}
-            missing = [f for f in ("host", "username", "password") if not h.get(f)]
-            if missing:
-                errors.append(
-                    f"Missing SSH credentials in hosts.yaml: {', '.join(missing)}"
-                )
-                errors.append(
-                    f"  Set with: cutip hosts set {' '.join(f'{f}=<value>' for f in missing)}"
-                )
+            from cutip.hosts import is_nested
+
+            if is_nested(h):
+                # Nested: every entry needs host/username/password (skip
+                # entries that defer to global via {global: true}).
+                for name, entry in h.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    if entry.get("global") is True:
+                        continue
+                    missing = [
+                        f for f in ("host", "username", "password") if not entry.get(f)
+                    ]
+                    if missing:
+                        errors.append(
+                            f"hosts.yaml entry '{name}': missing {', '.join(missing)}"
+                        )
+                        errors.append(
+                            f"  Set with: cutip hosts set "
+                            f"{' '.join(f'{name}.{f}=<value>' for f in missing)}"
+                        )
+            else:
+                # Flat (legacy): top-level fields.
+                missing = [f for f in ("host", "username", "password") if not h.get(f)]
+                if missing:
+                    errors.append(
+                        f"Missing SSH credentials in hosts.yaml: {', '.join(missing)}"
+                    )
+                    errors.append(
+                        f"  Set with: cutip hosts set {' '.join(f'{f}=<value>' for f in missing)}"
+                    )
 
     # 8. Container runtime reachable
     if host == "container":

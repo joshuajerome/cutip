@@ -1,0 +1,125 @@
+"""Engine-level template substitution for cutip config + hosts files.
+
+Walks any nested dict / list / str structure and substitutes:
+
+  ``{{ vars.key }}``       from vars
+  ``{{ paths.key }}``      from paths (raw values, before merge into data)
+  ``{{ secrets.key }}``    from secrets
+  ``{{ globals.a.b.c }}``  from globals (dotted keys, pre-flattened)
+
+Both spaced (``{{ ns.key }}``) and unspaced (``{{ns.key}}``) forms are
+accepted, matching the runtime ``rsty.config.substitute_vars`` and the
+Rust resolver in cutip-core.
+
+Resolution order at config load (see ``cutip.cli._load_config``):
+
+  1. Read globals from ``~/.cutip/data.yaml`` (flat dotted keys).
+  2. Substitute globals into ``vars``, ``paths``, ``secrets``. These are
+     SOURCES for further substitution, so resolving them first means the
+     rest of the config sees their final values. Vars/paths/secrets
+     cannot reference each other — only globals.
+  3. Substitute vars + paths + secrets + globals into the entire config
+     (data, container, image, environment, mounts, etc.).
+  4. ``cutip.paths.merge_paths_into_data`` runs after substitution so
+     paths used by workflows are already expanded.
+
+For hosts.yaml, ``cutip.hosts.resolve()`` returns the dict; the caller
+(``cli.py`` / ``daemon.py``) then calls ``substitute_in_obj`` with the
+project's substitution context. That keeps ``hosts.resolve()`` pure and
+avoids passing context that hosts logic doesn't otherwise need.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+
+def _substitute_string(
+    text: str,
+    vars: Mapping[str, str],
+    paths: Mapping[str, str],
+    secrets: Mapping[str, str],
+    globals: Mapping[str, str],
+) -> str:
+    """Substitute ``{{ ns.key }}`` placeholders in a single string.
+
+    Idempotent: a string with no ``{{`` returns unchanged. Strings whose
+    placeholders don't match any key in any namespace are returned with
+    the placeholders intact (caller decides whether to flag as an error).
+    """
+    if "{{" not in text:
+        return text
+    result = text
+    for ns, mapping in (
+        ("vars", vars),
+        ("paths", paths),
+        ("secrets", secrets),
+        ("globals", globals),
+    ):
+        for key, value in mapping.items():
+            sval = value if isinstance(value, str) else str(value)
+            for pattern in (f"{{{{ {ns}.{key} }}}}", f"{{{{{ns}.{key}}}}}"):
+                result = result.replace(pattern, sval)
+    return result
+
+
+def substitute_in_obj(
+    obj: Any,
+    *,
+    vars: Mapping[str, str] | None = None,
+    paths: Mapping[str, str] | None = None,
+    secrets: Mapping[str, str] | None = None,
+    globals: Mapping[str, str] | None = None,
+) -> Any:
+    """Recursively substitute templates in a dict / list / str structure.
+
+    Returns a new structure (input is not mutated). Values that aren't
+    strings, dicts, or lists pass through unchanged (int, bool, None, …).
+    """
+    v = vars or {}
+    p = paths or {}
+    s = secrets or {}
+    g = globals or {}
+
+    if isinstance(obj, str):
+        return _substitute_string(obj, v, p, s, g)
+    if isinstance(obj, dict):
+        return {
+            k: substitute_in_obj(val, vars=v, paths=p, secrets=s, globals=g)
+            for k, val in obj.items()
+        }
+    if isinstance(obj, list):
+        return [
+            substitute_in_obj(item, vars=v, paths=p, secrets=s, globals=g)
+            for item in obj
+        ]
+    return obj
+
+
+def resolve_substitution_maps(
+    config: dict,
+    globals_flat: Mapping[str, str],
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Resolve globals into vars/paths/secrets, returning the final maps.
+
+    These three are the substitution SOURCES; they themselves can only
+    reference globals. Used at the start of config load before walking
+    the rest of the dict.
+    """
+    raw_vars = config.get("vars") or {}
+    raw_paths = config.get("paths") or {}
+    raw_secrets = config.get("secrets") or {}
+
+    def _resolve_one(mapping: Mapping[str, Any]) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for k, v in mapping.items():
+            if isinstance(v, str):
+                out[k] = _substitute_string(v, {}, {}, {}, globals_flat)
+            else:
+                # Coerce non-string values (rare; users who put ints/bools
+                # in vars: usually mean strings anyway).
+                out[k] = str(v)
+        return out
+
+    return _resolve_one(raw_vars), _resolve_one(raw_paths), _resolve_one(raw_secrets)
