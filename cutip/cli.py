@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.15.1"
+VERSION = "2.16.0"
 console = Console()
 
 
@@ -904,11 +904,12 @@ def cmd_vars(args):
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
         console.print(
-            "[bold]cutip vars[/bold] <list|get|set> [project.yaml] [key=value ...]"
+            "[bold]cutip vars[/bold] <list|get|set|rm> [project.yaml] [key=value ...]"
         )
         console.print("  list   Show all vars and their values")
         console.print("  get    Get a single var value")
         console.print("  set    Set one or more vars")
+        console.print("  rm     Remove a var; prints the removed value")
         return
 
     project_path = _resolve_project(args.get("project"))
@@ -957,17 +958,34 @@ def cmd_vars(args):
             console.print(f"  [green]✓[/green] {k} = {v}")
         _yaml_write(project_path, config)
 
+    elif subcmd == "rm":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip vars rm [project.yaml] <key>")
+            sys.exit(1)
+        vars_dict = config.get("vars") or {}
+        if key not in vars_dict:
+            console.print(f"[red]Error:[/red] var '{key}' not found")
+            sys.exit(1)
+        removed = vars_dict.pop(key)
+        if not vars_dict:
+            # Drop the empty section so re-loading doesn't carry an empty dict.
+            config.pop("vars", None)
+        _yaml_write(project_path, config)
+        console.print(f"  [green]✓[/green] removed {key} = {removed!r}")
+
 
 def cmd_secrets(args):
     """Manage project secrets."""
     subcmd = args.get("subcmd")
     if not subcmd or subcmd == "help":
         console.print(
-            "[bold]cutip secrets[/bold] <list|get|set> [project.yaml] [key=value ...]"
+            "[bold]cutip secrets[/bold] <list|get|set|rm> [project.yaml] [key=value ...]"
         )
         console.print("  list   Show all secret keys (values masked)")
         console.print("  get    Get a single secret value")
         console.print("  set    Set one or more secrets")
+        console.print("  rm     Remove a secret; prints (masked) confirmation")
         return
 
     project_path = _resolve_project(args.get("project"))
@@ -1015,6 +1033,23 @@ def cmd_secrets(args):
             config["secrets"][k] = v
             console.print(f"  [green]✓[/green] {k} = ****")
         _yaml_write(project_path, config)
+
+    elif subcmd == "rm":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip secrets rm [project.yaml] <key>")
+            sys.exit(1)
+        secrets_dict = config.get("secrets") or {}
+        if key not in secrets_dict:
+            console.print(f"[red]Error:[/red] secret '{key}' not found")
+            sys.exit(1)
+        removed = secrets_dict.pop(key)
+        if not secrets_dict:
+            config.pop("secrets", None)
+        _yaml_write(project_path, config)
+        # Always mask removed secret values; user just needs to know it's gone.
+        disp = "****" if removed else "(empty)"
+        console.print(f"  [green]✓[/green] removed {key} = {disp}")
 
 
 def _is_sensitive(key: str) -> bool:
@@ -1103,6 +1138,8 @@ def cmd_hosts(args):
       cutip hosts get -g <host>.<field> Get from global
       cutip hosts set <host>.<field>=<value> [...]
       cutip hosts set -g <host>.<field>=<value> [...]
+      cutip hosts rm <host>[.<field>]   Remove an entry or one of its fields
+      cutip hosts rm -g <host>[.<field>] Remove from global hosts file
       cutip hosts path                  Print local hosts file path
       cutip hosts path -g               Print global hosts file path
       cutip hosts set-path -g <path>    Change global hosts file location
@@ -1273,6 +1310,47 @@ def cmd_hosts(args):
                 console.print(f"  [green]✓[/green] {k} = {disp}")
         return
 
+    if subcmd == "rm":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip hosts rm [-g] <host>[.<field>]")
+            sys.exit(1)
+        if not target_path.exists():
+            console.print(f"[red]Error:[/red] {target_label} not found")
+            sys.exit(1)
+        existing = _hosts.read_hosts_file(target_path)
+        if "." in key:
+            # Field-level remove: <host>.<field>
+            host_name, field = key.split(".", 1)
+            entry = existing.get(host_name)
+            if not isinstance(entry, dict):
+                console.print(
+                    f"[red]Error:[/red] host '{host_name}' not found in {target_label}"
+                )
+                sys.exit(1)
+            if field not in entry:
+                console.print(
+                    f"[red]Error:[/red] field '{field}' not on host '{host_name}'"
+                )
+                sys.exit(1)
+            removed = entry.pop(field)
+            _hosts.write_hosts_file(target_path, existing)
+            disp = "****" if _is_sensitive(field) else repr(removed)
+            console.print(f"  [green]✓[/green] removed {host_name}.{field} = {disp}")
+        else:
+            # Entry-level remove
+            if key not in existing:
+                console.print(f"[red]Error:[/red] '{key}' not found in {target_label}")
+                sys.exit(1)
+            removed = existing.pop(key)
+            _hosts.write_hosts_file(target_path, existing)
+            if isinstance(removed, dict):
+                disp = f"<entry: {len(removed)} field(s)>"
+            else:
+                disp = "****" if _is_sensitive(key) else repr(removed)
+            console.print(f"  [green]✓[/green] removed {key} = {disp}")
+        return
+
     if subcmd == "migrate":
         if use_global:
             console.print("[red]Error:[/red] migrate is project-local only (no -g).")
@@ -1436,6 +1514,7 @@ def cmd_data(args):
       cutip data get <dotted.path>    Print one value
       cutip data set <dotted.path>=<value> [...]
                                       Set one or more values
+      cutip data rm <dotted.path>     Remove an entry; cleans up emptied parents
       cutip data path                 Print the data file path
       cutip data init                 Create an empty data file
     """
@@ -1525,6 +1604,33 @@ def cmd_data(args):
             disp = "****" if any(_is_sensitive(seg) for seg in k.split(".")) else v
             console.print(f"  [green]✓[/green] {k} = {disp}")
         _globals.write_globals(data, gp)
+        return
+
+    if subcmd == "rm":
+        key = args.get("key")
+        if not key:
+            console.print("[red]Usage:[/red] cutip data rm <dotted.path>")
+            sys.exit(1)
+        if not gp.exists():
+            console.print(f"[red]Error:[/red] {gp} does not exist")
+            sys.exit(1)
+        data = _globals.read_globals(gp)
+        try:
+            removed = _globals.remove_dotted(data, key)
+        except _globals.GlobalsError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            sys.exit(1)
+        _globals.write_globals(data, gp)
+        # Mask sensitive leaves; show full path so the user can confirm.
+        if any(_is_sensitive(seg) for seg in key.split(".")):
+            disp = "****"
+        elif isinstance(removed, dict):
+            # Non-leaf removal — show child count rather than the dict body
+            # (could be large, could contain sensitive descendants).
+            disp = f"<subtree: {len(removed)} child key(s)>"
+        else:
+            disp = repr(removed)
+        console.print(f"  [green]✓[/green] removed {key} = {disp}")
         return
 
     console.print(f"[red]Unknown data subcommand:[/red] {subcmd}")
@@ -1974,7 +2080,7 @@ def main():
 
     # Handle subcommand groups (vars, secrets)
     if command in ("vars", "secrets"):
-        if remaining and remaining[0] in ("list", "get", "set", "help"):
+        if remaining and remaining[0] in ("list", "get", "set", "rm", "help"):
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
         # Parse project file and key=value pairs
@@ -1986,7 +2092,7 @@ def main():
                 pairs.append(arg)
             elif arg.endswith(".yaml") or Path(arg).exists():
                 parsed["project"] = arg
-            elif parsed.get("subcmd") == "get" and "key" not in parsed:
+            elif parsed.get("subcmd") in ("get", "rm") and "key" not in parsed:
                 parsed["key"] = arg
             elif not parsed.get("project"):
                 parsed["project"] = arg
@@ -2002,6 +2108,7 @@ def main():
             "list",
             "get",
             "set",
+            "rm",
             "path",
             "set-path",
             "init",
@@ -2026,7 +2133,10 @@ def main():
                 pairs.append(arg)
             elif arg.endswith(".yaml") or Path(arg).exists():
                 parsed["project"] = arg
-            elif parsed.get("subcmd") in ("get", "set-path") and "key" not in parsed:
+            elif (
+                parsed.get("subcmd") in ("get", "set-path", "rm")
+                and "key" not in parsed
+            ):
                 parsed["key"] = arg
             elif parsed.get("subcmd") == "promote":
                 names.append(arg)
@@ -2040,7 +2150,7 @@ def main():
         return
 
     if command == "data":
-        valid_subs = {"list", "get", "set", "path", "init", "help"}
+        valid_subs = {"list", "get", "set", "rm", "path", "init", "help"}
         if remaining and remaining[0] in valid_subs:
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
@@ -2050,7 +2160,7 @@ def main():
                 parsed["subcmd"] = "help"
             elif "=" in arg:
                 pairs.append(arg)
-            elif parsed.get("subcmd") == "get" and "key" not in parsed:
+            elif parsed.get("subcmd") in ("get", "rm") and "key" not in parsed:
                 parsed["key"] = arg
         if pairs:
             parsed["pairs"] = pairs
