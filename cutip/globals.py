@@ -125,6 +125,47 @@ def set_dotted(data: dict[str, Any], dotted: str, value: Any) -> None:
     cur[segments[-1]] = value
 
 
+def remove_dotted(data: dict[str, Any], dotted: str) -> Any:
+    """Remove the entry at the dotted path, returning what was removed.
+
+    Cleans up emptied parent dicts (so removing the only key under
+    ``passwords.v22`` also removes ``passwords`` if it becomes empty).
+    Returns the removed leaf value.
+
+    Raises:
+        GlobalsError: if the path is empty, doesn't exist, or traverses
+            through a non-mapping value.
+    """
+    if not dotted:
+        raise GlobalsError("dotted path cannot be empty")
+    segments = dotted.split(".")
+    # Walk down, capturing each parent + key so we can clean up empties.
+    parents: list[tuple[dict[str, Any], str]] = []
+    cur: Any = data
+    for segment in segments[:-1]:
+        if not isinstance(cur, dict):
+            raise GlobalsError(f"path '{dotted}' traverses non-mapping at '{segment}'")
+        if segment not in cur:
+            raise GlobalsError(f"path '{dotted}' not found")
+        parents.append((cur, segment))
+        cur = cur[segment]
+
+    leaf_key = segments[-1]
+    if not isinstance(cur, dict):
+        raise GlobalsError(f"path '{dotted}' traverses non-mapping")
+    if leaf_key not in cur:
+        raise GlobalsError(f"path '{dotted}' not found")
+    removed = cur.pop(leaf_key)
+
+    # Walk parents in reverse, removing any that became empty.
+    for parent, key in reversed(parents):
+        if isinstance(parent[key], dict) and len(parent[key]) == 0:
+            del parent[key]
+        else:
+            break
+    return removed
+
+
 def flatten(data: dict[str, Any], prefix: str = "") -> dict[str, str]:
     """Flatten a nested dict to {dotted.path: str_value} for substitution.
 

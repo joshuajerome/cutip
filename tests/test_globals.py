@@ -75,6 +75,61 @@ def test_set_dotted_rejects_empty_path():
         _globals.set_dotted({}, "", "x")
 
 
+# ── remove_dotted ───────────────────────────────────────────────────────────
+
+
+def test_remove_dotted_leaf_returns_value():
+    data = {"passwords": {"v22": "pw", "v23": "pw2"}}
+    removed = _globals.remove_dotted(data, "passwords.v22")
+    assert removed == "pw"
+    assert data == {"passwords": {"v23": "pw2"}}
+
+
+def test_remove_dotted_cleans_up_empty_parents():
+    data = {"passwords": {"v22": "pw"}}
+    _globals.remove_dotted(data, "passwords.v22")
+    assert data == {}
+
+
+def test_remove_dotted_cleans_up_multiple_levels():
+    data = {"a": {"b": {"c": {"leaf": "v"}}}}
+    _globals.remove_dotted(data, "a.b.c.leaf")
+    assert data == {}
+
+
+def test_remove_dotted_keeps_siblings_at_parents():
+    """Sibling at a higher level — only the immediate empty chain prunes."""
+    data = {
+        "passwords": {"v22": "pw"},
+        "constants": {"url": "x"},
+    }
+    _globals.remove_dotted(data, "passwords.v22")
+    assert data == {"constants": {"url": "x"}}
+
+
+def test_remove_dotted_returns_subtree_for_intermediate():
+    """Removing an intermediate path returns the dict it pointed at."""
+    data = {"passwords": {"v22": "pw", "v23": "pw2"}}
+    removed = _globals.remove_dotted(data, "passwords")
+    assert removed == {"v22": "pw", "v23": "pw2"}
+    assert data == {}
+
+
+def test_remove_dotted_missing_path():
+    with pytest.raises(_globals.GlobalsError, match="not found"):
+        _globals.remove_dotted({"a": 1}, "b")
+
+
+def test_remove_dotted_traverse_through_scalar():
+    with pytest.raises(_globals.GlobalsError, match="non-mapping"):
+        _globals.remove_dotted({"a": "scalar"}, "a.deeper")
+
+
+def test_remove_dotted_empty_path_rejected():
+    with pytest.raises(_globals.GlobalsError, match="empty"):
+        _globals.remove_dotted({"x": 1}, "")
+
+
 # ── flatten ─────────────────────────────────────────────────────────────────
 
 
