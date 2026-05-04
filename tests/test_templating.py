@@ -51,6 +51,23 @@ def test_substitute_string_unspaced_form():
     assert _substitute_string("{{vars.x}}", {"x": "Y"}, {}, {}, {}) == "Y"
 
 
+def test_substitute_string_asymmetric_whitespace():
+    """Match all whitespace combinations — asymmetric forms common from
+    user typos (`{{ ns.key}}` or `{{ns.key }}`)."""
+    cases = [
+        "{{globals.x}}",
+        "{{ globals.x }}",
+        "{{ globals.x}}",  # left-only space
+        "{{globals.x }}",  # right-only space
+        "{{  globals.x  }}",  # multiple spaces
+        "{{\tglobals.x\t}}",  # tabs
+    ]
+    for c in cases:
+        assert _substitute_string(c, {}, {}, {}, {"x": "Y"}) == "Y", (
+            f"asymmetric form failed: {c!r}"
+        )
+
+
 def test_substitute_string_idempotent_after_resolve():
     """Re-running on already-resolved text is a no-op."""
     once = _substitute_string("{{ vars.x }}", {"x": "alice"}, {}, {}, {})

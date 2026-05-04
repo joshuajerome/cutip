@@ -31,6 +31,7 @@ avoids passing context that hosts logic doesn't otherwise need.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -43,6 +44,9 @@ def _substitute_string(
     globals: Mapping[str, str],
 ) -> str:
     """Substitute ``{{ ns.key }}`` placeholders in a single string.
+
+    Whitespace-tolerant: ``{{ns.key}}``, ``{{ ns.key }}``, ``{{ ns.key}}``,
+    ``{{ns.key }}``, and any number of internal spaces all match.
 
     Idempotent: a string with no ``{{`` returns unchanged. Strings whose
     placeholders don't match any key in any namespace are returned with
@@ -59,8 +63,9 @@ def _substitute_string(
     ):
         for key, value in mapping.items():
             sval = value if isinstance(value, str) else str(value)
-            for pattern in (f"{{{{ {ns}.{key} }}}}", f"{{{{{ns}.{key}}}}}"):
-                result = result.replace(pattern, sval)
+            # \{\{\s*ns\.key\s*\}\}  — any (or no) whitespace inside braces.
+            pattern = re.compile(r"\{\{\s*" + re.escape(f"{ns}.{key}") + r"\s*\}\}")
+            result = pattern.sub(lambda _, v=sval: v, result)
     return result
 
 
