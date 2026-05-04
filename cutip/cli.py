@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.15.0"
+VERSION = "2.15.1"
 console = Console()
 
 
@@ -1031,6 +1031,33 @@ def _resolve_hosts_path(project_path: Path) -> Path:
     return hosts_path
 
 
+def _resolved_hosts_with_substitution(
+    project_path: Path, hosts_path: Path
+) -> dict[str, dict]:
+    """Resolve hosts.yaml + apply template substitution against the project's
+    vars / paths / secrets / globals context.
+
+    Mirrors what ``cmd_run`` does when loading hosts before passing them to
+    the workflow engine. Used by ``cutip hosts get / list / validate`` so
+    those subcommands return resolved values, not raw ``{{ ... }}`` template
+    strings.
+    """
+    from cutip import globals as _globals
+    from cutip import hosts as _hosts_mod
+    from cutip.templating import substitute_in_obj
+
+    config = _load_config(project_path)
+    resolved = _hosts_mod.resolve(hosts_path)
+    globals_flat = _globals.flatten(_globals.read_globals())
+    return substitute_in_obj(
+        resolved,
+        vars=config.get("vars") or {},
+        paths=config.get("paths") or {},
+        secrets=config.get("secrets") or {},
+        globals=globals_flat,
+    )
+
+
 def _print_hosts_dict(data: dict, label: str | None = None) -> None:
     """Render a hosts dict (nested or flat) with sensitive values masked."""
     from cutip import hosts as _hosts
@@ -1155,7 +1182,16 @@ def cmd_hosts(args):
             if use_global:
                 console.print("  Create with: cutip hosts init -g")
             return
-        data = _hosts.read_hosts_file(target_path)
+        if use_global:
+            data = _hosts.read_hosts_file(target_path)
+        else:
+            # Apply project-context template substitution so list shows
+            # resolved values instead of raw {{ globals.X }} strings.
+            try:
+                data = _resolved_hosts_with_substitution(project_path, target_path)
+            except _hosts.HostsError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                sys.exit(1)
         _print_hosts_dict(data, label=target_label)
         return
 
@@ -1170,7 +1206,12 @@ def cmd_hosts(args):
         if "." in key:
             host_name, field = key.split(".", 1)
             try:
-                resolved = _hosts.resolve(target_path) if not use_global else data
+                if use_global:
+                    resolved = data
+                else:
+                    resolved = _resolved_hosts_with_substitution(
+                        project_path, target_path
+                    )
             except _hosts.HostsError as e:
                 console.print(f"[red]Error:[/red] {e}")
                 sys.exit(1)
@@ -1334,7 +1375,9 @@ def cmd_hosts(args):
                 console.print(f"[red]Error:[/red] {target_label} not found")
                 sys.exit(1)
             try:
-                to_probe = _hosts.resolve(target_path)
+                # Substitute templates so the probe gets real credentials,
+                # not raw {{ globals.X }} strings.
+                to_probe = _resolved_hosts_with_substitution(project_path, target_path)
             except _hosts.HostsError as e:
                 console.print(f"[red]Error resolving hosts:[/red] {e}")
                 sys.exit(1)
