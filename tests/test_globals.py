@@ -183,3 +183,53 @@ def test_write_then_read_roundtrip(tmp_path):
 def test_globals_path_default(isolated_home):
     expected = isolated_home / ".cutip" / "data.yaml"
     assert _globals.globals_path() == expected
+
+
+def test_default_globals_path_ignores_override(isolated_home, tmp_path):
+    # default_globals_path() is the unconfigurable default and must not
+    # be affected by a config-yaml override.
+    _globals.set_globals_path(tmp_path / "elsewhere.yaml")
+    assert _globals.default_globals_path() == isolated_home / ".cutip" / "data.yaml"
+
+
+def test_set_globals_path_overrides_default(isolated_home, tmp_path):
+    custom = tmp_path / "custom-data.yaml"
+    _globals.set_globals_path(custom)
+    assert _globals.globals_path() == custom
+
+
+def test_set_globals_path_persists_in_config_yaml(isolated_home, tmp_path):
+    import yaml
+
+    from cutip.hosts import config_path
+
+    custom = tmp_path / "team-data.yaml"
+    _globals.set_globals_path(custom)
+    cfg = yaml.safe_load(config_path().read_text()) or {}
+    assert cfg.get("data_path") == str(custom)
+
+
+def test_set_globals_path_preserves_other_config_keys(isolated_home, tmp_path):
+    import yaml
+
+    from cutip.hosts import config_path, set_global_hosts_path
+
+    set_global_hosts_path(tmp_path / "h.yaml")
+    _globals.set_globals_path(tmp_path / "d.yaml")
+    cfg = yaml.safe_load(config_path().read_text()) or {}
+    assert cfg.get("hosts_path") == str(tmp_path / "h.yaml")
+    assert cfg.get("data_path") == str(tmp_path / "d.yaml")
+
+
+def test_globals_path_falls_back_when_config_unreadable(isolated_home, tmp_path):
+    # A malformed config.yaml shouldn't break globals_path() resolution.
+    from cutip.hosts import config_path
+
+    config_path().write_text("not: valid: yaml: at: all: : :")
+    # Resolution falls back silently to the default location.
+    assert _globals.globals_path() == isolated_home / ".cutip" / "data.yaml"
+
+
+def test_globals_path_expands_user_in_override(isolated_home):
+    _globals.set_globals_path("~/custom/data.yaml")
+    assert _globals.globals_path() == isolated_home / "custom" / "data.yaml"

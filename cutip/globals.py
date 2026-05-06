@@ -39,16 +39,51 @@ from typing import Any
 # ── File layout ─────────────────────────────────────────────────────────────
 
 
-def globals_path() -> Path:
-    """Return the path to the global data file (~/.cutip/data.yaml).
-
-    Honors the same ``data_path`` override mechanism as
-    ``cutip.hosts.global_hosts_path`` if it's ever needed; for now,
-    returns the default unless a future ``cutip data set-path`` is added.
-    """
+def default_globals_path() -> Path:
+    """Default location of the global data file: ``~/.cutip/data.yaml``."""
     from cutip.hosts import cutip_dir
 
     return cutip_dir() / "data.yaml"
+
+
+def globals_path() -> Path:
+    """Resolve the global data file path.
+
+    Reads ``data_path`` from ``~/.cutip/config.yaml`` if set, otherwise
+    returns the default ``~/.cutip/data.yaml``. Mirrors the override
+    mechanism of ``cutip.hosts.global_hosts_path``.
+    """
+    from cutip.hosts import config_path
+
+    cp = config_path()
+    if cp.exists():
+        try:
+            import yaml
+
+            cfg = yaml.safe_load(cp.read_text()) or {}
+            override = cfg.get("data_path")
+            if override:
+                return Path(str(override)).expanduser()
+        except Exception:
+            pass
+    return default_globals_path()
+
+
+def set_globals_path(path: Path | str) -> None:
+    """Persist a custom global data file path to ``~/.cutip/config.yaml``."""
+    import yaml
+
+    from cutip.hosts import config_path
+
+    cp = config_path()
+    cfg: dict[str, Any] = {}
+    if cp.exists():
+        try:
+            cfg = yaml.safe_load(cp.read_text()) or {}
+        except Exception:
+            cfg = {}
+    cfg["data_path"] = str(Path(str(path)).expanduser())
+    cp.write_text(yaml.safe_dump(cfg, sort_keys=False))
 
 
 # ── Read / write ────────────────────────────────────────────────────────────
