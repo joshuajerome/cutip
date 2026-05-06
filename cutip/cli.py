@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.16.0"
+VERSION = "2.17.0"
 console = Console()
 
 
@@ -1516,14 +1516,37 @@ def cmd_data(args):
                                       Set one or more values
       cutip data rm <dotted.path>     Remove an entry; cleans up emptied parents
       cutip data path                 Print the data file path
+      cutip data set-path -g <path>   Change the global data file location
       cutip data init                 Create an empty data file
     """
     from cutip import globals as _globals
 
     subcmd = args.get("subcmd")
+    use_global = bool(args.get("global"))
 
     if not subcmd or subcmd == "help":
         console.print(cmd_data.__doc__ or "cutip data")
+        return
+
+    if subcmd == "set-path":
+        # The data store is inherently global, but the -g flag is required
+        # for parity with `cutip hosts set-path` so the two surfaces stay
+        # symmetrical.
+        if not use_global:
+            console.print(
+                "[red]Error:[/red] 'cutip data set-path' is global-only. "
+                "Use: cutip data set-path -g <path>"
+            )
+            sys.exit(1)
+        new_path = args.get("key")  # parser puts the bare-positional arg in 'key'
+        if not new_path:
+            console.print("[red]Usage:[/red] cutip data set-path -g <path>")
+            sys.exit(1)
+        _globals.set_globals_path(new_path)
+        from cutip.hosts import config_path
+
+        console.print(f"  [green]✓[/green] Global data path → [cyan]{new_path}[/cyan]")
+        console.print(f"  (stored in {config_path()})")
         return
 
     gp = _globals.globals_path()
@@ -2150,7 +2173,7 @@ def main():
         return
 
     if command == "data":
-        valid_subs = {"list", "get", "set", "rm", "path", "init", "help"}
+        valid_subs = {"list", "get", "set", "rm", "path", "set-path", "init", "help"}
         if remaining and remaining[0] in valid_subs:
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
@@ -2158,9 +2181,14 @@ def main():
         for arg in remaining:
             if arg in ("-h", "--help"):
                 parsed["subcmd"] = "help"
+            elif arg in ("-g", "--global"):
+                parsed["global"] = True
             elif "=" in arg:
                 pairs.append(arg)
-            elif parsed.get("subcmd") in ("get", "rm") and "key" not in parsed:
+            elif (
+                parsed.get("subcmd") in ("get", "rm", "set-path")
+                and "key" not in parsed
+            ):
                 parsed["key"] = arg
         if pairs:
             parsed["pairs"] = pairs
