@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.17.0"
+VERSION = "2.18.0"
 console = Console()
 
 
@@ -90,12 +90,15 @@ def _resolve_workflow(project_path: Path, config: dict) -> Path:
     return project_path.parent / workflow_name
 
 
-def _load_config(project_path: Path) -> dict:
+def _load_config(project_path: Path, var_overrides: dict | None = None) -> dict:
     """Load and return project config as a dict.
 
     Resolution stages (in order):
       1. Parse YAML.
       2. Read globals from ``~/.cutip/data.yaml`` (flat dotted keys).
+      2b. Apply ``var_overrides`` (from ``--vars k=v`` or workflow-declared
+          cli_args, see ``cutip/workflow/cli_args.py``) into ``vars`` so
+          downstream substitution sees the runtime values.
       3. Resolve globals into ``vars`` / ``paths`` / ``secrets`` so they
          carry final values before the rest of the config is processed.
       4. Walk the entire config dict and substitute every ``{{ ns.key }}``
@@ -112,6 +115,12 @@ def _load_config(project_path: Path) -> dict:
 
     with open(project_path) as f:
         config = yaml.safe_load(f) or {}
+
+    if var_overrides:
+        if "vars" not in config or config["vars"] is None:
+            config["vars"] = {}
+        for k, v in var_overrides.items():
+            config["vars"][k] = v
 
     globals_flat = _globals.flatten(_globals.read_globals())
 
@@ -526,14 +535,67 @@ def cmd_run(args):
     """Run a workflow."""
     import yaml
 
-    if "--help" in sys.argv or "-h" in sys.argv:
-        console.print("[bold]cutip run[/bold] [project.yaml] [--bg]")
-        console.print("  Reads project YAML, runs the workflow")
-        console.print("  --bg   Detach: print cu-id and return; track via 'cutip ps'")
-        return
+    from cutip.workflow import cli_args as _cli_args
 
     project_path = _resolve_project(args.get("project"))
-    config = _load_config(project_path)
+
+    # Read the raw yaml to extract any cli_args declarations + decide whether
+    # this is a --help request that needs project-specific help.
+    with open(project_path) as f:
+        raw_config = yaml.safe_load(f) or {}
+    try:
+        specs = _cli_args.normalize_specs(raw_config.get("cli_args"))
+    except _cli_args.CliArgsError as e:
+        console.print(f"[red]Invalid cli_args block in {project_path.name}:[/red] {e}")
+        sys.exit(1)
+
+    if args.get("help"):
+        console.print("[bold]cutip run[/bold] [project.yaml] [--bg] [--vars k=v ...]")
+        console.print("  Reads project YAML, runs the workflow")
+        console.print("  --bg   Detach: print cu-id and return; track via 'cutip ps'")
+        console.print("  --vars Override vars block: --vars greeting=hi port=8080")
+        if specs:
+            console.print()
+            console.print(_cli_args.help_text(specs))
+        return
+
+    # Resolve workflow-declared cli_args from any unconsumed tokens.
+    cli_arg_user: dict = {}
+    cli_arg_defaults: dict = {}
+    if specs:
+        try:
+            cli_arg_user, cli_arg_defaults, leftover = _cli_args.parse_runtime(
+                specs, args.get("_unconsumed", [])
+            )
+        except _cli_args.CliArgsError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            sys.exit(1)
+        if leftover:
+            console.print(
+                f"[yellow]warning:[/yellow] unrecognized args ignored: {' '.join(leftover)}"
+            )
+    elif args.get("_unconsumed"):
+        # Project doesn't declare cli_args but user passed unknown flags.
+        # Don't silently swallow — surface them so the typo is visible.
+        console.print(
+            f"[yellow]warning:[/yellow] unrecognized args ignored "
+            f"(project has no cli_args block): {' '.join(args['_unconsumed'])}"
+        )
+
+    # Precedence (lowest → highest):
+    #   1. yaml `vars:` block          (handled by _load_config; we don't override)
+    #   2. cli_args defaults           — only applied where yaml vars is absent
+    #   3. --vars k=v                  — explicit user runtime override
+    #   4. cli_args explicit values    — explicit user runtime override (typed)
+    yaml_vars = (raw_config.get("vars") or {})
+    var_overrides: dict = {}
+    for k, v in cli_arg_defaults.items():
+        if k not in yaml_vars or yaml_vars[k] in (None, ""):
+            var_overrides[k] = v
+    var_overrides.update(args.get("cli_vars") or {})
+    var_overrides.update(cli_arg_user)
+
+    config = _load_config(project_path, var_overrides=var_overrides or None)
 
     # Background mode: spawn a detached daemon and exit
     if args.get("bg"):
@@ -2214,6 +2276,8 @@ def main():
 
     i = 0
     positional_consumed = False
+    cli_vars: dict = {}
+    unconsumed: list = []  # for run command — collected and matched against workflow-declared cli_args
     while i < len(remaining):
         arg = remaining[i]
         if arg in ("-h", "--help"):
@@ -2234,6 +2298,17 @@ def main():
         elif arg == "--path" and i + 1 < len(remaining):
             parsed["project"] = remaining[i + 1]
             i += 2
+        elif arg == "--vars":
+            # Greedy consume k=v tokens until next flag or end-of-args.
+            # Lets the user write: cutip run x.yaml --vars a=1 b=2 --bg
+            i += 1
+            while i < len(remaining):
+                tok = remaining[i]
+                if tok.startswith("-") or "=" not in tok:
+                    break
+                k, v = tok.split("=", 1)
+                cli_vars[k] = v
+                i += 1
         elif not arg.startswith("-") and not positional_consumed:
             if command == "init":
                 parsed["name"] = arg
@@ -2253,8 +2328,29 @@ def main():
         elif not arg.startswith("-") and positional_consumed:
             if command == "show" and "section" not in parsed:
                 parsed["section"] = arg
+            else:
+                # run command may have declared cli_args that take values
+                # at unflagged-positional positions if the parser routed
+                # there; defer to cmd_run.
+                unconsumed.append(arg)
             i += 1
         else:
+            # Unknown flag — could be a workflow-declared cli_arg for `run`.
+            # Tentatively grab it + a value if the next token looks like one.
+            unconsumed.append(arg)
             i += 1
+            if (
+                command == "run"
+                and i < len(remaining)
+                and not remaining[i].startswith("-")
+                and "=" not in remaining[i]
+            ):
+                unconsumed.append(remaining[i])
+                i += 1
+
+    if cli_vars:
+        parsed["cli_vars"] = cli_vars
+    if unconsumed:
+        parsed["_unconsumed"] = unconsumed
 
     COMMANDS[command](parsed)
