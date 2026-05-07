@@ -1,0 +1,15 @@
+project: web-app-deploy
+host: local
+
+vars:
+  vm_ip: ""
+  vm_user: ""
+  vm_pass: ""
+
+secrets:
+  ssh_key: ""
+
+data:
+  kubernetes:
+    namespace: prod
+    deployment: web-api-deployment
