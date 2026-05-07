@@ -4,7 +4,7 @@ CUTIP is a Python framework for Podman container workloads. Key facts about the
 current state of the codebase:
 - Podman is the ONLY supported backend — Docker support was removed entirely.
 - Directory renamed: `containers/` → `resources/`, `containers/resources/` → `resources/buildtime/`
-- Group names changed: `main` → `snf-gui` or `snf-blueprint-manager`
+- Group names are no longer hardcoded — consumer projects pick their own group name in `<project>.yaml`.
 - `vars.yaml` has been split into `paths.yaml` (filesystem paths) + `secrets.yaml` (sensitive values).
   Template syntax: `{{ paths.key }}` / `{{ secrets.key }}`. Context: `ctx.paths` / `ctx.secrets`.
 - The `--backend` CLI flag was removed.

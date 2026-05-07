@@ -63,29 +63,29 @@ def test_resolve_nested_passes_through(tmp_path):
     p = tmp_path / "h.yaml"
     hosts.write_hosts_file(
         p,
-        {"ub20": {"host": "h1", "username": "u1"}, "sfm": {"host": "h2"}},
+        {"ub20": {"host": "h1", "username": "u1"}, "app": {"host": "h2"}},
     )
     resolved = hosts.resolve(p)
     assert resolved["ub20"]["host"] == "h1"
-    assert resolved["sfm"]["host"] == "h2"
+    assert resolved["app"]["host"] == "h2"
 
 
 def test_resolve_global_reference(tmp_path, isolated_home):
-    # Set up global file with a "sfm" entry
+    # Set up global file with a "app" entry
     gp = hosts.global_hosts_path()
-    hosts.write_hosts_file(gp, {"sfm": {"host": "1.2.3.4", "username": "root"}})
+    hosts.write_hosts_file(gp, {"app": {"host": "1.2.3.4", "username": "root"}})
 
     # Local file with global: true reference
     local = tmp_path / "local.yaml"
-    hosts.write_hosts_file(local, {"sfm": {"global": True}})
+    hosts.write_hosts_file(local, {"app": {"global": True}})
 
     resolved = hosts.resolve(local)
-    assert resolved["sfm"] == {"host": "1.2.3.4", "username": "root"}
+    assert resolved["app"] == {"host": "1.2.3.4", "username": "root"}
 
 
 def test_resolve_global_missing_file_errors(tmp_path):
     local = tmp_path / "local.yaml"
-    hosts.write_hosts_file(local, {"sfm": {"global": True}})
+    hosts.write_hosts_file(local, {"app": {"global": True}})
     with pytest.raises(hosts.HostsError, match="global hosts file does not exist"):
         hosts.resolve(local)
 
@@ -94,7 +94,7 @@ def test_resolve_global_missing_entry_errors(tmp_path, isolated_home):
     gp = hosts.global_hosts_path()
     hosts.write_hosts_file(gp, {"other": {"host": "x"}})
     local = tmp_path / "local.yaml"
-    hosts.write_hosts_file(local, {"sfm": {"global": True}})
+    hosts.write_hosts_file(local, {"app": {"global": True}})
     with pytest.raises(hosts.HostsError, match="not found in"):
         hosts.resolve(local)
 
@@ -205,14 +205,14 @@ def test_promote_all_when_no_names_given(tmp_path, isolated_home):
         local,
         {
             "ub20": {"host": "1", "username": "u", "password": "p"},
-            "sfm": {"host": "2", "username": "u", "password": "p"},
+            "app": {"host": "2", "username": "u", "password": "p"},
         },
     )
     result = hosts.promote_to_global(local, names=None)
-    assert sorted(result.promoted) == ["sfm", "ub20"]
+    assert sorted(result.promoted) == ["app", "ub20"]
     assert hosts.read_hosts_file(local) == {
         "ub20": {"global": True},
-        "sfm": {"global": True},
+        "app": {"global": True},
     }
 
 
@@ -294,19 +294,19 @@ def test_promote_partial_with_some_conflicts(tmp_path, isolated_home):
     clean one moves; the conflicting one stays put with original values."""
     gp = hosts.global_hosts_path()
     hosts.write_hosts_file(
-        gp, {"sfm": {"host": "OLD", "username": "u", "password": "old"}}
+        gp, {"app": {"host": "OLD", "username": "u", "password": "old"}}
     )
     local = tmp_path / "local.yaml"
     hosts.write_hosts_file(
         local,
         {
             "ub20": {"host": "1", "username": "u", "password": "p"},
-            "sfm": {"host": "NEW", "username": "u", "password": "new"},
+            "app": {"host": "NEW", "username": "u", "password": "new"},
         },
     )
     result = hosts.promote_to_global(local, names=None)
     assert result.promoted == ["ub20"]
-    assert result.conflicts == ["sfm"]
+    assert result.conflicts == ["app"]
     final_local = hosts.read_hosts_file(local)
     assert final_local["ub20"] == {"global": True}
-    assert final_local["sfm"] == {"host": "NEW", "username": "u", "password": "new"}
+    assert final_local["app"] == {"host": "NEW", "username": "u", "password": "new"}

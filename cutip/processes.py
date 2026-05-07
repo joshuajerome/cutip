@@ -7,7 +7,7 @@ work without a daemon: `cutip ps`, `cutip ps logs`, `cutip ps stop`,
 
 Layout::
 
-    ~/.cutip/processes/snf-build-7f3a/
+    ~/.cutip/processes/myproject-7f3a/
     ├── meta.json       # project, started_at, status, host_pid, exit_code, ...
     ├── stdout.log      # streamed during run; tail -f-able
     ├── stderr.log      # streamed

@@ -18,11 +18,11 @@ Two file formats are recognized:
     of fields. A host entry can use ``global: true`` to defer to the
     same name in the global file::
 
-        ub20:
-          host: ub20login-eqx-10
-          username: joshua.jerome
+        build:
+          host: build.example.com
+          username: alice
           password: secret
-        sfm:
+        app:
           global: true        # pulled from ~/.cutip/hosts.yaml
 
 The parser auto-detects format on read. Migration (flat → nested) is

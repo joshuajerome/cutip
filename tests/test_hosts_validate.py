@@ -26,11 +26,11 @@ def test_probe_hosts_empty():
 def test_probe_hosts_all_ok():
     hosts = {
         "ub20": {"host": "h1", "username": "u", "password": "p"},
-        "sfm": {"host": "h2", "username": "u", "password": "p"},
+        "app": {"host": "h2", "username": "u", "password": "p"},
     }
     results = probe_hosts(hosts, probe=_ok_probe)
     assert len(results) == 2
-    assert {r.name for r in results} == {"ub20", "sfm"}
+    assert {r.name for r in results} == {"ub20", "app"}
     assert all(r.ok for r in results)
     assert all(r.error is None for r in results)
 

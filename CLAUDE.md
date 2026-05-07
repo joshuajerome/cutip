@@ -223,13 +223,11 @@ For features/fixes during active development, commit directly to integration or 
 
 ## Consumer projects
 
-```
-cutip-projects/snf-dev/
-├── snf-blueprint-dev/           # blueprint.yaml + blueprint.workflow.py
-├── snf-gui-dev/                 # gui.yaml + gui.workflow.py
-└── sfm-vm-support/
-    └── gui/                     # gui.yaml + gui.workflow.py + hosts.yaml
-```
+A cutip "consumer project" is any directory containing a `<name>.yaml`
++ `<name>.workflow.py` pair (plus optional `hosts.yaml` for SSH creds).
+Cutip discovers and runs them via `cutip run <name>.yaml`. There's no
+required directory structure beyond that — projects can sit at the repo
+root, under `workspaces/`, or anywhere else convenient for the user.
 
 ## Current versions
 

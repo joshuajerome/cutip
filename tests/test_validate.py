@@ -111,7 +111,7 @@ class TestValidateProject:
             tmp_path / "test.yaml",
             {"project": "test", "host": "remote"},
             hosts={
-                "sfm": {"host": "10.0.0.1", "username": "root", "password": "pw"},
+                "app": {"host": "10.0.0.1", "username": "root", "password": "pw"},
             },
         )
         cred_errors = [e for e in errors if "missing" in e.lower()]
@@ -123,11 +123,11 @@ class TestValidateProject:
             tmp_path / "test.yaml",
             {"project": "test", "host": "remote"},
             hosts={
-                "sfm": {"host": "10.0.0.1"},  # missing username + password
+                "app": {"host": "10.0.0.1"},  # missing username + password
             },
         )
-        assert any("sfm" in e and "username" in e for e in errors)
-        assert any("sfm" in e and "password" in e for e in errors)
+        assert any("app" in e and "username" in e for e in errors)
+        assert any("app" in e and "password" in e for e in errors)
 
     def test_remote_ssh_nested_global_ref_skipped(self, tmp_path):
         """Entries with `{global: true}` are skipped — credentials come from
@@ -135,7 +135,7 @@ class TestValidateProject:
         errors, _ = validate_project(
             tmp_path / "test.yaml",
             {"project": "test", "host": "remote"},
-            hosts={"sfm": {"global": True}},
+            hosts={"app": {"global": True}},
         )
         cred_errors = [e for e in errors if "missing" in e.lower()]
         assert cred_errors == []
