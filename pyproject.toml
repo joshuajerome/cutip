@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cutip"
-version = "2.17.0"
+version = "2.18.0"
 description = "Workflow automation framework — define infrastructure as YAML, automate with Python, execute in containers"
 readme = "README.md"
 license = { text = "MIT" }
