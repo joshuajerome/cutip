@@ -218,7 +218,7 @@ jobs:
         run: |
           .venv/bin/python -m cutip --help
           .venv/bin/python -m cutip --version
-          .venv/bin/python -m cutip validate example/sfm-vm-support.yaml
-          .venv/bin/python -m cutip tree example/sfm-vm-support.yaml
+          .venv/bin/python -m cutip validate example/web-app-deploy.yaml
+          .venv/bin/python -m cutip tree example/web-app-deploy.yaml
           .venv/bin/python -m cutip verify
-          .venv/bin/python -m cutip validate --json example/sfm-vm-support.yaml
+          .venv/bin/python -m cutip validate --json example/web-app-deploy.yaml

@@ -145,6 +145,73 @@ class TestCLITree:
         assert data["project"] == "test-project"
 
 
+class TestCLIProjects:
+    def _make_project(self, dirpath, name, host="local", description=None):
+        dirpath.mkdir(parents=True, exist_ok=True)
+        yaml_path = dirpath / f"{name}.yaml"
+        body = ""
+        if description:
+            body += f"# {description}\n"
+        body += f"project: {name}\nhost: {host}\nworkflow: {name}.workflow.py\n"
+        yaml_path.write_text(body)
+        return yaml_path
+
+    def test_projects_discovers_single(self, tmp_path):
+        self._make_project(tmp_path / "alpha", "alpha", description="Alpha project")
+        r = _run_cutip("projects", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "alpha" in r.stdout
+        assert "Alpha project" in r.stdout
+
+    def test_projects_discovers_nested(self, tmp_path):
+        self._make_project(tmp_path / "workspaces" / "a", "a-proj", host="local")
+        self._make_project(tmp_path / "workspaces" / "b", "b-proj", host="container")
+        self._make_project(tmp_path / "misc" / "c", "c-proj", host="remote")
+        r = _run_cutip("projects", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "a-proj" in r.stdout
+        assert "b-proj" in r.stdout
+        assert "c-proj" in r.stdout
+
+    def test_projects_skips_non_project_yamls(self, tmp_path):
+        self._make_project(tmp_path, "real-proj")
+        # hosts.yaml shape — no project key
+        (tmp_path / "hosts.yaml").write_text("vm:\n  host: 1.2.3.4\n  username: root\n")
+        # arbitrary non-project yaml
+        (tmp_path / "data.yaml").write_text("some_key: some_value\n")
+        r = _run_cutip("projects", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "real-proj" in r.stdout
+        assert "hosts.yaml" not in r.stdout
+        assert "data.yaml" not in r.stdout
+
+    def test_projects_empty_dir(self, tmp_path):
+        r = _run_cutip("projects", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "No cutip projects" in r.stdout
+
+    def test_projects_json(self, tmp_path):
+        self._make_project(tmp_path / "x", "xproj", host="remote", description="X desc")
+        r = _run_cutip("projects", "--json", cwd=str(tmp_path))
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert len(data) == 1
+        assert data[0]["project"] == "xproj"
+        assert data[0]["host"] == "remote"
+        assert data[0]["description"] == "X desc"
+
+    def test_projects_skips_build_dirs(self, tmp_path):
+        # Hidden / build dirs should be skipped even with valid project yaml.
+        self._make_project(tmp_path / ".venv" / "foo", "venv-proj")
+        self._make_project(tmp_path / "node_modules" / "bar", "node-proj")
+        self._make_project(tmp_path / "real", "real-proj")
+        r = _run_cutip("projects", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "real-proj" in r.stdout
+        assert "venv-proj" not in r.stdout
+        assert "node-proj" not in r.stdout
+
+
 class TestCLIShow:
     def test_show_summary(self, simple_project):
         project_file, _ = simple_project
