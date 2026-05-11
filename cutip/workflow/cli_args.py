@@ -32,16 +32,19 @@ VALID_TYPES = ("str", "int", "float", "bool", "path")
 
 # CLI flag names cutip reserves for itself; declared cli_args may not
 # claim these. Keeps the parser unambiguous.
-RESERVED_FLAGS = frozenset({
-    "-h", "--help",
-    "--bg",
-    "--vars",
-    "--hosts",
-    "--path",
-    "--json",
-    "--all",
-    "--version",
-})
+RESERVED_FLAGS = frozenset(
+    {
+        "-h",
+        "--help",
+        "--bg",
+        "--vars",
+        "--hosts",
+        "--path",
+        "--json",
+        "--all",
+        "--version",
+    }
+)
 
 
 class CliArgsError(ValueError):
@@ -73,7 +76,9 @@ def _coerce(value: str, type_: str, *, key: str, flag: str) -> Any:
             return True
         if v in ("false", "no", "n", "0"):
             return False
-        raise CliArgsError(f"{flag} (vars.{key}): expected bool (true/false), got {value!r}")
+        raise CliArgsError(
+            f"{flag} (vars.{key}): expected bool (true/false), got {value!r}"
+        )
     if type_ == "path":
         return str(Path(value).expanduser())
     raise CliArgsError(f"unknown cli_args type {type_!r} for {key}")
@@ -100,7 +105,9 @@ def normalize_specs(cli_args_block: Any) -> dict[str, dict]:
     for key, raw in cli_args_block.items():
         spec = raw or {}
         if not isinstance(spec, dict):
-            raise CliArgsError(f"cli_args.{key}: spec must be a mapping, got {type(spec).__name__}")
+            raise CliArgsError(
+                f"cli_args.{key}: spec must be a mapping, got {type(spec).__name__}"
+            )
 
         short = spec.get("short")
         long_ = spec.get("long") or f"--{_kebab(key)}"
@@ -117,18 +124,27 @@ def normalize_specs(cli_args_block: Any) -> dict[str, dict]:
 
         # Validate flag shapes
         if short is not None:
-            if not (isinstance(short, str) and len(short) == 2 and short.startswith("-") and short[1] != "-"):
+            if not (
+                isinstance(short, str)
+                and len(short) == 2
+                and short.startswith("-")
+                and short[1] != "-"
+            ):
                 raise CliArgsError(
                     f"cli_args.{key}.short: must be a single-dash 2-char flag like '-f', got {short!r}"
                 )
             if short in RESERVED_FLAGS:
-                raise CliArgsError(f"cli_args.{key}.short={short!r} clashes with reserved cutip flag")
+                raise CliArgsError(
+                    f"cli_args.{key}.short={short!r} clashes with reserved cutip flag"
+                )
         if not (isinstance(long_, str) and long_.startswith("--") and len(long_) > 2):
             raise CliArgsError(
                 f"cli_args.{key}.long: must look like '--name', got {long_!r}"
             )
         if long_ in RESERVED_FLAGS:
-            raise CliArgsError(f"cli_args.{key}.long={long_!r} clashes with reserved cutip flag")
+            raise CliArgsError(
+                f"cli_args.{key}.long={long_!r} clashes with reserved cutip flag"
+            )
 
         # Detect duplicate flags across declared args
         for flag in (short, long_):
@@ -190,14 +206,18 @@ def parse_runtime(
 
         if tok in by_flag:
             key, spec = by_flag[tok]
-            if spec["type"] == "bool" and (i + 1 >= len(tokens) or tokens[i + 1].startswith("-")):
+            if spec["type"] == "bool" and (
+                i + 1 >= len(tokens) or tokens[i + 1].startswith("-")
+            ):
                 # bare bool flag (without explicit value) → True
                 user_values[key] = True
                 i += 1
             else:
                 if i + 1 >= len(tokens):
                     raise CliArgsError(f"{tok}: missing value")
-                user_values[key] = _coerce(tokens[i + 1], spec["type"], key=key, flag=tok)
+                user_values[key] = _coerce(
+                    tokens[i + 1], spec["type"], key=key, flag=tok
+                )
                 i += 2
             continue
 

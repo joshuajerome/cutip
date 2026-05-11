@@ -715,7 +715,7 @@ def cmd_run(args):
     #   2. cli_args defaults           — only applied where yaml vars is absent
     #   3. --vars k=v                  — explicit user runtime override
     #   4. cli_args explicit values    — explicit user runtime override (typed)
-    yaml_vars = (raw_config.get("vars") or {})
+    yaml_vars = raw_config.get("vars") or {}
     var_overrides: dict = {}
     for k, v in cli_arg_defaults.items():
         if k not in yaml_vars or yaml_vars[k] in (None, ""):
