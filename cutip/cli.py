@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.18.0"
+VERSION = "2.19.0"
 console = Console()
 
 
@@ -236,6 +236,134 @@ def cmd_validate(args):
         console.print(
             "\n[dim]Network checks skipped. Use 'cutip hosts validate' or 'cutip validate --all' for live probes.[/dim]"
         )
+
+
+def cmd_projects(args):
+    """Discover all cutip projects in the current directory tree.
+
+    Walks cwd recursively, finds every *.yaml with `project:` + `host:`
+    keys, prints a table with project name, host, and the first comment
+    line as description. Useful for monorepos that host many cutip
+    projects scattered across subdirectories.
+    """
+    import yaml as _yaml
+
+    cwd = Path.cwd()
+    skip_dirs = {
+        ".git",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".cutip",
+        "target",
+        "dist",
+        "site",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+    }
+
+    found = []
+    for yaml_path in sorted(cwd.rglob("*.yaml")):
+        if any(part in skip_dirs for part in yaml_path.relative_to(cwd).parts):
+            continue
+        try:
+            text = yaml_path.read_text(encoding="utf-8")
+            data = _yaml.safe_load(text)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        # Cutip artifact YAMLs (apiVersion: cutip/v1) use a different shape
+        # and aren't project files — skip them.
+        if isinstance(data.get("apiVersion"), str) and data["apiVersion"].startswith(
+            "cutip/"
+        ):
+            continue
+        if "project" not in data or "host" not in data:
+            continue
+
+        found.append(
+            {
+                "path": yaml_path.relative_to(cwd),
+                "project": str(data["project"]),
+                "host": str(data.get("host", "local")),
+                "workflow": data.get("workflow"),
+                "description": _first_yaml_comment(text),
+            }
+        )
+
+    if args.get("json"):
+        print(
+            json.dumps(
+                [
+                    {
+                        "path": str(p["path"]),
+                        "project": p["project"],
+                        "host": p["host"],
+                        "workflow": p["workflow"],
+                        "description": p["description"],
+                    }
+                    for p in found
+                ],
+                indent=2,
+            )
+        )
+        return
+
+    if not found:
+        console.print(f"[dim]No cutip projects found under {cwd}[/dim]")
+        return
+
+    host_color = {"local": "green", "container": "yellow", "remote": "magenta"}
+
+    table = Table(
+        title=f"cutip projects under {cwd.name}/",
+        box=box.ROUNDED,
+        show_lines=False,
+    )
+    table.add_column("path", style="cyan", no_wrap=False)
+    table.add_column("project", style="bold")
+    table.add_column("host")
+    table.add_column("description", style="dim", no_wrap=False)
+
+    for p in found:
+        color = host_color.get(p["host"], "white")
+        table.add_row(
+            str(p["path"]),
+            p["project"],
+            f"[{color}]{p['host']}[/{color}]",
+            p["description"],
+        )
+
+    console.print(table)
+    console.print(f"[dim]{len(found)} project{'s' if len(found) != 1 else ''}[/dim]")
+
+
+def _first_yaml_comment(text: str) -> str:
+    """Return the first prose-shaped comment line from a YAML file.
+
+    Scans the first 30 lines (comments may appear before or after the
+    leading `project:`/`host:` keys — snf-dev's convention is the
+    latter). Skips blank lines and ruler-style separators (e.g.
+    `# ─────────`). Used by `cutip projects` to surface a short
+    description for each discovered project.
+    """
+    for i, line in enumerate(text.splitlines()):
+        if i >= 30:
+            break
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            continue
+        body = stripped.lstrip("#").strip()
+        if not body:
+            continue
+        # Ruler-style separator (e.g. "─────" or "====="), skip.
+        if all(c in "─-=*#~_" for c in body):
+            continue
+        return body
+    return ""
 
 
 def cmd_tree(args):
@@ -2067,6 +2195,7 @@ COMMANDS = {
     "run": cmd_run,
     "cmd": cmd_cmd,
     "tree": cmd_tree,
+    "projects": cmd_projects,
     "vars": cmd_vars,
     "secrets": cmd_secrets,
     "hosts": cmd_hosts,
@@ -2107,6 +2236,7 @@ def main():
                 "  run        Execute workflow\n"
                 "  cmd        Run a project-defined command\n"
                 "  tree       Print config structure\n"
+                "  projects   Discover all cutip projects under cwd\n"
                 "  vars       Manage project variables (list/get/set)\n"
                 "  secrets    Manage project secrets (list/get/set)\n"
                 "  hosts      Manage connection credentials (list/get/set)\n"
