@@ -21,7 +21,9 @@ class TestCLIHelp:
         r = _run_cutip("--help")
         assert r.returncode == 0
         assert "cutip" in r.stdout
-        assert "Commands" in r.stdout
+        # Help is organized by scope tier; sanity-check a tier exists.
+        assert "Project" in r.stdout
+        assert "Collection" in r.stdout
 
     def test_version(self):
         r = _run_cutip("--version")

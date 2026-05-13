@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.20.0"
+VERSION = "2.21.0"
 console = Console()
 
 
@@ -109,6 +109,7 @@ def _load_config(project_path: Path, var_overrides: dict | None = None) -> dict:
     """
     import yaml
 
+    from cutip import collection as _collection
     from cutip import globals as _globals
     from cutip.paths import merge_paths_into_data
     from cutip.templating import resolve_substitution_maps, substitute_in_obj
@@ -123,19 +124,21 @@ def _load_config(project_path: Path, var_overrides: dict | None = None) -> dict:
             config["vars"][k] = v
 
     globals_flat = _globals.flatten(_globals.read_globals())
+    _, collection_flat = _collection.load_for_project(project_path)
 
-    # Stage 3: resolve globals into vars/paths/secrets.
+    # Stage 3: resolve globals + collection into vars/paths/secrets.
     vars_resolved, paths_resolved, secrets_resolved = resolve_substitution_maps(
-        config, globals_flat
+        config, globals_flat, collection_flat
     )
 
-    # Stage 4: substitute all four namespaces across the entire config.
+    # Stage 4: substitute all five namespaces across the entire config.
     config = substitute_in_obj(
         config,
         vars=vars_resolved,
         paths=paths_resolved,
         secrets=secrets_resolved,
         globals=globals_flat,
+        collection=collection_flat,
     )
 
     # Stage 5: existing path-section merge into data.
@@ -281,12 +284,16 @@ def cmd_validate(args):
 def cmd_projects(args):
     """Discover all cutip projects in the current directory tree.
 
-    Walks cwd recursively, finds every *.yaml with `project:` + `host:`
-    keys, prints a table with project name, host, and the first comment
-    line as description. Useful for monorepos that host many cutip
-    projects scattered across subdirectories.
+    If a ``cutip.collection.yaml`` exists at cwd or an ancestor, the
+    manifest's ``projects:`` list drives ordering + descriptions when
+    present (gives multi-line, structured descriptions vs. the first-
+    comment-line scan). Falls back to walking cwd recursively for every
+    ``*.yaml`` with ``project:`` + ``host:`` keys when there's no
+    collection manifest (or the manifest's projects list is empty).
     """
     import yaml as _yaml
+
+    from cutip import collection as _coll
 
     cwd = Path.cwd()
     skip_dirs = {
@@ -304,35 +311,73 @@ def cmd_projects(args):
         ".pytest_cache",
     }
 
-    found = []
-    for yaml_path in sorted(cwd.rglob("*.yaml")):
-        if any(part in skip_dirs for part in yaml_path.relative_to(cwd).parts):
-            continue
+    # Helper: read one project yaml + extract listing info. Returns None
+    # if the yaml isn't a project (no project: + host: keys, or the
+    # apiVersion-prefixed artifact shape).
+    def _project_info(yaml_path: Path, description_override: str | None = None):
         try:
             text = yaml_path.read_text(encoding="utf-8")
             data = _yaml.safe_load(text)
         except Exception:
-            continue
+            return None
         if not isinstance(data, dict):
-            continue
-        # Cutip artifact YAMLs (apiVersion: cutip/v1) use a different shape
-        # and aren't project files — skip them.
+            return None
         if isinstance(data.get("apiVersion"), str) and data["apiVersion"].startswith(
             "cutip/"
         ):
-            continue
+            return None
         if "project" not in data or "host" not in data:
-            continue
+            return None
+        return {
+            "path": (
+                yaml_path.relative_to(cwd)
+                if cwd in yaml_path.parents or yaml_path.parent == cwd
+                else yaml_path
+            ),
+            "project": str(data["project"]),
+            "host": str(data.get("host", "local")),
+            "workflow": data.get("workflow"),
+            "description": (
+                description_override
+                if description_override is not None
+                else _first_yaml_comment(text)
+            ),
+            "status": None,  # populated below if collection-driven
+        }
 
-        found.append(
-            {
-                "path": yaml_path.relative_to(cwd),
-                "project": str(data["project"]),
-                "host": str(data.get("host", "local")),
-                "workflow": data.get("workflow"),
-                "description": _first_yaml_comment(text),
-            }
-        )
+    # Collection-aware path: if we're inside a collection AND the
+    # manifest lists projects, use that ordering + structured
+    # descriptions. The manifest is the source of truth.
+    coll_root = _coll.find_collection_root(cwd)
+    manifest_projects: list[dict] | None = None
+    if coll_root is not None:
+        manifest = _coll.read_manifest(coll_root)
+        if manifest.get("projects"):
+            manifest_projects = manifest["projects"]
+
+    found = []
+    if manifest_projects:
+        # Resolve every project: path entry relative to the collection root.
+        for entry in manifest_projects:
+            rel = entry.get("path")
+            if not rel:
+                continue
+            yaml_path = (coll_root / rel).resolve()
+            info = _project_info(
+                yaml_path,
+                description_override=(entry.get("description") or "").strip(),
+            )
+            if info is None:
+                continue
+            info["status"] = entry.get("status")
+            found.append(info)
+    else:
+        for yaml_path in sorted(cwd.rglob("*.yaml")):
+            if any(part in skip_dirs for part in yaml_path.relative_to(cwd).parts):
+                continue
+            info = _project_info(yaml_path)
+            if info is not None:
+                found.append(info)
 
     if args.get("json"):
         print(
@@ -344,6 +389,7 @@ def cmd_projects(args):
                         "host": p["host"],
                         "workflow": p["workflow"],
                         "description": p["description"],
+                        "status": p.get("status"),
                     }
                     for p in found
                 ],
@@ -357,25 +403,38 @@ def cmd_projects(args):
         return
 
     host_color = {"local": "green", "container": "yellow", "remote": "magenta"}
+    show_status = any(p.get("status") for p in found)
+
+    # Title hints whether the listing is collection-driven so users know
+    # where descriptions came from.
+    if coll_root is not None and manifest_projects:
+        title = f"cutip projects in {Path(coll_root).name}/ (collection)"
+    else:
+        title = f"cutip projects under {cwd.name}/"
 
     table = Table(
-        title=f"cutip projects under {cwd.name}/",
+        title=title,
         box=box.ROUNDED,
         show_lines=False,
     )
     table.add_column("path", style="cyan", no_wrap=False)
     table.add_column("project", style="bold")
     table.add_column("host")
+    if show_status:
+        table.add_column("status", style="green")
     table.add_column("description", style="dim", no_wrap=False)
 
     for p in found:
         color = host_color.get(p["host"], "white")
-        table.add_row(
+        row = [
             str(p["path"]),
             p["project"],
             f"[{color}]{p['host']}[/{color}]",
-            p["description"],
-        )
+        ]
+        if show_status:
+            row.append(p.get("status") or "")
+        row.append(p["description"])
+        table.add_row(*row)
 
     console.print(table)
     console.print(f"[dim]{len(found)} project{'s' if len(found) != 1 else ''}[/dim]")
@@ -820,6 +879,7 @@ def cmd_run(args):
         hosts_path = _resolve_hosts_path(project_path)
 
     if hosts_path.exists():
+        from cutip import collection as _collection
         from cutip import globals as _globals
         from cutip import hosts as _hosts_mod
         from cutip.templating import substitute_in_obj
@@ -836,14 +896,17 @@ def cmd_run(args):
             hosts = yaml.safe_load(f) or {}
 
         # Substitute templates in resolved hosts using project's vars/paths/
-        # secrets (already resolved against globals at config-load time).
+        # secrets (already resolved against globals + collection at
+        # config-load time).
         globals_flat = _globals.flatten(_globals.read_globals())
+        _, collection_flat = _collection.load_for_project(project_path)
         resolved_hosts = substitute_in_obj(
             resolved_hosts,
             vars=config.get("vars") or {},
             paths=config.get("paths") or {},
             secrets=config.get("secrets") or {},
             globals=globals_flat,
+            collection=collection_flat,
         )
         hosts = substitute_in_obj(
             hosts,
@@ -851,6 +914,7 @@ def cmd_run(args):
             paths=config.get("paths") or {},
             secrets=config.get("secrets") or {},
             globals=globals_flat,
+            collection=collection_flat,
         )
 
     # Pre-run validation
@@ -1307,6 +1371,7 @@ def _resolved_hosts_with_substitution(
     those subcommands return resolved values, not raw ``{{ ... }}`` template
     strings.
     """
+    from cutip import collection as _collection
     from cutip import globals as _globals
     from cutip import hosts as _hosts_mod
     from cutip.templating import substitute_in_obj
@@ -1314,12 +1379,14 @@ def _resolved_hosts_with_substitution(
     config = _load_config(project_path)
     resolved = _hosts_mod.resolve(hosts_path)
     globals_flat = _globals.flatten(_globals.read_globals())
+    _, collection_flat = _collection.load_for_project(project_path)
     return substitute_in_obj(
         resolved,
         vars=config.get("vars") or {},
         paths=config.get("paths") or {},
         secrets=config.get("secrets") or {},
         globals=globals_flat,
+        collection=collection_flat,
     )
 
 
@@ -1383,20 +1450,60 @@ def cmd_hosts(args):
                                         Use -f / --force to overwrite conflicting
                                         global values; otherwise conflicts abort.
     """
+    from cutip import collection as _coll
     from cutip import hosts as _hosts
 
     subcmd = args.get("subcmd")
     use_global = bool(args.get("global"))
+    use_collection = bool(args.get("collection"))
+
+    if use_global and use_collection:
+        console.print("[red]Error:[/red] cannot combine -g/--global with --collection")
+        sys.exit(1)
 
     if not subcmd or subcmd == "help":
         console.print(cmd_hosts.__doc__ or "cutip hosts")
         return
 
+    # Resolve a collection root upfront if --collection is requested.
+    coll_root: Path | None = None
+    if use_collection:
+        coll_root = _coll.find_collection_root(Path.cwd())
+        if coll_root is None:
+            console.print(
+                "[red]Error:[/red] --collection given but no cutip.collection.yaml "
+                "found in cwd or any ancestor."
+            )
+            sys.exit(1)
+
+    # Subcommands that only apply to the project-local tier today: keep
+    # them rejecting --collection. (migrate / promote / validate semantics
+    # involving SSH probes against an entire-tier file land cleanly only
+    # for global; collection-tier versions can ship in a later cap.)
+    if use_collection and subcmd in ("migrate", "promote"):
+        console.print(
+            f"[red]Error:[/red] '{subcmd}' is project-only and doesn't apply with --collection."
+        )
+        sys.exit(1)
+
     # Global-only subcommands
     if subcmd == "init":
+        if use_collection:
+            assert coll_root is not None
+            gp = _coll.hosts_path(coll_root)
+            if gp.exists():
+                console.print(f"[dim]Collection hosts file already exists: {gp}[/dim]")
+                return
+            _hosts.write_hosts_file(gp, {})
+            console.print(f"  [green]✓[/green] Created [cyan]{gp}[/cyan]")
+            console.print(
+                "  Add entries with: cutip hosts set --collection <host>.<field>=<value>"
+            )
+            return
         if not use_global:
             console.print(
-                "[red]Error:[/red] 'cutip hosts init' is global-only. Use: cutip hosts init -g"
+                "[red]Error:[/red] 'cutip hosts init' needs a tier flag. "
+                "Use: cutip hosts init -g  (or --collection)"
             )
             console.print(
                 "  (local hosts.yaml is auto-created on first 'cutip hosts set <host>.<field>=<value>')"
@@ -1412,6 +1519,12 @@ def cmd_hosts(args):
         return
 
     if subcmd == "set-path":
+        if use_collection:
+            console.print(
+                "[red]Error:[/red] 'set-path' is only meaningful for the global tier. "
+                "Collection hosts files always live at <root>/.cutip/hosts.yaml."
+            )
+            sys.exit(1)
         if not use_global:
             console.print(
                 "[red]Error:[/red] 'cutip hosts set-path' is global-only. Use: cutip hosts set-path -g <path>"
@@ -1427,15 +1540,23 @@ def cmd_hosts(args):
         return
 
     if subcmd == "path":
-        if use_global:
+        if use_collection:
+            assert coll_root is not None
+            console.print(_coll.hosts_path(coll_root))
+        elif use_global:
             console.print(_hosts.global_hosts_path())
         else:
             project_path = _resolve_project(args.get("project"))
             console.print(_resolve_hosts_path(project_path))
         return
 
-    # Resolve target file (global or project-local) for list/get/set/migrate
-    if use_global:
+    # Resolve target file (collection, global, or project-local) for
+    # list/get/set/migrate.
+    if use_collection:
+        assert coll_root is not None
+        target_path = _coll.hosts_path(coll_root)
+        target_label = str(target_path)
+    elif use_global:
         target_path = _hosts.global_hosts_path()
         target_label = str(target_path)
     else:
@@ -1737,7 +1858,11 @@ def _print_probe_results(hosts_dict: dict, label: str) -> int:
 
 
 def cmd_data(args):
-    """Manage the global data store at ~/.cutip/data.yaml.
+    """Manage cutip's data store(s).
+
+    By default targets the user-global store at ~/.cutip/data.yaml.
+    Pass --collection to target the collection-tier store at
+    <collection-root>/.cutip/data.yaml instead.
 
     Subcommands:
       cutip data list                 List entries (flattened, dotted paths)
@@ -1749,14 +1874,27 @@ def cmd_data(args):
       cutip data set-path -g <path>   Change the global data file location
       cutip data init                 Create an empty data file
       cutip data usages <dotted.path> Show every project that references
-                                      `{{ globals.<dotted.path> }}` under cwd
+                                      `{{ globals.<dotted.path> }}` (or
+                                      `{{ collection.<...> }}` with --collection)
+                                      under cwd
       cutip data unused               Show keys defined in the data file
                                       that no project under cwd references
+
+    Flags:
+      --collection   Target the collection-scoped data file instead of
+                     ~/.cutip/data.yaml. Requires cwd to be inside a
+                     collection (cutip.collection.yaml in cwd or an ancestor).
     """
+    from cutip import collection as _coll
     from cutip import globals as _globals
 
     subcmd = args.get("subcmd")
     use_global = bool(args.get("global"))
+    use_collection = bool(args.get("collection"))
+
+    if use_global and use_collection:
+        console.print("[red]Error:[/red] cannot combine -g/--global with --collection")
+        sys.exit(1)
 
     if not subcmd or subcmd == "help":
         console.print(cmd_data.__doc__ or "cutip data")
@@ -1765,7 +1903,14 @@ def cmd_data(args):
     if subcmd == "set-path":
         # The data store is inherently global, but the -g flag is required
         # for parity with `cutip hosts set-path` so the two surfaces stay
-        # symmetrical.
+        # symmetrical. --collection isn't supported here — collection data
+        # files live at a fixed location (<root>/.cutip/data.yaml).
+        if use_collection:
+            console.print(
+                "[red]Error:[/red] 'set-path' is only meaningful for the global tier. "
+                "Collection data files always live at <root>/.cutip/data.yaml."
+            )
+            sys.exit(1)
         if not use_global:
             console.print(
                 "[red]Error:[/red] 'cutip data set-path' is global-only. "
@@ -1783,7 +1928,20 @@ def cmd_data(args):
         console.print(f"  (stored in {config_path()})")
         return
 
-    gp = _globals.globals_path()
+    # Resolve the data file path based on tier. The data shape (nested
+    # yaml dict) is identical between tiers, so all read/write/flatten
+    # operations below just point at the right Path.
+    if use_collection:
+        coll_root = _coll.find_collection_root(Path.cwd())
+        if coll_root is None:
+            console.print(
+                "[red]Error:[/red] --collection given but no cutip.collection.yaml "
+                "found in cwd or any ancestor."
+            )
+            sys.exit(1)
+        gp = _coll.data_path(coll_root)
+    else:
+        gp = _globals.globals_path()
 
     if subcmd == "path":
         console.print(gp)
@@ -1917,9 +2075,15 @@ def cmd_data(args):
                     continue
                 yield f
 
+        # Which namespace to grep for depends on tier: --collection means
+        # users wrote `{{ collection.X }}`, default means `{{ globals.X }}`.
+        ref_ns = "collection" if use_collection else "globals"
+
         def _ref_pattern(key: str) -> _re.Pattern:
-            # Whitespace-tolerant; matches both {{ globals.x }} and {{globals.x}}
-            return _re.compile(r"\{\{\s*globals\." + _re.escape(key) + r"\s*\}\}")
+            # Whitespace-tolerant; matches both `{{ ns.x }}` and `{{ns.x}}`.
+            return _re.compile(
+                r"\{\{\s*" + ref_ns + r"\." + _re.escape(key) + r"\s*\}\}"
+            )
 
         cwd = Path.cwd()
 
@@ -1941,11 +2105,11 @@ def cmd_data(args):
 
             if not hits:
                 console.print(
-                    f"[dim]No references to [cyan]globals.{key}[/cyan] under {cwd}.[/dim]"
+                    f"[dim]No references to [cyan]{ref_ns}.{key}[/cyan] under {cwd}.[/dim]"
                 )
                 return
             t = Table(
-                title=f"References to globals.{key}",
+                title=f"References to {ref_ns}.{key}",
                 box=box.ROUNDED,
                 title_style="bold",
             )
@@ -1990,7 +2154,7 @@ def cmd_data(args):
             box=box.ROUNDED,
             title_style="bold",
         )
-        t.add_column("globals.<key>", style="cyan")
+        t.add_column(f"{ref_ns}.<key>", style="cyan")
         t.add_column("Value", style="dim")
         for k in unused_keys:
             disp = (
@@ -2345,6 +2509,237 @@ def cmd_ps(args):
     sys.exit(1)
 
 
+def cmd_collection(args):
+    """Manage a cutip collection (a group of cutip projects sharing config).
+
+    Subcommands:
+      cutip collection init <name>    Scaffold cutip.collection.yaml + .cutip/
+                                      under <name>/ (or cwd if <name>=".")
+      cutip collection info           Show collection summary (name, projects,
+                                      data/hosts file paths, key counts)
+      cutip collection show           Print the manifest + projects table
+      cutip collection tree           Print the collection tree
+                                      (projects nested under their dirs)
+
+    Discovery is filesystem-based: cutip walks up from cwd looking for
+    cutip.collection.yaml. info/show/tree all auto-detect the collection
+    from cwd; pass --root <path> to override.
+    """
+    from cutip import collection as _coll
+
+    subcmd = args.get("subcmd")
+    if not subcmd or subcmd == "help":
+        console.print(cmd_collection.__doc__ or "cutip collection")
+        return
+
+    if subcmd == "init":
+        name = args.get("name")
+        if not name:
+            console.print(
+                "[red]Usage:[/red] cutip collection init <name>  "
+                "[dim](use '.' to init in cwd)[/dim]"
+            )
+            sys.exit(1)
+
+        target = Path.cwd() if name == "." else Path(name).resolve()
+        target.mkdir(parents=True, exist_ok=True)
+        collection_name = target.name if name == "." else name
+
+        manifest_p = _coll.manifest_path(target)
+        if manifest_p.exists():
+            console.print(
+                f"[red]Error:[/red] {manifest_p} already exists. "
+                "Edit it directly to update the collection."
+            )
+            sys.exit(1)
+
+        # Write a small starter manifest. Projects list intentionally empty —
+        # users can run `cutip projects` later and copy entries in.
+        _coll.write_manifest(
+            target,
+            {
+                "name": collection_name,
+                "version": "0.1.0",
+                "projects": [],
+            },
+        )
+
+        # Scaffold .cutip/{data,hosts}.template.yaml + .gitignore.
+        cutip_dir = target / ".cutip"
+        cutip_dir.mkdir(parents=True, exist_ok=True)
+
+        data_tpl = cutip_dir / "data.template.yaml"
+        if not data_tpl.exists():
+            data_tpl.write_text(
+                "# Template for <collection>/.cutip/data.yaml — values\n"
+                "# referenced from project yamls via `{{ collection.X.Y.Z }}`.\n"
+                "#\n"
+                "# Copy this file to data.yaml (sibling) and fill in values.\n"
+                "# data.yaml is gitignored; only this template enters git.\n"
+                "\n"
+                "# example:\n"
+                "# sfm:\n"
+                "#   passwords:\n"
+                '#     cli: ""\n'
+            )
+
+        hosts_tpl = cutip_dir / "hosts.template.yaml"
+        if not hosts_tpl.exists():
+            hosts_tpl.write_text(
+                "# Template for <collection>/.cutip/hosts.yaml — SSH credentials\n"
+                "# shared across this collection's projects.\n"
+                "#\n"
+                "# Copy this file to hosts.yaml (sibling) and fill in values.\n"
+                "# hosts.yaml is gitignored; only this template enters git.\n"
+                "\n"
+                "# example:\n"
+                "# ub20:\n"
+                "#   host: ub20login.example.com\n"
+                '#   username: ""\n'
+                '#   password: ""\n'
+            )
+
+        gitignore = cutip_dir / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text("data.yaml\nhosts.yaml\n")
+
+        console.print(
+            f"  [green]✓[/green] Initialized collection [cyan]{collection_name}[/cyan]"
+        )
+        console.print(
+            f"    [dim]{manifest_p.relative_to(target.parent) if target.parent.exists() else manifest_p}[/dim]"
+        )
+        console.print("    [dim].cutip/data.template.yaml[/dim]")
+        console.print("    [dim].cutip/hosts.template.yaml[/dim]")
+        console.print("    [dim].cutip/.gitignore[/dim]")
+        console.print()
+        console.print(
+            "  Next: [cyan]cp .cutip/data.template.yaml .cutip/data.yaml[/cyan] and fill in values, "
+            "then add projects via [cyan]cutip projects[/cyan] / edit the manifest."
+        )
+        return
+
+    # info / show / tree — auto-detect collection root from cwd
+    root_override = args.get("root")
+    if root_override:
+        root = Path(root_override).resolve()
+        if not _coll.manifest_path(root).exists():
+            console.print(f"[red]Error:[/red] no cutip.collection.yaml at {root}")
+            sys.exit(1)
+    else:
+        root = _coll.find_collection_root(Path.cwd())
+        if root is None:
+            console.print(
+                "[red]Error:[/red] no cutip.collection.yaml found in cwd or ancestors. "
+                "Run [cyan]cutip collection init <name>[/cyan] first, or pass --root <path>."
+            )
+            sys.exit(1)
+
+    manifest = _coll.read_manifest(root)
+    data = _coll.read_data(root)
+    hosts = _coll.read_hosts(root)
+
+    if subcmd == "info":
+        if args.get("json"):
+            print(
+                json.dumps(
+                    {
+                        "name": manifest.get("name", root.name),
+                        "version": manifest.get("version"),
+                        "root": str(root),
+                        "manifest": str(_coll.manifest_path(root)),
+                        "data": str(_coll.data_path(root)),
+                        "hosts": str(_coll.hosts_path(root)),
+                        "projects_count": len(manifest.get("projects") or []),
+                        "data_keys_count": len(_coll.flatten(data)),
+                        "hosts_entries_count": len(hosts),
+                    },
+                    indent=2,
+                )
+            )
+            return
+
+        t = Table(box=box.ROUNDED, show_header=False, title_style="bold")
+        t.add_column("Field", style="cyan")
+        t.add_column("Value")
+        t.add_row("Name", manifest.get("name", root.name))
+        if manifest.get("version"):
+            t.add_row("Version", str(manifest["version"]))
+        t.add_row("Root", str(root))
+        t.add_row("Manifest", str(_coll.manifest_path(root)))
+        t.add_row(
+            "Data",
+            f"{_coll.data_path(root)}  [dim]({len(_coll.flatten(data))} key(s))[/dim]"
+            if _coll.data_path(root).exists()
+            else f"{_coll.data_path(root)}  [yellow](not created)[/yellow]",
+        )
+        t.add_row(
+            "Hosts",
+            f"{_coll.hosts_path(root)}  [dim]({len(hosts)} entry(ies))[/dim]"
+            if _coll.hosts_path(root).exists()
+            else f"{_coll.hosts_path(root)}  [yellow](not created)[/yellow]",
+        )
+        t.add_row("Projects", str(len(manifest.get("projects") or [])))
+        console.print(t)
+        return
+
+    if subcmd == "show":
+        projects = manifest.get("projects") or []
+        title = f"Collection: {manifest.get('name', root.name)}"
+        if not projects:
+            console.print(f"[bold]{title}[/bold]")
+            console.print(f"  [dim]Root: {root}[/dim]")
+            console.print()
+            console.print("[dim]No projects listed in the manifest yet.[/dim]")
+            console.print(
+                f"  Add entries with: edit [cyan]{_coll.manifest_path(root)}[/cyan]"
+            )
+            return
+
+        t = Table(title=title, box=box.ROUNDED, title_style="bold")
+        t.add_column("Path", style="cyan", no_wrap=True)
+        t.add_column("Status", style="green")
+        t.add_column("Description")
+        for p in projects:
+            t.add_row(
+                p.get("path", "[red]?[/red]"),
+                p.get("status", ""),
+                (p.get("description") or "").strip(),
+            )
+        console.print(t)
+        return
+
+    if subcmd == "tree":
+        tree = Tree(
+            f"[bold]{manifest.get('name', root.name)}[/bold]  [dim]({root})[/dim]"
+        )
+        # Group projects by dirname so the tree groups them.
+        from collections import defaultdict
+
+        groups: dict[str, list[dict]] = defaultdict(list)
+        for p in manifest.get("projects") or []:
+            path = p.get("path", "")
+            parent = str(Path(path).parent) if "/" in path else "."
+            groups[parent].append(p)
+
+        for parent in sorted(groups):
+            branch = tree.add(
+                f"[dim]{parent}/[/dim]" if parent != "." else "[dim].[/dim]"
+            )
+            for p in groups[parent]:
+                label = Path(p.get("path", "")).name
+                status = p.get("status", "")
+                if status:
+                    branch.add(f"{label}  [green]({status})[/green]")
+                else:
+                    branch.add(label)
+        console.print(tree)
+        return
+
+    console.print(f"[red]Unknown collection subcommand:[/red] {subcmd}")
+    sys.exit(1)
+
+
 COMMANDS = {
     "init": cmd_init,
     "validate": cmd_validate,
@@ -2360,6 +2755,7 @@ COMMANDS = {
     "data": cmd_data,
     "verify": cmd_verify,
     "ps": cmd_ps,
+    "collection": cmd_collection,
 }
 
 
@@ -2386,28 +2782,31 @@ def main():
         console.print(
             Panel(
                 "[bold]cutip[/bold] — workflow automation framework\n\n"
-                "[bold]Commands:[/bold]\n"
-                "  init       Scaffold a new project\n"
-                "  validate   Validate project config\n"
-                "  show       Project summary or config section\n"
-                "  plan       Show execution plan (dry run)\n"
-                "  run        Execute workflow\n"
-                "  cmd        Run a project-defined command\n"
-                "  tree       Print config structure\n"
-                "  projects   Discover all cutip projects under cwd\n"
-                "  vars       Manage project variables (list/get/set)\n"
-                "  secrets    Manage project secrets (list/get/set)\n"
-                "  hosts      Manage connection credentials (list/get/set)\n"
-                "  data       Manage global data store (~/.cutip/data.yaml)\n"
-                "             (subcommands: list/get/set/rm/path/init/usages/unused)\n"
-                "  verify     Check prerequisites\n"
-                "  ps         List/inspect/stop background runs (cutip run --bg)\n\n"
+                "[bold]Project[/bold] [dim](operates on <project>.yaml):[/dim]\n"
+                "  init        Scaffold a new project\n"
+                "  validate    Validate config + workflow + globals resolution\n"
+                "  show        Project summary or config section\n"
+                "  plan        Execution plan (dry run)\n"
+                "  run         Execute workflow\n"
+                "  cmd         Run a project-defined command\n"
+                "  tree        Print config structure\n"
+                "  vars        Manage project variables\n"
+                "  secrets     Manage project secrets\n"
+                "  hosts       Manage connection credentials\n\n"
+                "[bold]Collection[/bold] [dim](operates on cutip.collection.yaml):[/dim]\n"
+                "  collection  init/info/show/tree — bundle multiple projects\n\n"
+                "[bold]User-global[/bold] [dim](~/.cutip/{hosts,data}.yaml):[/dim]\n"
+                "  data        Manage global data store\n"
+                "  hosts -g    Manage global hosts file\n"
+                "  verify      Check prerequisites\n\n"
+                "[bold]Discovery & process management:[/bold]\n"
+                "  projects    Walk cwd for cutip projects\n"
+                "  ps          List/inspect/stop background runs (cutip run --bg)\n\n"
                 "[bold]Usage:[/bold]\n"
                 "  cutip init myproject\n"
                 "  cutip run myproject.yaml\n"
-                "  cutip vars set gui.yaml greeting=hello\n"
-                "  cutip hosts set gui.yaml vm.host=10.0.0.1\n"
-                "  cutip cmd gui.yaml generate sheets/my.xlsx\n"
+                "  cutip collection init snf-dev\n"
+                "  cutip data set --collection sfm.passwords.cli=Dell@force10\n"
                 "  cutip validate myproject.yaml",
                 title=f"cutip v{VERSION}",
                 box=box.ROUNDED,
@@ -2501,6 +2900,8 @@ def main():
                 parsed["subcmd"] = "help"
             elif arg in ("-g", "--global"):
                 parsed["global"] = True
+            elif arg == "--collection":
+                parsed["collection"] = True
             elif arg in ("-f", "--force"):
                 parsed["force"] = True
             elif "=" in arg:
@@ -2545,6 +2946,8 @@ def main():
                 parsed["subcmd"] = "help"
             elif arg in ("-g", "--global"):
                 parsed["global"] = True
+            elif arg == "--collection":
+                parsed["collection"] = True
             elif "=" in arg:
                 pairs.append(arg)
             elif (
@@ -2554,6 +2957,26 @@ def main():
                 parsed["key"] = arg
         if pairs:
             parsed["pairs"] = pairs
+        COMMANDS[command](parsed)
+        return
+
+    if command == "collection":
+        valid_subs = {"init", "info", "show", "tree", "help"}
+        if remaining and remaining[0] in valid_subs:
+            parsed["subcmd"] = remaining[0]
+            remaining = remaining[1:]
+        for arg in remaining:
+            if arg in ("-h", "--help"):
+                parsed["subcmd"] = "help"
+            elif arg == "--json":
+                parsed["json"] = True
+            elif arg == "--root" and remaining.index(arg) + 1 < len(remaining):
+                idx = remaining.index(arg)
+                parsed["root"] = remaining[idx + 1]
+            elif arg.startswith("-"):
+                continue
+            elif parsed.get("subcmd") == "init" and "name" not in parsed:
+                parsed["name"] = arg
         COMMANDS[command](parsed)
         return
 

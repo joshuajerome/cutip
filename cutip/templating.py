@@ -42,6 +42,7 @@ def _substitute_string(
     paths: Mapping[str, str],
     secrets: Mapping[str, str],
     globals: Mapping[str, str],
+    collection: Mapping[str, str] | None = None,
 ) -> str:
     """Substitute ``{{ ns.key }}`` placeholders in a single string.
 
@@ -55,10 +56,12 @@ def _substitute_string(
     if "{{" not in text:
         return text
     result = text
+    coll = collection or {}
     for ns, mapping in (
         ("vars", vars),
         ("paths", paths),
         ("secrets", secrets),
+        ("collection", coll),
         ("globals", globals),
     ):
         for key, value in mapping.items():
@@ -76,6 +79,7 @@ def substitute_in_obj(
     paths: Mapping[str, str] | None = None,
     secrets: Mapping[str, str] | None = None,
     globals: Mapping[str, str] | None = None,
+    collection: Mapping[str, str] | None = None,
 ) -> Any:
     """Recursively substitute templates in a dict / list / str structure.
 
@@ -86,17 +90,20 @@ def substitute_in_obj(
     p = paths or {}
     s = secrets or {}
     g = globals or {}
+    c = collection or {}
 
     if isinstance(obj, str):
-        return _substitute_string(obj, v, p, s, g)
+        return _substitute_string(obj, v, p, s, g, c)
     if isinstance(obj, dict):
         return {
-            k: substitute_in_obj(val, vars=v, paths=p, secrets=s, globals=g)
+            k: substitute_in_obj(
+                val, vars=v, paths=p, secrets=s, globals=g, collection=c
+            )
             for k, val in obj.items()
         }
     if isinstance(obj, list):
         return [
-            substitute_in_obj(item, vars=v, paths=p, secrets=s, globals=g)
+            substitute_in_obj(item, vars=v, paths=p, secrets=s, globals=g, collection=c)
             for item in obj
         ]
     return obj
@@ -145,22 +152,24 @@ def find_unresolved_in_obj(obj: Any, path: str = "") -> list[tuple[str, str]]:
 def resolve_substitution_maps(
     config: dict,
     globals_flat: Mapping[str, str],
+    collection_flat: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-    """Resolve globals into vars/paths/secrets, returning the final maps.
+    """Resolve globals + collection into vars/paths/secrets, returning the final maps.
 
     These three are the substitution SOURCES; they themselves can only
-    reference globals. Used at the start of config load before walking
-    the rest of the dict.
+    reference globals or collection (the two tiers above project). Used
+    at the start of config load before walking the rest of the dict.
     """
     raw_vars = config.get("vars") or {}
     raw_paths = config.get("paths") or {}
     raw_secrets = config.get("secrets") or {}
+    coll = collection_flat or {}
 
     def _resolve_one(mapping: Mapping[str, Any]) -> dict[str, str]:
         out: dict[str, str] = {}
         for k, v in mapping.items():
             if isinstance(v, str):
-                out[k] = _substitute_string(v, {}, {}, {}, globals_flat)
+                out[k] = _substitute_string(v, {}, {}, {}, globals_flat, coll)
             else:
                 # Coerce non-string values (rare; users who put ints/bools
                 # in vars: usually mean strings anyway).
