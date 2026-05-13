@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from cutip.templating import (
     _substitute_string,
+    find_unresolved_in_obj,
     resolve_substitution_maps,
     substitute_in_obj,
 )
@@ -249,3 +250,74 @@ def test_cli_resolved_hosts_with_substitution(tmp_path, monkeypatch):
             "password": "test-pw",
         }
     }
+
+
+# ── find_unresolved_in_obj ──────────────────────────────────────────────────
+
+
+def test_find_unresolved_empty_inputs():
+    assert find_unresolved_in_obj({}) == []
+    assert find_unresolved_in_obj([]) == []
+    assert find_unresolved_in_obj("") == []
+    assert find_unresolved_in_obj(None) == []
+    assert find_unresolved_in_obj(42) == []
+
+
+def test_find_unresolved_passthrough_for_resolved_config():
+    obj = {"a": "plain", "b": {"c": "/abs/path"}, "d": [1, 2, "ok"]}
+    assert find_unresolved_in_obj(obj) == []
+
+
+def test_find_unresolved_flat_dict():
+    obj = {"password": "{{ globals.sfm.passwords.cli }}"}
+    assert find_unresolved_in_obj(obj) == [("password", "globals.sfm.passwords.cli")]
+
+
+def test_find_unresolved_nested_dict():
+    obj = {"data": {"password": "{{ globals.sfm.passwords.cli }}"}}
+    assert find_unresolved_in_obj(obj) == [
+        ("data.password", "globals.sfm.passwords.cli")
+    ]
+
+
+def test_find_unresolved_inside_list():
+    obj = {"mounts": [{"source": "{{ globals.paths.ssh_priv }}", "target": "/x"}]}
+    assert find_unresolved_in_obj(obj) == [
+        ("mounts[0].source", "globals.paths.ssh_priv")
+    ]
+
+
+def test_find_unresolved_multiple_placeholders_one_string():
+    obj = {"url": "http://{{ globals.host.ip }}:{{ globals.host.port }}/api"}
+    result = find_unresolved_in_obj(obj)
+    assert ("url", "globals.host.ip") in result
+    assert ("url", "globals.host.port") in result
+    assert len(result) == 2
+
+
+def test_find_unresolved_whitespace_tolerant():
+    obj = {
+        "a": "{{globals.foo.bar}}",
+        "b": "{{ globals.foo.bar }}",
+        "c": "{{  globals.foo.bar  }}",
+    }
+    result = find_unresolved_in_obj(obj)
+    assert sorted(result) == sorted(
+        [
+            ("a", "globals.foo.bar"),
+            ("b", "globals.foo.bar"),
+            ("c", "globals.foo.bar"),
+        ]
+    )
+
+
+def test_find_unresolved_distinguishes_namespaces():
+    obj = {
+        "a": "{{ vars.x }}",
+        "b": "{{ paths.y }}",
+        "c": "{{ secrets.z }}",
+        "d": "{{ globals.w }}",
+    }
+    result = find_unresolved_in_obj(obj)
+    namespaces = {placeholder.split(".", 1)[0] for _, placeholder in result}
+    assert namespaces == {"vars", "paths", "secrets", "globals"}

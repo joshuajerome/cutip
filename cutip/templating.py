@@ -102,6 +102,46 @@ def substitute_in_obj(
     return obj
 
 
+# Matches `{{ ns.key }}` / `{{ns.key}}` etc. Captures whatever's between
+# the braces, trimmed. Stops at the first ``}}`` to avoid greedy issues
+# when multiple placeholders appear on the same line.
+_PLACEHOLDER_RE = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
+
+
+def find_unresolved_in_obj(obj: Any, path: str = "") -> list[tuple[str, str]]:
+    """Walk a substituted config structure and collect unresolved placeholders.
+
+    Returns a list of ``(yaml_path, placeholder)`` pairs. ``yaml_path`` is
+    a dotted/bracketed location like ``"data.password"`` or
+    ``"container.mounts[0].source"``. ``placeholder`` is the inner text of
+    the placeholder, e.g. ``"globals.sfm.passwords.cli"``.
+
+    Substitution leaves unresolved placeholders untouched (by design — see
+    ``_substitute_string``), so calling this after ``substitute_in_obj``
+    pinpoints exactly which references didn't bind to a value.
+    """
+    found: list[tuple[str, str]] = []
+
+    if isinstance(obj, str):
+        for match in _PLACEHOLDER_RE.finditer(obj):
+            found.append((path or "<root>", match.group(1).strip()))
+        return found
+
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            child_path = f"{path}.{k}" if path else str(k)
+            found.extend(find_unresolved_in_obj(v, child_path))
+        return found
+
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            child_path = f"{path}[{i}]"
+            found.extend(find_unresolved_in_obj(item, child_path))
+        return found
+
+    return found
+
+
 def resolve_substitution_maps(
     config: dict,
     globals_flat: Mapping[str, str],

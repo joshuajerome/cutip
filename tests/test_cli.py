@@ -212,6 +212,150 @@ class TestCLIProjects:
         assert "node-proj" not in r.stdout
 
 
+class TestCLIValidateUnresolvedGlobals:
+    """`cutip validate` should fail when {{ globals.X.Y.Z }} doesn't bind."""
+
+    def _make_project(self, dirpath, body, workflow="pass\n"):
+        dirpath.mkdir(parents=True, exist_ok=True)
+        (dirpath / "p.yaml").write_text(body)
+        (dirpath / "p.workflow.py").write_text(workflow)
+        return dirpath / "p.yaml"
+
+    def test_validate_fails_on_unresolved_global(self, tmp_path):
+        # Point HOME at tmp so the global ~/.cutip/data.yaml is empty.
+        import os
+
+        env_home = os.environ.get("HOME")
+        os.environ["HOME"] = str(tmp_path)
+        try:
+            self._make_project(
+                tmp_path / "proj",
+                "project: p\nhost: local\n"
+                'data:\n  password: "{{ globals.sfm.passwords.cli }}"\n',
+            )
+            r = _run_cutip(
+                "validate",
+                str(tmp_path / "proj" / "p.yaml"),
+                cwd=str(tmp_path / "proj"),
+            )
+        finally:
+            if env_home:
+                os.environ["HOME"] = env_home
+        assert r.returncode != 0
+        assert "unresolved" in r.stdout.lower() or "unresolved" in r.stderr.lower()
+        assert "sfm.passwords.cli" in r.stdout or "sfm.passwords.cli" in r.stderr
+
+    def test_validate_passes_when_globals_resolve(self, tmp_path):
+        import os
+
+        # Plant a populated global data file in HOME/.cutip/
+        cutip_dir = tmp_path / ".cutip"
+        cutip_dir.mkdir()
+        (cutip_dir / "data.yaml").write_text(
+            "sfm:\n  passwords:\n    cli: Dell@force10\n"
+        )
+        env_home = os.environ.get("HOME")
+        os.environ["HOME"] = str(tmp_path)
+        try:
+            self._make_project(
+                tmp_path / "proj",
+                "project: p\nhost: local\n"
+                'data:\n  password: "{{ globals.sfm.passwords.cli }}"\n',
+            )
+            r = _run_cutip(
+                "validate",
+                str(tmp_path / "proj" / "p.yaml"),
+                cwd=str(tmp_path / "proj"),
+            )
+        finally:
+            if env_home:
+                os.environ["HOME"] = env_home
+        assert r.returncode == 0
+        assert "unresolved" not in r.stdout.lower()
+
+
+class TestCLIDataUsages:
+    """Test `cutip data usages <key>` and `cutip data unused`.
+
+    Both walk the cwd tree and grep yaml files; they don't touch
+    ~/.cutip/data.yaml read state beyond `unused` checking which keys
+    are defined there. We don't mutate the user's real ~/.cutip/data.yaml
+    in tests — instead, point CUTIP_DATA_PATH-equivalent at tmp via the
+    `cutip data set-path` CLI (which writes ~/.cutip/config.yaml).
+    """
+
+    def _make_project(self, dirpath, name, body):
+        dirpath.mkdir(parents=True, exist_ok=True)
+        yaml_path = dirpath / f"{name}.yaml"
+        yaml_path.write_text(body)
+        return yaml_path
+
+    def test_usages_finds_references(self, tmp_path):
+        self._make_project(
+            tmp_path / "a",
+            "a-proj",
+            "project: a-proj\nhost: local\n"
+            'data:\n  pw: "{{ globals.sfm.passwords.cli }}"\n',
+        )
+        self._make_project(
+            tmp_path / "b",
+            "b-proj",
+            'project: b-proj\nhost: local\ndata:\n  ip: "{{ globals.sfm.ips.gui }}"\n',
+        )
+        r = _run_cutip("data", "usages", "sfm.passwords.cli", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "a-proj.yaml" in r.stdout or "a/a-proj.yaml" in r.stdout
+        # b-proj references a different key — must not appear
+        assert "b-proj.yaml" not in r.stdout
+
+    def test_usages_whitespace_tolerant(self, tmp_path):
+        self._make_project(
+            tmp_path / "p",
+            "p",
+            "project: p\nhost: local\n"
+            "data:\n"
+            '  a: "{{globals.foo.bar}}"\n'  # no spaces
+            '  b: "{{ globals.foo.bar }}"\n'  # spaces
+            '  c: "{{  globals.foo.bar  }}"\n',  # extra spaces
+        )
+        r = _run_cutip("data", "usages", "foo.bar", cwd=str(tmp_path))
+        assert r.returncode == 0
+        # all three lines should be picked up
+        assert r.stdout.count("globals.foo.bar") >= 3
+
+    def test_usages_no_matches(self, tmp_path):
+        self._make_project(
+            tmp_path / "p",
+            "p",
+            "project: p\nhost: local\ndata: {}\n",
+        )
+        r = _run_cutip("data", "usages", "nothing.here", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "No references" in r.stdout
+
+    def test_usages_skips_build_dirs(self, tmp_path):
+        # Reference inside a skip-dir must NOT be matched
+        self._make_project(
+            tmp_path / "node_modules" / "pkg",
+            "noise",
+            'project: noise\nhost: local\ndata:\n  x: "{{ globals.foo.bar }}"\n',
+        )
+        # Reference outside should be picked up
+        self._make_project(
+            tmp_path / "real",
+            "real",
+            'project: real\nhost: local\ndata:\n  x: "{{ globals.foo.bar }}"\n',
+        )
+        r = _run_cutip("data", "usages", "foo.bar", cwd=str(tmp_path))
+        assert r.returncode == 0
+        assert "real.yaml" in r.stdout
+        assert "noise.yaml" not in r.stdout
+
+    def test_usages_requires_key(self, tmp_path):
+        r = _run_cutip("data", "usages", cwd=str(tmp_path))
+        assert r.returncode != 0
+
+
 class TestCLIShow:
     def test_show_summary(self, simple_project):
         project_file, _ = simple_project
