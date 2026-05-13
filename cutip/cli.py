@@ -14,7 +14,7 @@ from rich import box
 
 from cutip._core import validate as _validate, tree as _tree, show as _show
 
-VERSION = "2.19.0"
+VERSION = "2.20.0"
 console = Console()
 
 
@@ -203,10 +203,50 @@ def cmd_validate(args):
 
     console.print(table)
 
+    # Unresolved-template scan: load the fully-substituted config and look
+    # for any `{{ ns.X.Y.Z }}` strings left behind. These bind nothing at
+    # runtime and cause confusing downstream errors (e.g. docker tries to
+    # mount a path that literally reads `{{ globals.paths.ssh_priv }}`).
+    unresolved: list[tuple[str, str]] = []
+    try:
+        from cutip.templating import find_unresolved_in_obj
+
+        substituted = _load_config(project_path)
+        unresolved = find_unresolved_in_obj(substituted)
+    except Exception:
+        # _load_config errors are surfaced at run-time; the table+warnings
+        # already cover the static checks. Skip the unresolved scan if
+        # config can't be parsed/substituted.
+        pass
+
+    if unresolved:
+        console.print()
+        for loc, placeholder in unresolved:
+            console.print(
+                f"  [red]✗[/red] unresolved [cyan]{{{{ {placeholder} }}}}[/cyan] at [dim]{loc}[/dim]"
+            )
+        # Group by namespace for the hint
+        ns_keys = {p.split(".", 1)[0] for _, p in unresolved}
+        if "globals" in ns_keys:
+            globals_keys = sorted(
+                {p[8:] for _, p in unresolved if p.startswith("globals.")}
+            )
+            console.print(
+                f"\n  [dim]Add the missing globals with:[/dim] "
+                f"cutip data set {' '.join(f'{k}=<value>' for k in globals_keys)}"
+            )
+
     if result["warnings"]:
         console.print()
         for w in result["warnings"]:
             console.print(f"  [yellow]⚠[/yellow] {w}")
+
+    if unresolved:
+        console.print(
+            f"\n[red]✗ Validation failed: {len(unresolved)} unresolved template reference(s)[/red]"
+        )
+        sys.exit(1)
+    elif result["warnings"]:
         console.print("\n[yellow]⚠ Validation passed with warnings[/yellow]")
     else:
         console.print("\n[green]✓ Validation passed[/green]")
@@ -1708,6 +1748,10 @@ def cmd_data(args):
       cutip data path                 Print the data file path
       cutip data set-path -g <path>   Change the global data file location
       cutip data init                 Create an empty data file
+      cutip data usages <dotted.path> Show every project that references
+                                      `{{ globals.<dotted.path> }}` under cwd
+      cutip data unused               Show keys defined in the data file
+                                      that no project under cwd references
     """
     from cutip import globals as _globals
 
@@ -1844,6 +1888,120 @@ def cmd_data(args):
         else:
             disp = repr(removed)
         console.print(f"  [green]✓[/green] removed {key} = {disp}")
+        return
+
+    if subcmd in ("usages", "unused"):
+        # Walk cwd for *.yaml, scan substituted/raw text for
+        # ``{{ globals.X.Y.Z }}`` references. Reuses the project-discovery
+        # skip-dir set so build/venv noise doesn't pollute results.
+        import re as _re
+
+        skip_dirs = {
+            ".git",
+            "node_modules",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".cutip",
+            "target",
+            "dist",
+            "site",
+            ".tox",
+            ".mypy_cache",
+            ".pytest_cache",
+        }
+
+        def _iter_yamls(root: Path):
+            for f in root.rglob("*.yaml"):
+                if any(part in skip_dirs for part in f.parts):
+                    continue
+                yield f
+
+        def _ref_pattern(key: str) -> _re.Pattern:
+            # Whitespace-tolerant; matches both {{ globals.x }} and {{globals.x}}
+            return _re.compile(r"\{\{\s*globals\." + _re.escape(key) + r"\s*\}\}")
+
+        cwd = Path.cwd()
+
+        if subcmd == "usages":
+            key = args.get("key")
+            if not key:
+                console.print("[red]Usage:[/red] cutip data usages <dotted.path>")
+                sys.exit(1)
+            pat = _ref_pattern(key)
+            hits: list[tuple[Path, int, str]] = []
+            for yf in _iter_yamls(cwd):
+                try:
+                    text = yf.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                for lineno, line in enumerate(text.splitlines(), start=1):
+                    if pat.search(line):
+                        hits.append((yf, lineno, line.strip()))
+
+            if not hits:
+                console.print(
+                    f"[dim]No references to [cyan]globals.{key}[/cyan] under {cwd}.[/dim]"
+                )
+                return
+            t = Table(
+                title=f"References to globals.{key}",
+                box=box.ROUNDED,
+                title_style="bold",
+            )
+            t.add_column("File", style="cyan", no_wrap=True)
+            t.add_column("Line", justify="right", style="dim")
+            t.add_column("Snippet")
+            for p, ln, snippet in hits:
+                rel = p.relative_to(cwd) if cwd in p.parents else p
+                t.add_row(str(rel), str(ln), snippet)
+            console.print(t)
+            return
+
+        # subcmd == "unused"
+        if not gp.exists():
+            console.print(f"[dim]{gp} does not exist.[/dim]")
+            return
+        data = _globals.read_globals(gp)
+        flat = _globals.flatten(data)
+        if not flat:
+            console.print("[dim]No entries in data file.[/dim]")
+            return
+
+        all_text = ""
+        for yf in _iter_yamls(cwd):
+            try:
+                all_text += yf.read_text(encoding="utf-8") + "\n"
+            except (OSError, UnicodeDecodeError):
+                continue
+
+        unused_keys = []
+        for k in sorted(flat):
+            if not _ref_pattern(k).search(all_text):
+                unused_keys.append(k)
+
+        if not unused_keys:
+            console.print(
+                f"[green]✓[/green] All {len(flat)} entries are referenced somewhere under {cwd}."
+            )
+            return
+        t = Table(
+            title=f"Unused entries in {gp.name}",
+            box=box.ROUNDED,
+            title_style="bold",
+        )
+        t.add_column("globals.<key>", style="cyan")
+        t.add_column("Value", style="dim")
+        for k in unused_keys:
+            disp = (
+                "****" if any(_is_sensitive(seg) for seg in k.split(".")) else flat[k]
+            )
+            t.add_row(k, disp)
+        console.print(t)
+        console.print(
+            "\n  [dim]Remove with:[/dim] cutip data rm <key>  "
+            "[dim](or leave them if other repos reference them)[/dim]"
+        )
         return
 
     console.print(f"[red]Unknown data subcommand:[/red] {subcmd}")
@@ -2241,6 +2399,7 @@ def main():
                 "  secrets    Manage project secrets (list/get/set)\n"
                 "  hosts      Manage connection credentials (list/get/set)\n"
                 "  data       Manage global data store (~/.cutip/data.yaml)\n"
+                "             (subcommands: list/get/set/rm/path/init/usages/unused)\n"
                 "  verify     Check prerequisites\n"
                 "  ps         List/inspect/stop background runs (cutip run --bg)\n\n"
                 "[bold]Usage:[/bold]\n"
@@ -2365,7 +2524,18 @@ def main():
         return
 
     if command == "data":
-        valid_subs = {"list", "get", "set", "rm", "path", "set-path", "init", "help"}
+        valid_subs = {
+            "list",
+            "get",
+            "set",
+            "rm",
+            "path",
+            "set-path",
+            "init",
+            "usages",
+            "unused",
+            "help",
+        }
         if remaining and remaining[0] in valid_subs:
             parsed["subcmd"] = remaining[0]
             remaining = remaining[1:]
@@ -2378,7 +2548,7 @@ def main():
             elif "=" in arg:
                 pairs.append(arg)
             elif (
-                parsed.get("subcmd") in ("get", "rm", "set-path")
+                parsed.get("subcmd") in ("get", "rm", "set-path", "usages")
                 and "key" not in parsed
             ):
                 parsed["key"] = arg
