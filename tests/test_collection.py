@@ -8,7 +8,6 @@ and the integration with ``substitute_in_obj``.
 from __future__ import annotations
 
 
-
 from cutip import collection as _collection
 from cutip.templating import _substitute_string, substitute_in_obj
 
